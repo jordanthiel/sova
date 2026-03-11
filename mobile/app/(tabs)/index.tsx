@@ -13,6 +13,7 @@ import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
 import { useCoachMemories } from '@/hooks/useCoachMemories';
+import { useNapLiveActivity } from '@/hooks/useNapLiveActivity';
 import { useNightSleepScores } from '@/hooks/useNightSleepScores';
 import { useRealtimeCaregivers } from '@/hooks/useRealtimeCaregivers';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
@@ -21,15 +22,30 @@ import type { Database } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 import { getLocalNapRecommendation, getNextNapRecommendation, getSuggestedNapCap, isNighttimeWake, shouldCapNap } from '@/services/ai/recommendations';
 import { track } from '@/services/analytics/track';
-import { scheduleCapReminder } from '@/services/notifications';
+import {
+  cancelNapWindowBedtimeAndWakeWindowReminders,
+  scheduleBedtimeReminder,
+  scheduleCapReminder,
+  scheduleNapWindowReminder,
+  scheduleWakeWindowAlert,
+} from '@/services/notifications';
 import { babiesRepo } from '@/services/repositories/babiesRepo';
 import { storedNapTargetsRepo } from '@/services/repositories/storedNapTargetsRepo';
-import type { AIRecommendation, Baby, BabyPreferences, NapRecommendationPayload, SleepEvent } from '@/types/domain';
+import type {
+  AIRecommendation,
+  Baby,
+  BabyPreferences,
+  NapRecommendationPayload,
+  NotificationConfig,
+  SleepEvent,
+} from '@/types/domain';
+import { DEFAULT_NOTIFICATION_CONFIG } from '@/types/domain';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getExtendedDayBounds, sessionOverlapsExtendedDay } from '@/utils/dateUtils';
 import { formatDuration } from '@/utils/formatTime';
 import { getNightSummaries, isNightComplete } from '@/utils/nightSleepScore';
 import { calculateAgeDays, getEffectiveWakeWindowMinutes } from '@/utils/wakeWindowCalculator';
-import { format } from 'date-fns';
+import { addMinutes, format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
@@ -56,6 +72,8 @@ const DEFAULT_PREFS: BabyPreferences = {
   targetNapCount: null,
   lastWakeWindowMinutes: null,
 };
+
+const NOTIF_CONFIG_KEY_PREFIX = 'notification_config_';
 
 function getGreeting(): { text: string; icon: string } {
   const hour = new Date().getHours();
@@ -96,7 +114,29 @@ export default function TodayScreen() {
   const [nightScoreRefreshTrigger, setNightScoreRefreshTrigger] = useState(0);
   const [editSession, setEditSession] = useState<SleepSession | null>(null);
   const [preferences, setPreferences] = useState<BabyPreferences | null>(null);
+  const [notificationConfig, setNotificationConfig] = useState<NotificationConfig>(DEFAULT_NOTIFICATION_CONFIG);
   const colors = useThemeColors();
+
+  // Load notification preferences from AsyncStorage when baby changes or when screen is focused (e.g. after editing in Settings)
+  const loadNotificationConfig = useCallback(() => {
+    if (!currentBabyId) return;
+    AsyncStorage.getItem(`${NOTIF_CONFIG_KEY_PREFIX}${currentBabyId}`)
+      .then((raw) => {
+        if (raw) setNotificationConfig(JSON.parse(raw));
+        else setNotificationConfig(DEFAULT_NOTIFICATION_CONFIG);
+      })
+      .catch(() => setNotificationConfig(DEFAULT_NOTIFICATION_CONFIG));
+  }, [currentBabyId]);
+
+  useEffect(() => {
+    loadNotificationConfig();
+  }, [loadNotificationConfig]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadNotificationConfig();
+    }, [loadNotificationConfig])
+  );
   const greeting = getGreeting();
 
   const activeSession = allSessions.find((s) => s.end_time === null) || null;
@@ -401,6 +441,68 @@ export default function TodayScreen() {
   const displayWakeWindow = napPayload?.recommendedWakeWindowMinutes
     ?? getEffectiveWakeWindowMinutes(ageDays, prefs, new Date().getHours() >= 16);
 
+  // Cap suggestion for active nap (for Live Activity)
+  const capSuggestionForLA =
+    domainBaby && activeSession?.type === 'nap'
+      ? getSuggestedNapCap(
+          domainBaby,
+          allSessions.map(sessionToSleepEvent),
+          sessionToSleepEvent(activeSession),
+          new Date()
+        )
+      : null;
+  const capAtIso = capSuggestionForLA?.capAt ?? null;
+
+  useNapLiveActivity({
+    activeSession,
+    napPayload,
+    capAtIso,
+    babyName: baby?.name ?? null,
+    isBedtime: isBedtimeRec,
+  });
+
+  // Schedule or cancel nap window / bedtime / wake window reminders based on recommendation and preferences
+  useEffect(() => {
+    if (!currentBabyId || activeSession) {
+      cancelNapWindowBedtimeAndWakeWindowReminders();
+      return;
+    }
+    const config = notificationConfig;
+    cancelNapWindowBedtimeAndWakeWindowReminders().then(() => {
+      if (!napPayload) return;
+      const windowStart = new Date(napPayload.startWindowBegin);
+      const isBedtime = recommendation?.type === 'bedtime';
+
+      if (config.napWindowSoon && !isBedtime) {
+        const remindAt = addMinutes(windowStart, -15);
+        if (remindAt.getTime() > Date.now()) {
+          scheduleNapWindowReminder(remindAt.toISOString(), currentBabyId);
+        }
+      }
+      if (config.bedtimeReminder && isBedtime) {
+        if (windowStart.getTime() > Date.now()) {
+          scheduleBedtimeReminder(napPayload.startWindowBegin, currentBabyId);
+        }
+      }
+      if (config.wakeWindowAlert && lastWakeTime != null && typeof displayWakeWindow === 'number') {
+        const windowEnd = addMinutes(lastWakeTime, displayWakeWindow);
+        if (windowEnd.getTime() > Date.now()) {
+          scheduleWakeWindowAlert(windowEnd.toISOString(), currentBabyId);
+        }
+      }
+    });
+  }, [
+    currentBabyId,
+    activeSession,
+    recommendation?.type,
+    napPayload?.startWindowBegin,
+    notificationConfig.napWindowSoon,
+    notificationConfig.bedtimeReminder,
+    notificationConfig.wakeWindowAlert,
+    lastWakeTime?.getTime(),
+    displayWakeWindow,
+  ]);
+
   // Handlers
   const handleStartNap = async () => {
     if (!currentBabyId) return;
@@ -432,7 +534,7 @@ export default function TodayScreen() {
           sessionToSleepEvent(data),
           new Date()
         );
-        if (cap) {
+        if (cap && notificationConfig.capNapReminder) {
           scheduleCapReminder(cap.capAt, currentBabyId, data.id);
         }
       }

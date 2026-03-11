@@ -12,6 +12,9 @@ export type Database = {
           email: string | null;
           full_name: string | null;
           settings: Record<string, unknown> | null;
+          timezone: string | null;
+          expo_push_token: string | null;
+          expo_push_token_updated_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -20,6 +23,9 @@ export type Database = {
           email?: string | null;
           full_name?: string | null;
           settings?: Record<string, unknown> | null;
+          timezone?: string | null;
+          expo_push_token?: string | null;
+          expo_push_token_updated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -28,6 +34,9 @@ export type Database = {
           email?: string | null;
           full_name?: string | null;
           settings?: Record<string, unknown> | null;
+          timezone?: string | null;
+          expo_push_token?: string | null;
+          expo_push_token_updated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

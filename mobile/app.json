@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.jordanthiel.sova"
+      "bundleIdentifier": "com.jordanthiel.sova",
+      "infoPlist": {
+        "NSSupportsLiveActivities": true
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -29,6 +32,12 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-live-activity",
+        {
+          "enablePushNotifications": false
+        }
+      ],
       [
         "expo-splash-screen",
         {

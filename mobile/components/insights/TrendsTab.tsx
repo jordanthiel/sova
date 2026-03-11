@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { BarChart, LineChart } from 'react-native-gifted-charts';
 import { Card } from '@/components/ui/Card';
+import { Avatar } from '@/components/ui/Avatar';
 import { Spacing, Typography, Radius, ChartTypography } from '@/constants/theme';
 import { chartConfig, getBarChartAxisStyles } from '@/constants/chartConfig';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
@@ -12,6 +13,7 @@ import { addDays, format, subDays, isWithinInterval } from 'date-fns';
 import { getExtendedDayBounds, sessionOverlapsExtendedDay } from '@/utils/dateUtils';
 import { getNightSummaries } from '@/utils/nightSleepScore';
 import type { Database } from '@/lib/supabase';
+import type { Caregiver } from '@/types/domain';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -60,12 +62,22 @@ function getBuckets(days: number, bucket: 'day' | 'week') {
   return buckets;
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 interface TrendsTabProps {
   sessions: SleepSession[];
   ageMonths: number;
+  caregivers: Caregiver[];
 }
 
-export function TrendsTab({ sessions, ageMonths }: TrendsTabProps) {
+export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
   const colors = useThemeColors();
   const { currentBabyId } = useCurrentBaby();
   const [periodIndex, setPeriodIndex] = useState(2); // 30d default
@@ -242,6 +254,27 @@ export function TrendsTab({ sessions, ageMonths }: TrendsTabProps) {
   }, [completedSessions, period.days]);
 
   const maxAvgByWeekday = Math.max(...avgByWeekday.map((w) => w.avgTotal), 1);
+
+  // Nap load by caregiver (last 30 days — sessions from hook are already last 30d)
+  const caregiverLoad = useMemo(() => {
+    const ended = sessions.filter((s) => s.end_time != null);
+    const byId: Record<string, { naps: number; nights: number }> = {};
+    caregivers.forEach((c) => {
+      byId[c.id] = { naps: 0, nights: 0 };
+    });
+    ended.forEach((s) => {
+      const key = s.logged_by;
+      if (!byId[key]) byId[key] = { naps: 0, nights: 0 };
+      if (s.type === 'nap') byId[key].naps += 1;
+      else byId[key].nights += 1;
+    });
+    return caregivers
+      .map((c) => ({ caregiver: c, naps: byId[c.id]?.naps ?? 0, nights: byId[c.id]?.nights ?? 0 }))
+      .filter((x) => x.naps > 0 || x.nights > 0)
+      .sort((a, b) => b.naps + b.nights - (a.naps + a.nights));
+  }, [sessions, caregivers]);
+
+  const maxCaregiverLoad = Math.max(...caregiverLoad.map((x) => x.naps + x.nights), 1);
 
   // For rise/bed chart: time range 4:00 (240 min) to 24:00 (1440 min) so we show 4 AM - midnight
   const timeMin = 4 * 60;
@@ -474,6 +507,82 @@ export function TrendsTab({ sessions, ageMonths }: TrendsTabProps) {
         </Card>
       )}
 
+      {/* Load by caregiver */}
+      {caregiverLoad.length > 0 && (
+        <Card padding="md" style={styles.card}>
+          <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.xs }]}>
+            Load by caregiver
+          </Text>
+          <Text style={[ChartTypography.tooltipValue, { color: colors.textTertiary, marginBottom: Spacing.md }]}>
+            Daytime and nighttime sessions in the last 30 days
+          </Text>
+          <View style={styles.chartWrapper}>
+            <BarChart
+              stackData={caregiverLoad.map((x) => {
+                const stacks = [];
+                if (x.nights > 0) stacks.push({ value: x.nights, color: colors.nightColor });
+                if (x.naps > 0) stacks.push({ value: x.naps, color: colors.napColor });
+                if (stacks.length === 0) stacks.push({ value: 0.01, color: colors.textTertiary });
+                return {
+                  stacks,
+                  label: getInitials(x.caregiver.name),
+                };
+              })}
+              width={SCREEN_WIDTH - Spacing.md * 4}
+              barBorderRadius={chartConfig.barRadius}
+              barBorderTopLeftRadius={chartConfig.barBorderTopLeftRadius}
+              barBorderTopRightRadius={chartConfig.barBorderTopRightRadius}
+              maxValue={maxCaregiverLoad * 1.15}
+              noOfSections={chartConfig.noOfSections}
+              spacing={Math.max(chartConfig.spacing, (SCREEN_WIDTH - Spacing.md * 4 - 48) / caregiverLoad.length - 12)}
+              initialSpacing={chartConfig.initialSpacing}
+              endSpacing={chartConfig.endSpacing}
+              hideRules={chartConfig.hideRules}
+              isAnimated
+              animationDuration={600}
+              showValuesAsTopLabel
+              topLabelTextStyle={{ ...ChartTypography.axisLabelSmall, color: colors.text }}
+              {...getBarChartAxisStyles(colors)}
+              renderTooltip={(_item: unknown, index: number) => {
+                const x = caregiverLoad[index];
+                if (!x) return null;
+                return (
+                  <Text style={[ChartTypography.tooltipValue, { color: colors.text }]}>
+                    {x.caregiver.name}: {x.naps} naps · {x.nights} nights
+                  </Text>
+                );
+              }}
+            />
+          </View>
+          <View style={styles.caregiverLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: colors.napColor }]} />
+              <Text style={[ChartTypography.legendLabel, { color: colors.textTertiary }]}>Daytime</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: colors.nightColor }]} />
+              <Text style={[ChartTypography.legendLabel, { color: colors.textTertiary }]}>Nighttime</Text>
+            </View>
+          </View>
+          <View style={styles.caregiverList}>
+            {caregiverLoad.map(({ caregiver, naps, nights }, index) => (
+              <View
+                key={caregiver.id}
+                style={[styles.caregiverLoadRow, index === caregiverLoad.length - 1 && styles.caregiverLoadRowLast]}
+              >
+                <Avatar name={caregiver.name} size={36} />
+                <View style={styles.caregiverLoadInfo}>
+                  <Text style={[Typography.bodySemiBold, { color: colors.text }]}>{caregiver.name}</Text>
+                  <Text style={[Typography.caption, { color: colors.textSecondary }]}>
+                    {naps} daytime · {nights} nighttime
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </Card>
+      )}
+
       {/* Naps per week (for longer periods) */}
       {period.bucket === 'week' && (
         <Card padding="md" style={styles.card}>
@@ -570,5 +679,32 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  caregiverLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.xl,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  caregiverList: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+  },
+  caregiverLoadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  caregiverLoadRowLast: {
+    borderBottomWidth: 0,
+  },
+  caregiverLoadInfo: {
+    flex: 1,
   },
 });

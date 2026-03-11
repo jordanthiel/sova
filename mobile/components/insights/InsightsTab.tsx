@@ -9,17 +9,14 @@ import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
 import { useCoachMemories } from '@/hooks/useCoachMemories';
-import { useRealtimeCaregivers } from '@/hooks/useRealtimeCaregivers';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
 import { useSleepData } from '@/hooks/useSleepData';
-import { Avatar } from '@/components/ui/Avatar';
-import { Card } from '@/components/ui/Card';
 import type { Database } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/services/analytics/track';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   RefreshControl,
@@ -36,7 +33,6 @@ export function InsightsTab() {
   const { currentBabyId, setCurrentBabyId, isHydrated } = useCurrentBaby();
   const { baby, ageDays } = useSleepData({ babyId: currentBabyId });
   const { sessions: allSessions } = useRealtimeSleepSessions(currentBabyId);
-  const { caregivers } = useRealtimeCaregivers(currentBabyId);
   const { memoryStrings } = useCoachMemories(currentBabyId);
   const [pastRecommendations, setPastRecommendations] = useState<Recommendation[]>([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
@@ -111,25 +107,6 @@ export function InsightsTab() {
   const ageMonths = Math.floor(ageDays / 30);
   const ageDaysRemainder = ageDays % 30;
 
-  // Nap load by caregiver (last 30 days — matches useRealtimeSleepSessions window)
-  const caregiverLoad = useMemo(() => {
-    const ended = allSessions.filter((s) => s.end_time != null);
-    const byId: Record<string, { naps: number; nights: number }> = {};
-    caregivers.forEach((c) => {
-      byId[c.id] = { naps: 0, nights: 0 };
-    });
-    ended.forEach((s) => {
-      const key = s.logged_by;
-      if (!byId[key]) byId[key] = { naps: 0, nights: 0 };
-      if (s.type === 'nap') byId[key].naps += 1;
-      else byId[key].nights += 1;
-    });
-    return caregivers
-      .map((c) => ({ caregiver: c, ...byId[c.id] }))
-      .filter((x) => x.naps > 0 || x.nights > 0)
-      .sort((a, b) => b.naps + b.nights - (a.naps + a.nights));
-  }, [allSessions, caregivers]);
-
   if (babiesLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -188,34 +165,6 @@ export function InsightsTab() {
         <AiScheduleCard babyId={currentBabyId} lastWakeTime={lastWakeTime} />
         <AiForecastCard babyId={currentBabyId} />
       </View>
-
-      {/* Nap load by caregiver */}
-      {caregiverLoad.length > 0 && (
-        <View style={styles.section}>
-          <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.sm }]}>
-            Nap load by caregiver
-          </Text>
-          <Text style={[Typography.caption, { color: colors.textSecondary, marginBottom: Spacing.md }]}>
-            Daytime and nighttime sessions logged in the last 30 days
-          </Text>
-          <Card padding="md" style={styles.caregiverLoadCard}>
-            {caregiverLoad.map(({ caregiver, naps, nights }, index) => (
-              <View
-                key={caregiver.id}
-                style={[styles.caregiverLoadRow, index === caregiverLoad.length - 1 && styles.caregiverLoadRowLast]}
-              >
-                <Avatar name={caregiver.name} size={40} />
-                <View style={styles.caregiverLoadInfo}>
-                  <Text style={[Typography.bodySemiBold, { color: colors.text }]}>{caregiver.name}</Text>
-                  <Text style={[Typography.caption, { color: colors.textSecondary }]}>
-                    {naps} daytime · {nights} nighttime
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </Card>
-        </View>
-      )}
 
       {/* Get full analysis CTA */}
       <View style={styles.section}>
@@ -283,22 +232,5 @@ const styles = StyleSheet.create({
   ctaGradient: {
     padding: Spacing.lg,
     borderRadius: Radius.xl,
-  },
-  caregiverLoadCard: {
-    marginTop: 0,
-  },
-  caregiverLoadRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  caregiverLoadRowLast: {
-    borderBottomWidth: 0,
-  },
-  caregiverLoadInfo: {
-    flex: 1,
   },
 });

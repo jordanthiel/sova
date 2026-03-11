@@ -9,6 +9,7 @@ import 'react-native-reanimated';
 import { Colors, Typography, Spacing } from '@/constants/theme';
 import { CurrentBabyProvider } from '@/contexts/CurrentBabyContext';
 import { supabase } from '@/lib/supabase';
+import { registerForPushNotifications } from '@/services/notifications';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -40,8 +41,10 @@ export default function RootLayout() {
           console.warn('[RootLayout] Supabase session error:', error.message);
         }
         if (data?.session?.user?.id) {
+          const userId = data.session.user.id;
           const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-          supabase.from('profiles').update({ timezone: tz }).eq('id', data.session.user.id).then(() => {});
+          supabase.from('profiles').update({ timezone: tz }).eq('id', userId).then(() => {});
+          registerForPushNotifications(userId).catch(() => {});
         }
       } catch (error: any) {
         console.warn('[RootLayout] Supabase initialization warning:', error?.message);

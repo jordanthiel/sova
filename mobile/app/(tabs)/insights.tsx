@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useBabies } from '@/hooks/useBabies';
+import { useRealtimeCaregivers } from '@/hooks/useRealtimeCaregivers';
 import { useSleepData } from '@/hooks/useSleepData';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
 import { track } from '@/services/analytics/track';
@@ -24,6 +25,7 @@ export default function InsightsScreen() {
   const { currentBabyId, setCurrentBabyId } = useCurrentBaby();
   const { baby, ageDays } = useSleepData({ babyId: currentBabyId });
   const { sessions: allSessions } = useRealtimeSleepSessions(currentBabyId);
+  const { caregivers } = useRealtimeCaregivers(currentBabyId);
   const [activeTab, setActiveTab] = useState<TabId>('trends');
   const colors = useThemeColors();
 
@@ -119,7 +121,7 @@ export default function InsightsScreen() {
       {/* Tab content */}
       {activeTab === 'trends' ? (
         currentBabyId && baby ? (
-          <TrendsTab sessions={allSessions} ageMonths={ageMonths} />
+          <TrendsTab sessions={allSessions} ageMonths={ageMonths} caregivers={caregivers} />
         ) : (
           <View style={styles.loadingContainer}>
             <SkeletonCard />
