@@ -52,6 +52,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -461,6 +462,9 @@ export default function TodayScreen() {
     isBedtime: isBedtimeRec,
   });
 
+  // Deep link from Live Activity action button (Start / Stop)
+  const handlersRef = useRef<{ start: () => void; end: () => void } | null>(null);
+
   // Schedule or cancel nap window / bedtime / wake window reminders based on recommendation and preferences
   useEffect(() => {
     if (!currentBabyId || activeSession) {
@@ -620,6 +624,26 @@ export default function TodayScreen() {
       },
     ]);
   };
+
+  handlersRef.current = { start: handleStartNap, end: handleEndNap };
+
+  useEffect(() => {
+    const handleLiveActivityAction = (url: string) => {
+      try {
+        const parsed = new URL(url);
+        const action = parsed.searchParams.get('action');
+        if (action === 'startNap') handlersRef.current?.start();
+        else if (action === 'endSession') handlersRef.current?.end();
+      } catch {
+        // ignore
+      }
+    };
+    Linking.getInitialURL().then((url) => {
+      if (url) handleLiveActivityAction(url);
+    });
+    const sub = Linking.addEventListener('url', ({ url }) => handleLiveActivityAction(url));
+    return () => sub.remove();
+  }, []);
 
   // Loading states
   if (babiesLoading || loading) {

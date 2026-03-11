@@ -36,18 +36,16 @@ async function setStoredActivityId(id: string | null): Promise<void> {
   }
 }
 
-const DEFAULT_CONFIG: LiveActivityConfig = {
-  deepLinkUrl: '/(tabs)/', // opens Today tab
-  backgroundColor: '#0D1B2A',
-  titleColor: '#E6F4FE',
-  subtitleColor: '#B0C4DE',
-  progressViewTint: '#4ECDC4',
-  progressViewLabelColor: '#FFFFFF',
-  timerType: 'digital',
-};
+const APP_ICON_ASSET_NAME = 'sova_icon';
+
+function getDeepLinkUrl(state: NapLiveActivityState): string {
+  if (state.mode === 'awake') return '/(tabs)/?action=startNap';
+  return '/(tabs)/?action=endSession';
+}
 
 /**
  * Build expo-live-activity state from our nap domain state.
+ * Includes app icon for Lock Screen and Dynamic Island; deepLinkUrl is set per start/update for action button.
  */
 export function buildLiveActivityState(
   state: NapLiveActivityState,
@@ -63,10 +61,11 @@ export function buildLiveActivityState(
       title,
       subtitle,
       progressBar: { date: windowStart.getTime() },
+      imageName: APP_ICON_ASSET_NAME,
+      dynamicIslandImageName: APP_ICON_ASSET_NAME,
     };
   }
 
-  // sleeping
   const sessionStart = new Date(state.sessionStartIso);
   const elapsedMinutes = Math.round((now.getTime() - sessionStart.getTime()) / 60000);
   const elapsedStr = formatDuration(elapsedMinutes);
@@ -84,24 +83,41 @@ export function buildLiveActivityState(
     title,
     subtitle,
     progressBar: { progress: 0 },
+    imageName: APP_ICON_ASSET_NAME,
+    dynamicIslandImageName: APP_ICON_ASSET_NAME,
   };
 }
 
+const DEFAULT_CONFIG: LiveActivityConfig = {
+  backgroundColor: '#0D1B2A',
+  titleColor: '#E6F4FE',
+  subtitleColor: '#B0C4DE',
+  progressViewTint: '#4ECDC4',
+  progressViewLabelColor: '#FFFFFF',
+  timerType: 'digital',
+};
+
 /**
  * Start a Live Activity with the given nap state. Returns activity ID or undefined.
+ * deepLinkUrl is set so the Lock Screen action button opens Start or End session.
  */
 export function startNapLiveActivity(
   state: NapLiveActivityState,
   config: Partial<LiveActivityConfig> = {}
 ): string | undefined {
   const activityState = buildLiveActivityState(state);
-  const id = LiveActivity.startActivity(activityState, { ...DEFAULT_CONFIG, ...config });
+  const id = LiveActivity.startActivity(activityState, {
+    ...DEFAULT_CONFIG,
+    deepLinkUrl: getDeepLinkUrl(state),
+    ...config,
+  });
   if (id) setStoredActivityId(id);
   return id;
 }
 
 /**
  * Update the current Nap Live Activity. No-op if none is running.
+ * deepLinkUrl is updated so the action button matches current state (Start vs Stop).
  */
 export function updateNapLiveActivity(state: NapLiveActivityState): void {
   getStoredActivityId().then((id) => {

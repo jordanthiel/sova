@@ -1,1 +1,1 @@
-# Optional: add Live Activity images here (max 4KB each). Names can be referenced in state as imageName / dynamicIslandImageName.
+# Live Activity images (max 4KB each per iOS). sova_icon.png is used for Lock Screen and Dynamic Island.
