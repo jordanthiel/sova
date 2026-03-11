@@ -1,0 +1,63 @@
+{
+  "version": "5",
+  "remote": {
+    "https://deno.land/std@0.224.0/assert/_constants.ts": "a271e8ef5a573f1df8e822a6eb9d09df064ad66a4390f21b3e31f820a38e0975",
+    "https://deno.land/std@0.224.0/assert/assert.ts": "09d30564c09de846855b7b071e62b5974b001bb72a4b797958fe0660e7849834",
+    "https://deno.land/std@0.224.0/assert/assert_equals.ts": "3bbca947d85b9d374a108687b1a8ba3785a7850436b5a8930d81f34a32cb8c74",
+    "https://deno.land/std@0.224.0/assert/assert_exists.ts": "43420cf7f956748ae6ed1230646567b3593cb7a36c5a5327269279c870c5ddfd",
+    "https://deno.land/std@0.224.0/assert/assertion_error.ts": "ba8752bd27ebc51f723702fac2f54d3e94447598f54264a6653d6413738a8917",
+    "https://deno.land/std@0.224.0/assert/equal.ts": "bddf07bb5fc718e10bb72d5dc2c36c1ce5a8bdd3b647069b6319e07af181ac47",
+    "https://deno.land/std@0.224.0/fmt/colors.ts": "508563c0659dd7198ba4bbf87e97f654af3c34eb56ba790260f252ad8012e1c5",
+    "https://deno.land/std@0.224.0/internal/diff.ts": "6234a4b493ebe65dc67a18a0eb97ef683626a1166a1906232ce186ae9f65f4e6",
+    "https://deno.land/std@0.224.0/internal/format.ts": "0a98ee226fd3d43450245b1844b47003419d34d210fa989900861c79820d21c2",
+    "https://deno.land/std@0.224.0/internal/mod.ts": "534125398c8e7426183e12dc255bb635d94e06d0f93c60a297723abe69d3b22e"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@expo/vector-icons@^15.0.3",
+        "npm:@react-native-async-storage/async-storage@^2.2.0",
+        "npm:@react-native-community/datetimepicker@8.4.4",
+        "npm:@react-navigation/bottom-tabs@^7.4.0",
+        "npm:@react-navigation/elements@^2.6.3",
+        "npm:@react-navigation/native@^7.1.8",
+        "npm:@supabase/supabase-js@^2.87.0",
+        "npm:@types/react@19.1",
+        "npm:date-fns@^4.1.0",
+        "npm:eslint-config-expo@10.0",
+        "npm:eslint@^9.25.0",
+        "npm:expo-constants@~18.0.11",
+        "npm:expo-document-picker@~14.0.8",
+        "npm:expo-file-system@~19.0.21",
+        "npm:expo-font@~14.0.10",
+        "npm:expo-haptics@~15.0.8",
+        "npm:expo-image-picker@~17.0.10",
+        "npm:expo-image@~3.0.11",
+        "npm:expo-linear-gradient@~15.0.8",
+        "npm:expo-linking@~8.0.10",
+        "npm:expo-notifications@~0.32.16",
+        "npm:expo-router@~6.0.17",
+        "npm:expo-splash-screen@~31.0.12",
+        "npm:expo-status-bar@~3.0.9",
+        "npm:expo-symbols@~1.0.8",
+        "npm:expo-system-ui@~6.0.9",
+        "npm:expo-web-browser@~15.0.10",
+        "npm:expo@~54.0.27",
+        "npm:react-dom@19.1.0",
+        "npm:react-native-gesture-handler@2.28",
+        "npm:react-native-gifted-charts@^1.4.76",
+        "npm:react-native-markdown-display@^7.0.2",
+        "npm:react-native-reanimated@~4.1.1",
+        "npm:react-native-safe-area-context@5.6",
+        "npm:react-native-screens@4.16",
+        "npm:react-native-svg@15.12.1",
+        "npm:react-native-url-polyfill@3",
+        "npm:react-native-web@0.21",
+        "npm:react-native-worklets@0.5.1",
+        "npm:react-native@0.81.5",
+        "npm:react@19.1.0",
+        "npm:typescript@~5.9.2"
+      ]
+    }
+  }
+}
