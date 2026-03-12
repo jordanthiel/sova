@@ -36,8 +36,6 @@ async function setStoredActivityId(id: string | null): Promise<void> {
   }
 }
 
-const APP_ICON_ASSET_NAME = 'sova_icon';
-
 function getDeepLinkUrl(state: NapLiveActivityState): string {
   if (state.mode === 'awake') return '/(tabs)/?action=startNap';
   return '/(tabs)/?action=endSession';
@@ -61,8 +59,6 @@ export function buildLiveActivityState(
       title,
       subtitle,
       progressBar: { date: windowStart.getTime() },
-      imageName: APP_ICON_ASSET_NAME,
-      dynamicIslandImageName: APP_ICON_ASSET_NAME,
     };
   }
 
@@ -83,8 +79,6 @@ export function buildLiveActivityState(
     title,
     subtitle,
     progressBar: { progress: 0 },
-    imageName: APP_ICON_ASSET_NAME,
-    dynamicIslandImageName: APP_ICON_ASSET_NAME,
   };
 }
 
@@ -115,20 +109,35 @@ export function startNapLiveActivity(
   return id;
 }
 
+function clearStoredIdIfActivityGone(err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  if (message.includes('not found') || message.includes('ActivityNotFoundException')) {
+    setStoredActivityId(null);
+  }
+}
+
 /**
  * Update the current Nap Live Activity. No-op if none is running.
- * deepLinkUrl is updated so the action button matches current state (Start vs Stop).
+ * If the activity was dismissed (e.g. user removed it, app was killed), clears stored ID so we don't keep trying.
  */
 export function updateNapLiveActivity(state: NapLiveActivityState): void {
   getStoredActivityId().then((id) => {
     if (!id) return;
     const activityState = buildLiveActivityState(state);
-    LiveActivity.updateActivity(id, activityState);
+    try {
+      const result = LiveActivity.updateActivity(id, activityState);
+      if (result?.catch) {
+        result.catch((err: unknown) => clearStoredIdIfActivityGone(err));
+      }
+    } catch (err) {
+      clearStoredIdIfActivityGone(err);
+    }
   });
 }
 
 /**
  * End the current Nap Live Activity and clear stored ID.
+ * Clears stored ID on failure too (e.g. activity already ended).
  */
 export function endNapLiveActivity(): void {
   getStoredActivityId().then((id) => {
@@ -139,8 +148,15 @@ export function endNapLiveActivity(): void {
       windowEndIso: new Date().toISOString(),
       isBedtime: false,
     });
-    LiveActivity.stopActivity(id, activityState);
-    setStoredActivityId(null);
+    try {
+      const result = LiveActivity.stopActivity(id, activityState);
+      setStoredActivityId(null);
+      if (result?.catch) {
+        result.catch(() => setStoredActivityId(null));
+      }
+    } catch {
+      setStoredActivityId(null);
+    }
   });
 }
 

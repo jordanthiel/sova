@@ -28,6 +28,7 @@ function getCachedSchemeSnippet(scheme) {
 
 module.exports = function withSovaLiveActivityButton(config) {
   const scheme = config.scheme || config.expo?.scheme || 'sova';
+  const schemeSnippet = getCachedSchemeSnippet(scheme);
 
   const { withDangerousMod } = require('@expo/config-plugins');
   return withDangerousMod(config, [
@@ -39,20 +40,22 @@ module.exports = function withSovaLiveActivityButton(config) {
       let content = fs.readFileSync(viewPath, 'utf8');
       if (content.includes('cachedSchemeForSovaButton')) return config;
 
-      const schemeSnippet = getCachedSchemeSnippet(scheme);
-      const closingPattern = /\n        \}\n      \}\n      \.padding\(EdgeInsets\(top: top, leading: leading, bottom: bottom, trailing: trailing\)\)\)/;
+      const paddingLine = '.padding(EdgeInsets(top: top, leading: leading, bottom: bottom, trailing: trailing))';
+      const searchStr = '        }\n      }\n      ' + paddingLine;
       const replacement =
-        '\n        }\n' +
-        BUTTON_BLOCK.trim() +
-        '\n      }\n      .padding(EdgeInsets(top: top, leading: leading, bottom: bottom, trailing: trailing))';
-      if (!closingPattern.test(content)) return config;
-      content = content.replace(closingPattern, replacement);
+        '        }\n' + BUTTON_BLOCK.trim() + '\n      }\n      ' + paddingLine;
+      if (!content.includes('        }\n      }\n      ' + paddingLine)) {
+        return config;
+      }
+      content = content.replace(searchStr, replacement);
 
       const insertSchemeAfter = 'struct LiveActivityView: View {';
-      content = content.replace(
-        insertSchemeAfter,
-        insertSchemeAfter + '\n    ' + schemeSnippet
-      );
+      if (!content.includes(schemeSnippet)) {
+        content = content.replace(
+          insertSchemeAfter,
+          insertSchemeAfter + '\n    ' + schemeSnippet
+        );
+      }
       fs.writeFileSync(viewPath, content);
       return config;
     },
