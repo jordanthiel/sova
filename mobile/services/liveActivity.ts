@@ -1,7 +1,13 @@
 /**
- * Nap Live Activity: maps domain state to expo-live-activity and manages lifecycle.
- * iOS only (expo-live-activity returns undefined / no-ops on other platforms).
- * Requires: npx expo prebuild --clean (to generate the widget extension) and a dev build (Expo Go does not support Live Activities).
+ * Nap Live Activity: maps domain state to the native iOS Live Activity (ActivityKit).
+ *
+ * Native widget lives in ios/LiveActivity/ (LiveActivityWidget.swift, LiveActivityView.swift).
+ * expo-live-activity bridges JS → native; our state (title, subtitle, timeLabel, imageName,
+ * dynamicIslandImageName, progressBar) maps to LiveActivityAttributes.ContentState.
+ *
+ * - Awake mode: next start time as text (timeLabel, e.g. "2:30 PM"), app icon on the left.
+ * - Sleeping mode: elapsed duration, optional cap time; app icon on the left.
+ * iOS only; requires dev build (Expo Go does not support Live Activities).
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,27 +47,36 @@ function getDeepLinkUrl(state: NapLiveActivityState): string {
   return '/(tabs)/?action=endSession';
 }
 
+/** App icon asset name in the Live Activity widget bundle (see assets/liveActivity/.gitkeep). */
+const APP_ICON_IMAGE_NAME = 'sova_icon';
+
 /**
- * Build expo-live-activity state from our nap domain state.
- * Includes app icon for Lock Screen and Dynamic Island; deepLinkUrl is set per start/update for action button.
+ * Build state for the native Live Activity (ActivityKit).
+ * Passes timeLabel for next start time (not countdown), app icon for left side, and standard title/subtitle/progressBar.
  */
 export function buildLiveActivityState(
   state: NapLiveActivityState,
   now: Date = new Date()
 ): LiveActivityState {
+  const baseContent = {
+    imageName: APP_ICON_IMAGE_NAME,
+    dynamicIslandImageName: APP_ICON_IMAGE_NAME,
+  };
+
   if (state.mode === 'awake') {
     const windowStart = new Date(state.windowStartIso);
     const windowEnd = new Date(state.windowEndIso);
-    // Show next start time (not countdown): e.g. "Next nap 2:30 PM" or "Bedtime 7:30 PM"
     const nextTimeStr = format(windowStart, 'h:mm a');
     const title = state.isBedtime ? `Bedtime ${nextTimeStr}` : `Next nap ${nextTimeStr}`;
     const windowStr = `${format(windowStart, 'h:mm a')} – ${format(windowEnd, 'h:mm a')}`;
     const subtitle = state.babyName ? `${state.babyName} · ${windowStr}` : windowStr;
     return {
+      ...baseContent,
       title,
       subtitle,
+      timeLabel: nextTimeStr,
       progressBar: { date: windowStart.getTime() },
-    };
+    } as LiveActivityState;
   }
 
   const sessionStart = new Date(state.sessionStartIso);
@@ -78,10 +93,11 @@ export function buildLiveActivityState(
     subtitle = state.babyName ? `${state.babyName} · ${elapsedStr}` : elapsedStr;
   }
   return {
+    ...baseContent,
     title,
     subtitle,
     progressBar: { progress: 0 },
-  };
+  } as LiveActivityState;
 }
 
 const DEFAULT_CONFIG: LiveActivityConfig = {
@@ -91,6 +107,7 @@ const DEFAULT_CONFIG: LiveActivityConfig = {
   progressViewTint: '#4ECDC4',
   progressViewLabelColor: '#FFFFFF',
   timerType: 'digital',
+  imagePosition: 'left',
 };
 
 /**

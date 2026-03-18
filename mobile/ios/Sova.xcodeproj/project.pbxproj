@@ -49,6 +49,16 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		64FED16886754EAC90784128 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -122,6 +132,26 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		54B2C4BDB16E4C4297D11A55 /* LiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				C0D62AF5BFEC4DC6AF8258E4 /* Color+hex.swift */,
+				C38442D909F64622990C1DC1 /* Date+toTimerInterval.swift */,
+				13F3173BEDC14BD4AF56E83D /* Image+dynamic.swift */,
+				B3E89E8A15E749048121118A /* LiveActivityView.swift */,
+				3F0E223639C24EF0828EBA42 /* LiveActivityWidget.swift */,
+				DE7CA41B5124496F812CBF39 /* LiveActivityWidgetBundle.swift */,
+				9A414179DECF424FAC3D8D61 /* View+applyIfPresent.swift */,
+				6C0F7B22494843CEA62367F2 /* View+applyWidgetURL.swift */,
+				359936162EC64C49AD69266B /* ViewHelpers.swift */,
+				069A04630E894605922B520C /* Info.plist */,
+				8ACFFD700F5C4C2A8225BD15 /* Assets.xcassets */,
+				EAD075C9B4054351B3E2ABE1 /* LiveActivity.entitlements */,
+			);
+			name = LiveActivity;
+			path = LiveActivity;
+			sourceTree = "<group>";
+		};
 		568979E31D881B401A339012 /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
@@ -156,6 +186,7 @@
 				C7D5B0CCD772435C9328FBEC /* LiveActivity */,
 				80574FA8AA9EAC58FA6100A4 /* Pods */,
 				568979E31D881B401A339012 /* ExpoModulesProviders */,
+				54B2C4BDB16E4C4297D11A55 /* LiveActivity */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -223,6 +254,7 @@
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
 				12DD06E1A3EF403E93ABE150 /* Embed Foundation Extensions */,
 				67E85885AC75CE6C29AB7944 /* [CP] Embed Pods Frameworks */,
+				64FED16886754EAC90784128 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -486,7 +518,7 @@
 					"FB_SONARKIT_ENABLED=1",
 				);
 				INFOPLIST_FILE = Sova/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -518,7 +550,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = GYURRL7F4B;
 				INFOPLIST_FILE = Sova/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

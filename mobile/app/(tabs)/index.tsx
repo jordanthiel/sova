@@ -593,7 +593,7 @@ export default function TodayScreen() {
           await queueInsert(currentBabyId, isBedtime ? 'night' : 'nap', new Date().toISOString(), u.id);
           Alert.alert(
             "You're offline",
-            'Sleep session saved locally and will sync when you're back online. You can still use the app — wake window recommendations use local data.'
+            "Sleep session saved locally and will sync when you're back online. You can still use the app — wake window recommendations use local data."
           );
           await refetchSessions?.();
           return;
@@ -635,7 +635,7 @@ export default function TodayScreen() {
         await queueUpdate(activeSession.id, now, dur);
         Alert.alert(
           "You're offline",
-          'Session end saved locally and will sync when you're back online.'
+          "Session end saved locally and will sync when you're back online."
         );
         await refetchSessions?.();
       } else {

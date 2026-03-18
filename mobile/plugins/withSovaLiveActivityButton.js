@@ -9,7 +9,7 @@ const path = require('path');
 
 const BUTTON_BLOCK = `
         // Sova: action button (Start nap/bedtime or End session)
-        let isAwake = contentState.title == "Next nap" || contentState.title == "Bedtime"
+        let isAwake = contentState.title.hasPrefix("Next nap") || contentState.title.hasPrefix("Bedtime")
         let actionPath = isAwake ? "/(tabs)/?action=startNap" : "/(tabs)/?action=endSession"
         if let scheme = cachedSchemeForSovaButton, let url = URL(string: scheme + "://" + actionPath) {
           Link(destination: url) {

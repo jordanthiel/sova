@@ -1,8 +1,10 @@
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, Image } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -33,6 +35,8 @@ export default function RootLayout() {
   const [isInitializing, setIsInitializing] = useState(true);
   const colors = Colors.dark; // Always use dark theme
 
+  const [iconFontLoaded] = useFonts(MaterialIcons.font);
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -56,10 +60,14 @@ export default function RootLayout() {
     init();
   }, []);
 
-  if (isInitializing) {
+  if (!iconFontLoaded || isInitializing) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <Text style={styles.splashEmoji}>🌙</Text>
+        <Image
+          source={require('@/assets/images/sova_icon.png')}
+          style={styles.splashLogo}
+          resizeMode="contain"
+        />
         <ActivityIndicator size="large" color={colors.accent} />
         <Text style={[Typography.body, { color: colors.textSecondary, marginTop: Spacing.md }]}>
           Loading Sova...
@@ -111,8 +119,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  splashEmoji: {
-    fontSize: 56,
+  splashLogo: {
+    width: 120,
+    height: 120,
     marginBottom: Spacing.lg,
   },
 });

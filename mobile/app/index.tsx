@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { shouldShowOnboarding } from '@/app/onboarding';
@@ -79,7 +79,11 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
-      <Text style={styles.emoji}>🌙</Text>
+      <Image
+        source={require('@/assets/images/sova_icon.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
       <ActivityIndicator size="large" color={colors.accent} />
     </View>
   );
@@ -92,8 +96,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#0B1426',
   },
-  emoji: {
-    fontSize: 48,
+  logo: {
+    width: 100,
+    height: 100,
     marginBottom: Spacing.lg,
   },
 });

@@ -39,3 +39,10 @@ export async function isDayExcluded(babyId: string, dateKey: string): Promise<bo
   const keys = await getExcludedDateKeys(babyId);
   return keys.includes(dateKey);
 }
+
+export const excludedDaysRepo = {
+  getExcludedDateKeys,
+  setExcludedDateKeys,
+  toggleDayExcluded,
+  isDayExcluded,
+};

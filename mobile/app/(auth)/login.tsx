@@ -8,6 +8,7 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -88,7 +89,11 @@ export default function LoginScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.heroBadgeGradient}
               >
-                <Text style={styles.moonEmoji}>🌙</Text>
+                <Image
+                  source={require('@/assets/images/sova_icon.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
               </LinearGradient>
             </View>
             <Text style={[Typography.h1, { color: colors.text, textAlign: 'center' }]}>
@@ -187,8 +192,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  moonEmoji: {
-    fontSize: 48,
+  logoImage: {
+    width: 64,
+    height: 64,
   },
   formSection: {
     marginBottom: Spacing.lg,
