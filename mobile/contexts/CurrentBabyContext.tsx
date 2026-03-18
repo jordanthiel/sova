@@ -24,9 +24,10 @@ export function CurrentBabyProvider({ children }: { children: React.ReactNode })
   const setCurrentBabyId = useCallback((id: string | null) => {
     setCurrentBabyIdState(id);
     if (id) {
-      babiesRepo.setActiveBaby(id);
+      // Persist immediately so selection isn't lost when navigating or when other tabs run their default-baby effect
+      void babiesRepo.setActiveBaby(id);
     } else {
-      babiesRepo.clearActiveBaby();
+      void babiesRepo.clearActiveBaby();
     }
   }, []);
 

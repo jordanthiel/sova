@@ -52,7 +52,9 @@ export function buildLiveActivityState(
   if (state.mode === 'awake') {
     const windowStart = new Date(state.windowStartIso);
     const windowEnd = new Date(state.windowEndIso);
-    const title = state.isBedtime ? 'Bedtime' : 'Next nap';
+    // Show next start time (not countdown): e.g. "Next nap 2:30 PM" or "Bedtime 7:30 PM"
+    const nextTimeStr = format(windowStart, 'h:mm a');
+    const title = state.isBedtime ? `Bedtime ${nextTimeStr}` : `Next nap ${nextTimeStr}`;
     const windowStr = `${format(windowStart, 'h:mm a')} – ${format(windowEnd, 'h:mm a')}`;
     const subtitle = state.babyName ? `${state.babyName} · ${windowStr}` : windowStr;
     return {

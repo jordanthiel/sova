@@ -76,10 +76,10 @@ export default function LogScreen() {
   const { sessions: allSessions } = useRealtimeSleepSessions(currentBabyId);
 
   useEffect(() => {
-    if (isHydrated && !babiesLoading && babies.length > 0) {
-      const currentValid = currentBabyId && babies.some((b) => b.id === currentBabyId);
-      if (!currentValid) setCurrentBabyId(babies[0].id);
-    }
+    if (!isHydrated || babiesLoading || babies.length === 0) return;
+    const currentValid = currentBabyId && babies.some((b) => b.id === currentBabyId);
+    if (currentValid) return;
+    setCurrentBabyId(babies[0].id);
   }, [isHydrated, babies, babiesLoading, currentBabyId, setCurrentBabyId]);
 
   const loadEvents = useCallback(async () => {
@@ -777,7 +777,20 @@ export default function LogScreen() {
 
         {viewMode === 'daily' && (
           <>
-            <View style={styles.summaryRow}>
+            <TouchableOpacity
+              style={styles.summaryRow}
+              onPress={() =>
+                currentBabyId &&
+                router.push({
+                  pathname: '/day-overview',
+                  params: {
+                    dateKey: format(selectedDate, 'yyyy-MM-dd'),
+                    babyId: currentBabyId,
+                  },
+                })
+              }
+              activeOpacity={0.8}
+            >
               <View style={styles.summaryItem}>
                 <Text style={[Typography.small, { color: colors.textTertiary }]}>Daytime sleep</Text>
                 <Text style={[Typography.bodyMedium, { color: colors.text }]}>
@@ -802,7 +815,10 @@ export default function LogScreen() {
                   <SleepScoreRing score={nightScoreForDisplay.score} size={40} />
                 </View>
               )}
-            </View>
+            </TouchableOpacity>
+            <Text style={[Typography.caption, { color: colors.textTertiary, textAlign: 'center', marginTop: Spacing.xs }]}>
+              Tap for day overview
+            </Text>
             {/* {nightScoreForDisplay != null && (
               <View style={{ marginTop: Spacing.sm }}>
                 <NightSleepScoreCard result={nightScoreForDisplay} />

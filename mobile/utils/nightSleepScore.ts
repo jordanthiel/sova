@@ -22,6 +22,23 @@ function effectiveDuration(s: NightScoreSession): number {
   return s.duration_minutes ?? 0;
 }
 
+/** 6am on the calendar day after dateKey (yyyy-MM-dd). Used to cap last segment so we don't count sleep past 6am toward that night. */
+function get6amCutoffNextDay(dateKey: string): number {
+  const d = new Date(dateKey + 'T06:00:00');
+  d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+
+/** Duration in minutes for a segment, capped at capEndMs so we don't count sleep past 6am toward that night's total. */
+function effectiveDurationCappedAt(s: NightScoreSession, capEndMs: number): number {
+  if (!s.end_time) return s.duration_minutes ?? 0;
+  const startMs = new Date(s.start_time).getTime();
+  const endMs = new Date(s.end_time).getTime();
+  if (endMs <= capEndMs) return Math.round((endMs - startMs) / 60000);
+  const capped = Math.min(endMs, capEndMs);
+  return Math.round((capped - startMs) / 60000);
+}
+
 /** Include naps that connect to the run (within 2h) so evening/mislabeled segments count as one night. */
 function expandRunWithConnectingNaps(
   run: NightScoreSession[],
@@ -179,10 +196,15 @@ function mergeRunsIntoOneNight(runs: NightScoreSession[][], dateKey: string): Ni
   let totalAwakeMinutes = 0;
   let segmentCount = 0;
 
+  const cap6am = get6amCutoffNextDay(dateKey);
   for (let r = 0; r < runs.length; r++) {
     const run = runs[r];
+    const isLastRun = r === runs.length - 1;
     for (let i = 0; i < run.length; i++) {
-      totalSleepMinutes += effectiveDuration(run[i]);
+      const isLastSegment = isLastRun && i === run.length - 1;
+      totalSleepMinutes += isLastSegment
+        ? effectiveDurationCappedAt(run[i], cap6am)
+        : effectiveDuration(run[i]);
       if (i > 0) {
         const prevEnd = new Date(run[i - 1].end_time!).getTime();
         const currStart = new Date(run[i].start_time).getTime();
@@ -211,8 +233,12 @@ function mergeRunsIntoOneNight(runs: NightScoreSession[][], dateKey: string): Ni
 function summarizeRun(segs: NightScoreSession[], dateKey: string): NightSummary {
   let totalSleep = 0;
   let totalAwake = 0;
+  const cap6am = get6amCutoffNextDay(dateKey);
   for (let i = 0; i < segs.length; i++) {
-    totalSleep += effectiveDuration(segs[i]);
+    const isLast = i === segs.length - 1;
+    totalSleep += isLast
+      ? effectiveDurationCappedAt(segs[i], cap6am)
+      : effectiveDuration(segs[i]);
     if (i > 0) {
       const prevEnd = new Date(segs[i - 1].end_time!).getTime();
       const currStart = new Date(segs[i].start_time).getTime();

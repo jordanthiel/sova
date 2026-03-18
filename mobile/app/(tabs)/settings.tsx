@@ -66,10 +66,10 @@ export default function SettingsScreen() {
   const importEmailAddress = inboundDomain && importCode ? `import+${importCode}@${inboundDomain}` : null;
 
   useEffect(() => {
-    if (isHydrated && !babiesLoading && babies.length > 0) {
-      const currentValid = currentBabyId && babies.some((b) => b.id === currentBabyId);
-      if (!currentValid) setCurrentBabyId(babies[0].id);
-    }
+    if (!isHydrated || babiesLoading || babies.length === 0) return;
+    const currentValid = currentBabyId && babies.some((b) => b.id === currentBabyId);
+    if (currentValid) return;
+    setCurrentBabyId(babies[0].id);
   }, [isHydrated, babies, babiesLoading, currentBabyId, setCurrentBabyId]);
 
   const loadDetails = useCallback(async () => {

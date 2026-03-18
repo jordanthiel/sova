@@ -29,6 +29,8 @@ import {
   scheduleNapWindowReminder,
   scheduleWakeWindowAlert,
 } from '@/services/notifications';
+import { flushOfflineQueue, queueInsert, queueUpdate } from '@/services/offlineSleepQueue';
+import { excludedDaysRepo } from '@/services/repositories/excludedDaysRepo';
 import { babiesRepo } from '@/services/repositories/babiesRepo';
 import { storedNapTargetsRepo } from '@/services/repositories/storedNapTargetsRepo';
 import type {
@@ -41,7 +43,7 @@ import type {
 } from '@/types/domain';
 import { DEFAULT_NOTIFICATION_CONFIG } from '@/types/domain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getExtendedDayBounds, sessionOverlapsExtendedDay } from '@/utils/dateUtils';
+import { getExtendedDayBounds, getExtendedDayKey, sessionOverlapsExtendedDay } from '@/utils/dateUtils';
 import { formatDuration } from '@/utils/formatTime';
 import { getNightSummaries, isNightComplete } from '@/utils/nightSleepScore';
 import { calculateAgeDays, getEffectiveWakeWindowMinutes } from '@/utils/wakeWindowCalculator';
@@ -116,7 +118,13 @@ export default function TodayScreen() {
   const [editSession, setEditSession] = useState<SleepSession | null>(null);
   const [preferences, setPreferences] = useState<BabyPreferences | null>(null);
   const [notificationConfig, setNotificationConfig] = useState<NotificationConfig>(DEFAULT_NOTIFICATION_CONFIG);
+  const [excludedDateKeys, setExcludedDateKeys] = useState<Set<string>>(new Set());
   const colors = useThemeColors();
+
+  useEffect(() => {
+    if (!currentBabyId) return;
+    excludedDaysRepo.getExcludedDateKeys(currentBabyId).then((keys) => setExcludedDateKeys(new Set(keys)));
+  }, [currentBabyId]);
 
   // Load notification preferences from AsyncStorage when baby changes or when screen is focused (e.g. after editing in Settings)
   const loadNotificationConfig = useCallback(() => {
@@ -163,11 +171,13 @@ export default function TodayScreen() {
     }
   }, [allSessions]);
 
+  // Only default to first baby when none selected yet or selected baby is no longer in list (e.g. removed).
+  // Do not overwrite a valid selection so switching to a child without logs stays persisted.
   useEffect(() => {
-    if (isHydrated && !babiesLoading && babies.length > 0) {
-      const currentValid = currentBabyId && babies.some((b) => b.id === currentBabyId);
-      if (!currentValid) setCurrentBabyId(babies[0].id);
-    }
+    if (!isHydrated || babiesLoading || babies.length === 0) return;
+    const currentValid = currentBabyId && babies.some((b) => b.id === currentBabyId);
+    if (currentValid) return;
+    setCurrentBabyId(babies[0].id);
   }, [isHydrated, babies, babiesLoading, currentBabyId, setCurrentBabyId]);
 
   useEffect(() => {
@@ -178,20 +188,33 @@ export default function TodayScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    await flushOfflineQueue();
     await Promise.all([refetchBabies(), refetchSessions?.()]);
     setRefreshing(false);
     setNightScoreRefreshTrigger((t) => t + 1);
   }, [refetchBabies, refetchSessions]);
 
   const hasMountedRef = useRef(false);
+  const lastTimezoneRef = useRef<string | null>(null);
   useFocusEffect(
     useCallback(() => {
       track('view_today', { babyId: currentBabyId });
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (lastTimezoneRef.current != null && lastTimezoneRef.current !== tz) {
+        lastTimezoneRef.current = tz;
+        refetchSessions?.();
+        setNightScoreRefreshTrigger((t) => t + 1);
+      } else {
+        lastTimezoneRef.current = tz;
+      }
       if (!hasMountedRef.current) {
         hasMountedRef.current = true;
         return;
       }
       refetchSessions?.();
+      if (currentBabyId) {
+        excludedDaysRepo.getExcludedDateKeys(currentBabyId).then((keys) => setExcludedDateKeys(new Set(keys)));
+      }
     }, [refetchSessions, currentBabyId])
   );
 
@@ -257,6 +280,15 @@ export default function TodayScreen() {
   );
   const lastNightSummary = completedNightSummaries[0] ?? null;
   const lastNightScoreDateKeys = lastNightSummaries.map((s) => s.dateKey);
+
+  /** Sessions with excluded days removed, for wake window / LLM recommendations only. */
+  const eventsForRecommendation = useMemo(
+    () =>
+      allSessions
+        .filter((s) => !excludedDateKeys.has(getExtendedDayKey(new Date(s.start_time))))
+        .map(sessionToSleepEvent),
+    [allSessions, excludedDateKeys]
+  );
   const nightScoresByDateKey = useNightSleepScores(
     domainBaby?.id ?? null,
     lastNightScoreDateKeys,
@@ -359,7 +391,7 @@ export default function TodayScreen() {
       if (activeFetchKeyRef.current !== key) return;
       setRecommendation(null);
       lastFetchKeyRef.current = key;
-      const events = allSessions.map(sessionToSleepEvent);
+      const events = eventsForRecommendation;
       getNextNapRecommendation(domainBaby, events, new Date(), memoryStrings.length > 0 ? memoryStrings : undefined)
         .then((rec) => {
           if (activeFetchKeyRef.current !== key) return;
@@ -388,7 +420,7 @@ export default function TodayScreen() {
     };
 
     loadStoredThenMaybeRefetch();
-  }, [domainBaby, activeSession, hasAnyEndedSessions, fetchKey, lastWakeTime, lastEndedSession, memoryStrings, allSessions]);
+  }, [domainBaby, activeSession, hasAnyEndedSessions, fetchKey, lastWakeTime, lastEndedSession, memoryStrings, allSessions, eventsForRecommendation]);
 
   const handleRefreshRecommendation = useCallback(() => {
     if (!domainBaby || activeSession) return;
@@ -397,7 +429,7 @@ export default function TodayScreen() {
     activeFetchKeyRef.current = null;
     setRecommendationLoading(true);
     lastFetchKeyRef.current = null;
-    const events = allSessions.map(sessionToSleepEvent);
+    const events = eventsForRecommendation;
     getNextNapRecommendation(domainBaby, events, new Date(), memoryStrings.length > 0 ? memoryStrings : undefined)
       .then((rec) => {
         setRecommendation(rec);
@@ -426,7 +458,7 @@ export default function TodayScreen() {
       })
       .finally(() => setRecommendationLoading(false));
     track('refresh_recommendation', { babyId: domainBaby.id });
-  }, [domainBaby, activeSession, sessionDataKey, memoryStrings, allSessions]);
+  }, [domainBaby, activeSession, sessionDataKey, memoryStrings, eventsForRecommendation]);
 
   const isBedtimeRec = recommendation?.type === 'bedtime';
   const napPayload =
@@ -465,36 +497,41 @@ export default function TodayScreen() {
   // Deep link from Live Activity action button (Start / Stop)
   const handlersRef = useRef<{ start: () => void; end: () => void } | null>(null);
 
-  // Schedule or cancel nap window / bedtime / wake window reminders based on recommendation and preferences
+  // Schedule or cancel nap window / bedtime / wake window reminders. Always cancel first to avoid double notifications (e.g. nap + bedtime).
   useEffect(() => {
     if (!currentBabyId || activeSession) {
-      cancelNapWindowBedtimeAndWakeWindowReminders();
+      void cancelNapWindowBedtimeAndWakeWindowReminders();
       return;
     }
     const config = notificationConfig;
-    cancelNapWindowBedtimeAndWakeWindowReminders().then(() => {
-      if (!napPayload) return;
+    const isBedtime = recommendation?.type === 'bedtime';
+
+    let cancelled = false;
+    const run = async () => {
+      await cancelNapWindowBedtimeAndWakeWindowReminders();
+      if (cancelled || !napPayload) return;
       const windowStart = new Date(napPayload.startWindowBegin);
-      const isBedtime = recommendation?.type === 'bedtime';
 
       if (config.napWindowSoon && !isBedtime) {
         const remindAt = addMinutes(windowStart, -15);
         if (remindAt.getTime() > Date.now()) {
-          scheduleNapWindowReminder(remindAt.toISOString(), currentBabyId);
+          await scheduleNapWindowReminder(remindAt.toISOString(), currentBabyId);
         }
       }
       if (config.bedtimeReminder && isBedtime) {
         if (windowStart.getTime() > Date.now()) {
-          scheduleBedtimeReminder(napPayload.startWindowBegin, currentBabyId);
+          await scheduleBedtimeReminder(napPayload.startWindowBegin, currentBabyId);
         }
       }
       if (config.wakeWindowAlert && lastWakeTime != null && typeof displayWakeWindow === 'number') {
         const windowEnd = addMinutes(lastWakeTime, displayWakeWindow);
         if (windowEnd.getTime() > Date.now()) {
-          scheduleWakeWindowAlert(windowEnd.toISOString(), currentBabyId);
+          await scheduleWakeWindowAlert(windowEnd.toISOString(), currentBabyId);
         }
       }
-    });
+    };
+    run();
+    return () => { cancelled = true; };
   }, [
     currentBabyId,
     activeSession,
@@ -545,7 +582,24 @@ export default function TodayScreen() {
 
       await refetchSessions?.();
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      const isNetworkError =
+        err?.message?.includes('network') ||
+        err?.message?.includes('fetch') ||
+        err?.code === 'ECONNABORTED' ||
+        err?.code === 'NETWORK_ERROR';
+      if (isNetworkError) {
+        const { data: { user: u } } = await supabase.auth.getUser();
+        if (u) {
+          await queueInsert(currentBabyId, isBedtime ? 'night' : 'nap', new Date().toISOString(), u.id);
+          Alert.alert(
+            "You're offline",
+            'Sleep session saved locally and will sync when you're back online. You can still use the app — wake window recommendations use local data.'
+          );
+          await refetchSessions?.();
+          return;
+        }
+      }
+      Alert.alert('Error', err?.message ?? 'Something went wrong');
     }
   };
 
@@ -568,7 +622,25 @@ export default function TodayScreen() {
       if (error) throw error;
       await refetchSessions?.();
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      const isNetworkError =
+        err?.message?.includes('network') ||
+        err?.message?.includes('fetch') ||
+        err?.code === 'ECONNABORTED' ||
+        err?.code === 'NETWORK_ERROR';
+      if (isNetworkError) {
+        const now = new Date().toISOString();
+        const dur = Math.round(
+          (new Date(now).getTime() - new Date(activeSession.start_time).getTime()) / 60000
+        );
+        await queueUpdate(activeSession.id, now, dur);
+        Alert.alert(
+          "You're offline",
+          'Session end saved locally and will sync when you're back online.'
+        );
+        await refetchSessions?.();
+      } else {
+        Alert.alert('Error', err.message);
+      }
     }
   };
 

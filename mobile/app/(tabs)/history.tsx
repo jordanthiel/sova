@@ -31,7 +31,7 @@ type ViewMode = (typeof VIEW_MODES)[number];
 
 export default function HistoryScreen() {
   const { babies, loading: babiesLoading } = useBabies();
-  const { currentBabyId, setCurrentBabyId } = useCurrentBaby();
+  const { currentBabyId, setCurrentBabyId, isHydrated } = useCurrentBaby();
   const [sessions, setSessions] = useState<SleepSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,10 +41,11 @@ export default function HistoryScreen() {
   const gradients = useThemeGradients();
 
   useEffect(() => {
-    if (!babiesLoading && babies.length > 0 && !currentBabyId) {
-      setCurrentBabyId(babies[0].id);
-    }
-  }, [babies, babiesLoading, currentBabyId]);
+    if (!isHydrated || babiesLoading || babies.length === 0) return;
+    const currentValid = currentBabyId && babies.some((b) => b.id === currentBabyId);
+    if (currentValid) return;
+    setCurrentBabyId(babies[0].id);
+  }, [isHydrated, babies, babiesLoading, currentBabyId, setCurrentBabyId]);
 
   useEffect(() => {
     if (!currentBabyId) {

@@ -22,7 +22,7 @@ type TabId = 'trends' | 'insights';
 
 export default function InsightsScreen() {
   const { babies, loading: babiesLoading } = useBabies();
-  const { currentBabyId, setCurrentBabyId } = useCurrentBaby();
+  const { currentBabyId, setCurrentBabyId, isHydrated } = useCurrentBaby();
   const { baby, ageDays } = useSleepData({ babyId: currentBabyId });
   const { sessions: allSessions } = useRealtimeSleepSessions(currentBabyId);
   const { caregivers } = useRealtimeCaregivers(currentBabyId);
@@ -30,10 +30,11 @@ export default function InsightsScreen() {
   const colors = useThemeColors();
 
   useEffect(() => {
-    if (!babiesLoading && babies.length > 0 && !currentBabyId) {
-      setCurrentBabyId(babies[0].id);
-    }
-  }, [babies, babiesLoading, currentBabyId, setCurrentBabyId]);
+    if (!isHydrated || babiesLoading || babies.length === 0) return;
+    const currentValid = currentBabyId && babies.some((b) => b.id === currentBabyId);
+    if (currentValid) return;
+    setCurrentBabyId(babies[0].id);
+  }, [isHydrated, babies, babiesLoading, currentBabyId, setCurrentBabyId]);
 
   useFocusEffect(
     useCallback(() => {

@@ -40,10 +40,10 @@ export function InsightsTab() {
   const colors = useThemeColors();
 
   useEffect(() => {
-    if (isHydrated && !babiesLoading && babies.length > 0) {
-      const currentValid = currentBabyId && babies.some((b) => b.id === currentBabyId);
-      if (!currentValid) setCurrentBabyId(babies[0].id);
-    }
+    if (!isHydrated || babiesLoading || babies.length === 0) return;
+    const currentValid = currentBabyId && babies.some((b) => b.id === currentBabyId);
+    if (currentValid) return;
+    setCurrentBabyId(babies[0].id);
   }, [isHydrated, babies, babiesLoading, currentBabyId, setCurrentBabyId]);
 
   const endedSessions = allSessions
