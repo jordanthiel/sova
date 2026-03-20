@@ -55,7 +55,7 @@ export default function SignupScreen() {
         } catch {
           // The signup trigger also initializes the trial, so this best-effort call can fail safely.
         }
-        Alert.alert('Success', 'Account created. Your 7-day premium trial has started.', [
+        Alert.alert('Success', "Account created. Let's finish setting up your family.", [
           { text: 'OK', onPress: () => router.replace('/invites-choice') },
         ]);
       }

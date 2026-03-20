@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { IconSymbolName } from '@/components/ui/icon-symbol';
-import { Spacing, Typography, Radius } from '@/constants/theme';
+import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
 import type { SleepEvent } from '@/types/domain';
@@ -205,11 +205,11 @@ const styles = StyleSheet.create({
   },
   eventCard: {},
   activeCard: {
-    borderColor: 'rgba(199, 174, 255, 0.3)',
+    borderColor: Colors.dark.border,
     borderWidth: 1,
   },
   selectedCard: {
-    borderColor: 'rgba(199, 174, 255, 0.5)',
+    borderColor: Colors.dark.border,
     borderWidth: 2,
   },
   checkbox: {
@@ -223,11 +223,11 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
   },
   checkboxSelected: {
-    borderColor: '#C7AEFF',
-    backgroundColor: 'rgba(199, 174, 255, 0.2)',
+    borderColor: Colors.dark.accent,
+    backgroundColor: Colors.dark.accentSoft,
   },
   checkmark: {
-    color: '#C7AEFF',
+    color: Colors.dark.accent,
     fontSize: 14,
     fontWeight: '700',
   },

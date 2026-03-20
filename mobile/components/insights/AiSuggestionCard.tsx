@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from '@/components/ui/Card';
-import { Spacing, Typography, Radius } from '@/constants/theme';
+import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import type { AISuggestion } from '@/types/domain';
@@ -36,7 +36,7 @@ export function AiSuggestionCard({ suggestion, onApply }: AiSuggestionCardProps)
         activeOpacity={0.7}
       >
         <LinearGradient
-          colors={['rgba(199, 174, 255, 0.2)', 'rgba(199, 174, 255, 0.1)']}
+          colors={['rgba(102, 168, 255, 0.18)', 'rgba(102, 168, 255, 0.08)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.actionGradient}
@@ -70,6 +70,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(199, 174, 255, 0.25)',
+    borderColor: Colors.dark.border,
   },
 });

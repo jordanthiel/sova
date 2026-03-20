@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LiveActivity from 'expo-live-activity';
 import { format } from 'date-fns';
 import type { LiveActivityConfig, LiveActivityState } from 'expo-live-activity';
+import { Colors } from '@/constants/theme';
 import type { NapLiveActivityState } from '@/types/liveActivity';
 import { formatDurationWithSeconds } from '@/utils/formatTime';
 import { supabase } from '@/lib/supabase';
@@ -21,6 +22,8 @@ import { supabase } from '@/lib/supabase';
 const NAP_ACTIVITY_ID_KEY = '@sova/nap_live_activity_id';
 
 let cachedActivityId: string | null = null;
+let activityOperationQueue: Promise<unknown> = Promise.resolve();
+let activityUpdatesListenerInstalled = false;
 
 async function getStoredActivityId(): Promise<string | null> {
   if (cachedActivityId) return cachedActivityId;
@@ -43,6 +46,12 @@ async function setStoredActivityId(id: string | null): Promise<void> {
   }
 }
 
+function enqueueActivityOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const nextOperation = activityOperationQueue.catch(() => undefined).then(operation);
+  activityOperationQueue = nextOperation.then(() => undefined, () => undefined);
+  return nextOperation;
+}
+
 function getDeepLinkUrl(state: NapLiveActivityState): string {
   if (state.mode === 'awake') return 'sova://(tabs)/?action=startNap';
   return 'sova://(tabs)/?action=viewSession';
@@ -58,6 +67,34 @@ const SUBTITLE_DELIMITER = '|||';
 function parseUtcIso(iso: string): Date {
   if (/[Zz]$|[+-]\d{2}:?\d{2}$/.test(iso)) return new Date(iso);
   return new Date(iso + 'Z');
+}
+
+async function awaitActivityResult(result: unknown): Promise<void> {
+  if (result && typeof (result as Promise<unknown>).then === 'function') {
+    await (result as Promise<unknown>);
+  }
+}
+
+function isActivityGoneError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes('not found') || message.includes('ActivityNotFoundException');
+}
+
+function ensureActivityUpdatesListener(): void {
+  if (activityUpdatesListenerInstalled) return;
+  try {
+    const sub = LiveActivity.addActivityUpdatesListener((event) => {
+      if (event.activityState !== 'dismissed' && event.activityState !== 'ended') return;
+      getStoredActivityId().then((storedId) => {
+        if (storedId && storedId === event.activityID) {
+          setStoredActivityId(null);
+        }
+      });
+    });
+    activityUpdatesListenerInstalled = !!sub;
+  } catch {
+    // Listener support is best-effort; the serialized queue is the primary safety mechanism.
+  }
 }
 
 /**
@@ -115,11 +152,11 @@ export function buildLiveActivityState(
 }
 
 const DEFAULT_CONFIG: LiveActivityConfig = {
-  backgroundColor: '#0D1B2A',
-  titleColor: '#E6F4FE',
-  subtitleColor: '#B0C4DE',
-  progressViewTint: '#C7AEFF',
-  progressViewLabelColor: '#FFFFFF',
+  backgroundColor: Colors.dark.background,
+  titleColor: Colors.dark.text,
+  subtitleColor: Colors.dark.textSecondary,
+  progressViewTint: Colors.dark.accent,
+  progressViewLabelColor: Colors.dark.text,
   timerType: 'digital',
   imagePosition: 'left',
 };
@@ -131,20 +168,34 @@ const DEFAULT_CONFIG: LiveActivityConfig = {
 export function startNapLiveActivity(
   state: NapLiveActivityState,
   config: Partial<LiveActivityConfig> = {}
-): string | undefined {
-  const activityState = buildLiveActivityState(state);
-  const id = LiveActivity.startActivity(activityState, {
-    ...DEFAULT_CONFIG,
-    deepLinkUrl: getDeepLinkUrl(state),
-    ...config,
+): Promise<string | null> {
+  ensureActivityUpdatesListener();
+  return enqueueActivityOperation(async () => {
+    const activityState = buildLiveActivityState(state);
+    const existingId = await getStoredActivityId();
+
+    if (existingId) {
+      try {
+        await awaitActivityResult(LiveActivity.updateActivity(existingId, activityState));
+        return existingId;
+      } catch (err) {
+        if (!isActivityGoneError(err)) throw err;
+        await setStoredActivityId(null);
+      }
+    }
+
+    const id = LiveActivity.startActivity(activityState, {
+      ...DEFAULT_CONFIG,
+      deepLinkUrl: getDeepLinkUrl(state),
+      ...config,
+    });
+    await setStoredActivityId(id ?? null);
+    return id ?? null;
   });
-  if (id) setStoredActivityId(id);
-  return id;
 }
 
 function clearStoredIdIfActivityGone(err: unknown): void {
-  const message = err instanceof Error ? err.message : String(err);
-  if (message.includes('not found') || message.includes('ActivityNotFoundException')) {
+  if (isActivityGoneError(err)) {
     setStoredActivityId(null);
   }
 }
@@ -154,14 +205,13 @@ function clearStoredIdIfActivityGone(err: unknown): void {
  * If the activity was dismissed (e.g. user removed it, app was killed), clears stored ID so we don't keep trying.
  */
 export function updateNapLiveActivity(state: NapLiveActivityState): void {
-  getStoredActivityId().then((id) => {
+  ensureActivityUpdatesListener();
+  void enqueueActivityOperation(async () => {
+    const id = await getStoredActivityId();
     if (!id) return;
     const activityState = buildLiveActivityState(state);
     try {
-      const result = LiveActivity.updateActivity(id, activityState);
-      if (result?.catch) {
-        result.catch((err: unknown) => clearStoredIdIfActivityGone(err));
-      }
+      await awaitActivityResult(LiveActivity.updateActivity(id, activityState));
     } catch (err) {
       clearStoredIdIfActivityGone(err);
     }
@@ -173,7 +223,9 @@ export function updateNapLiveActivity(state: NapLiveActivityState): void {
  * Clears stored ID on failure too (e.g. activity already ended).
  */
 export function endNapLiveActivity(): void {
-  getStoredActivityId().then((id) => {
+  ensureActivityUpdatesListener();
+  void enqueueActivityOperation(async () => {
+    const id = await getStoredActivityId();
     if (!id) return;
     const activityState = buildLiveActivityState({
       mode: 'awake',
@@ -182,13 +234,11 @@ export function endNapLiveActivity(): void {
       isBedtime: false,
     });
     try {
-      const result = LiveActivity.stopActivity(id, activityState);
-      setStoredActivityId(null);
-      if (result?.catch) {
-        result.catch(() => setStoredActivityId(null));
-      }
+      await awaitActivityResult(LiveActivity.stopActivity(id, activityState));
     } catch {
-      setStoredActivityId(null);
+      // Ignore stop failures; we still clear the stored ID below.
+    } finally {
+      await setStoredActivityId(null);
     }
   });
 }
@@ -197,6 +247,7 @@ export function endNapLiveActivity(): void {
  * Return the current activity ID if one is running (from cache or storage).
  */
 export async function getNapLiveActivityId(): Promise<string | null> {
+  ensureActivityUpdatesListener();
   return getStoredActivityId();
 }
 
@@ -244,12 +295,7 @@ export async function refreshNapLiveActivityFromServer(babyId: string): Promise<
         capAtIso: null,
         babyName,
       };
-      const id = await getStoredActivityId();
-      if (id) {
-        updateNapLiveActivity(state);
-      } else {
-        startNapLiveActivity(state);
-      }
+      await startNapLiveActivity(state);
     } else {
       endNapLiveActivity();
     }

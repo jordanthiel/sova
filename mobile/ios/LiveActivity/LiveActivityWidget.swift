@@ -46,18 +46,38 @@ struct LiveActivityAttributes: ActivityAttributes {
 }
 
 struct LiveActivityWidget: Widget {
+  private func backgroundColor(for attributes: LiveActivityAttributes) -> Color {
+    attributes.backgroundColor.map { Color(hex: $0) } ?? Color(hex: "#090C12")
+  }
+
+  private func titleColor(for attributes: LiveActivityAttributes) -> Color {
+    attributes.titleColor.map { Color(hex: $0) } ?? Color(hex: "#F5F8FF")
+  }
+
+  private func subtitleColor(for attributes: LiveActivityAttributes) -> Color {
+    attributes.subtitleColor.map { Color(hex: $0) } ?? Color(hex: "#AAB7D6")
+  }
+
+  private func accentColor(for attributes: LiveActivityAttributes) -> Color {
+    attributes.progressViewTint.map { Color(hex: $0) } ?? Color(hex: "#66A8FF")
+  }
+
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: LiveActivityAttributes.self) { context in
       LiveActivityView(contentState: context.state, attributes: context.attributes)
         .activityBackgroundTint(
-          context.attributes.backgroundColor.map { Color(hex: $0) }
+          backgroundColor(for: context.attributes)
         )
-        .activitySystemActionForegroundColor(Color.black)
+        .activitySystemActionForegroundColor(titleColor(for: context.attributes))
         .applyWidgetURL(from: context.attributes.deepLinkUrl)
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading, priority: 1) {
-          dynamicIslandExpandedLeading(title: context.state.title, subtitle: context.state.subtitle)
+          dynamicIslandExpandedLeading(
+            title: context.state.title,
+            subtitle: context.state.subtitle,
+            attributes: context.attributes
+          )
             .dynamicIsland(verticalPlacement: .belowIfTooWide)
             .padding(.leading, 5)
             .applyWidgetURL(from: context.attributes.deepLinkUrl)
@@ -72,7 +92,9 @@ struct LiveActivityWidget: Widget {
         DynamicIslandExpandedRegion(.bottom) {
           if let date = context.state.timerEndDateInMilliseconds {
             dynamicIslandExpandedBottom(
-              endDate: date, progressViewTint: context.attributes.progressViewTint
+              endDate: date,
+              progressViewTint: context.attributes.progressViewTint,
+              attributes: context.attributes
             )
             .padding(.horizontal, 5)
             .applyWidgetURL(from: context.attributes.deepLinkUrl)
@@ -89,7 +111,8 @@ struct LiveActivityWidget: Widget {
           compactTimer(
             endDate: date,
             timerType: context.attributes.timerType ?? .circular,
-            progressViewTint: context.attributes.progressViewTint
+            progressViewTint: context.attributes.progressViewTint,
+            attributes: context.attributes
           ).applyWidgetURL(from: context.attributes.deepLinkUrl)
         }
       } minimal: {
@@ -97,7 +120,8 @@ struct LiveActivityWidget: Widget {
           compactTimer(
             endDate: date,
             timerType: context.attributes.timerType ?? .circular,
-            progressViewTint: context.attributes.progressViewTint
+            progressViewTint: context.attributes.progressViewTint,
+            attributes: context.attributes
           ).applyWidgetURL(from: context.attributes.deepLinkUrl)
         }
       }
@@ -108,7 +132,8 @@ struct LiveActivityWidget: Widget {
   private func compactTimer(
     endDate: Double,
     timerType: LiveActivityAttributes.DynamicIslandTimerType,
-    progressViewTint: String?
+    progressViewTint: String?,
+    attributes: LiveActivityAttributes
   ) -> some View {
     if timerType == .digital {
       Text(timerInterval: Date.toTimerInterval(miliseconds: endDate))
@@ -117,24 +142,29 @@ struct LiveActivityWidget: Widget {
         .fontWeight(.semibold)
         .frame(maxWidth: 60)
         .multilineTextAlignment(.trailing)
+        .foregroundStyle(titleColor(for: attributes))
     } else {
       circularTimer(endDate: endDate)
-        .tint(progressViewTint.map { Color(hex: $0) })
+        .tint(progressViewTint.map { Color(hex: $0) } ?? accentColor(for: attributes))
     }
   }
 
-  private func dynamicIslandExpandedLeading(title: String, subtitle: String?) -> some View {
+  private func dynamicIslandExpandedLeading(
+    title: String,
+    subtitle: String?,
+    attributes: LiveActivityAttributes
+  ) -> some View {
     VStack(alignment: .leading) {
       Spacer()
       Text(title)
         .font(.title2)
-        .foregroundStyle(.white)
+        .foregroundStyle(titleColor(for: attributes))
         .fontWeight(.semibold)
       if let subtitle {
         Text(subtitle)
           .font(.title3)
           .minimumScaleFactor(0.8)
-          .foregroundStyle(.white.opacity(0.75))
+          .foregroundStyle(subtitleColor(for: attributes))
       }
       Spacer()
     }
@@ -148,10 +178,14 @@ struct LiveActivityWidget: Widget {
     }
   }
 
-  private func dynamicIslandExpandedBottom(endDate: Double, progressViewTint: String?) -> some View {
+  private func dynamicIslandExpandedBottom(
+    endDate: Double,
+    progressViewTint: String?,
+    attributes: LiveActivityAttributes
+  ) -> some View {
     ProgressView(timerInterval: Date.toTimerInterval(miliseconds: endDate))
-      .foregroundStyle(.white)
-      .tint(progressViewTint.map { Color(hex: $0) })
+      .foregroundStyle(titleColor(for: attributes))
+      .tint(progressViewTint.map { Color(hex: $0) } ?? accentColor(for: attributes))
       .padding(.top, 5)
   }
 

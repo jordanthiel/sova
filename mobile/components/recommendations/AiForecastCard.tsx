@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Spacing, Typography, Radius, Shadows } from '@/constants/theme';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
+import { useThemeColors } from '@/hooks/use-theme-color';
 import { useAiInsight } from '@/hooks/useAiInsight';
 
 type TrendLabel = 'improving' | 'stable' | 'declining' | 'transitioning';
@@ -66,7 +66,6 @@ function headerPreview(f: TonightSleepForecast | undefined): string {
 
 export function AiForecastCard({ babyId }: AiForecastCardProps) {
   const colors = useThemeColors();
-  const gradients = useThemeGradients();
   const [expanded, setExpanded] = useState(false);
   const didFetch = useRef(false);
   const prevBabyId = useRef<string | null>(null);
@@ -108,13 +107,17 @@ export function AiForecastCard({ babyId }: AiForecastCardProps) {
   })();
 
   return (
-    <View style={[styles.wrapper, Shadows.sm]}>
+    <DarkPanel style={[styles.wrapper, Shadows.sm]} padding="none" shadow="none">
       <TouchableOpacity onPress={() => setExpanded(!expanded)} activeOpacity={0.85}>
-        <LinearGradient
-          colors={[...gradients.sunset]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
+        <View
+          style={[
+            styles.headerGradient,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderBottomWidth: expanded ? 1 : 0,
+              borderBottomColor: colors.borderLight,
+            },
+          ]}
         >
           <View style={styles.headerRow}>
             <IconSymbol name="wand.and.stars" size={18} color={colors.text} />
@@ -130,11 +133,11 @@ export function AiForecastCard({ babyId }: AiForecastCardProps) {
               color="rgba(255,255,255,0.7)"
             />
           </View>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
 
       {expanded && (
-        <View style={[styles.body, { backgroundColor: colors.surface }]}>
+        <View style={styles.body}>
           {loading ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator size="small" color={colors.accent} />
@@ -233,7 +236,7 @@ export function AiForecastCard({ babyId }: AiForecastCardProps) {
           )}
         </View>
       )}
-    </View>
+    </DarkPanel>
   );
 }
 

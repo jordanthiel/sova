@@ -11,7 +11,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { SleepScoreRing } from '@/components/ui/SleepScoreRing';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
@@ -982,8 +982,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   viewModeChipActive: {
-    backgroundColor: '#C7AEFF',
-    borderColor: '#C7AEFF',
+    backgroundColor: Colors.dark.accent,
+    borderColor: Colors.dark.accent,
   },
   listWithHeaders: {
     paddingHorizontal: Spacing.md,
@@ -996,7 +996,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   listDayHeaderSticky: {
-    backgroundColor: '#0D0918',
+    backgroundColor: Colors.dark.background,
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xs,
@@ -1056,7 +1056,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     overflow: 'hidden',
     elevation: 8,
-    shadowColor: '#9B6BFF',
+    shadowColor: Colors.dark.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

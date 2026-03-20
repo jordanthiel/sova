@@ -1,6 +1,7 @@
 import { BabySwitcher } from '@/components/baby/BabySwitcher';
 import { ProfileAvatarButton } from '@/components/ProfileAvatarButton';
 import { PremiumUpsellCard } from '@/components/premium/PremiumUpsellCard';
+import { TrialStatusBanner } from '@/components/premium/TrialStatusBanner';
 import { AiForecastCard } from '@/components/recommendations/AiForecastCard';
 import { ActiveSessionCard } from '@/components/sleep/ActiveSessionCard';
 import { SessionEditModal } from '@/components/sleep/SessionEditModal';
@@ -13,6 +14,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { Spacing, Typography } from '@/constants/theme';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { usePremiumGate } from '@/hooks/usePremiumGate';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
@@ -38,6 +40,7 @@ import { flushOfflineQueue, queueInsert, queueUpdate } from '@/services/offlineS
 import { excludedDaysRepo } from '@/services/repositories/excludedDaysRepo';
 import { babiesRepo } from '@/services/repositories/babiesRepo';
 import { storedNapTargetsRepo } from '@/services/repositories/storedNapTargetsRepo';
+import { getTrialDaysRemaining } from '@/services/subscription';
 import type {
   AIRecommendation,
   Baby,
@@ -125,6 +128,16 @@ export default function TodayScreen() {
   const colors = useThemeColors();
   const gradients = useThemeGradients();
   const { hasPremiumAccess, showPaywall } = usePremiumGate();
+  const { isReady: subscriptionReady, isTrialActive, trialEndsAt } = useSubscription();
+  const trialPaywallShownRef = useRef<number | null>(null);
+  const trialDaysRemaining = getTrialDaysRemaining(trialEndsAt);
+  const shouldShowTrialBanner = isTrialActive && trialDaysRemaining != null && trialDaysRemaining > 0;
+  const shouldAutoShowTrialPaywall =
+    subscriptionReady &&
+    isTrialActive &&
+    trialDaysRemaining != null &&
+    trialDaysRemaining > 0 &&
+    trialDaysRemaining <= 3;
 
   useEffect(() => {
     if (!currentBabyId) return;
@@ -224,6 +237,20 @@ export default function TodayScreen() {
         excludedDaysRepo.getExcludedDateKeys(currentBabyId).then((keys) => setExcludedDateKeys(new Set(keys)));
       }
     }, [refetchSessions, currentBabyId])
+  );
+
+  useEffect(() => {
+    if (shouldAutoShowTrialPaywall) return;
+    trialPaywallShownRef.current = null;
+  }, [shouldAutoShowTrialPaywall]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!shouldAutoShowTrialPaywall || trialDaysRemaining == null) return;
+      if (trialPaywallShownRef.current === trialDaysRemaining) return;
+      trialPaywallShownRef.current = trialDaysRemaining;
+      showPaywall();
+    }, [shouldAutoShowTrialPaywall, trialDaysRemaining, showPaywall])
   );
 
   // Compute derived data
@@ -461,11 +488,16 @@ export default function TodayScreen() {
         const napPayload = (rec.type === 'next_nap' || rec.type === 'bedtime') ? (rec.payload as NapRecommendationPayload) : null;
         if (napPayload && (rec.type === 'next_nap' || rec.type === 'bedtime')) {
           if (existingId) {
-            return storedNapTargetsRepo.update(existingId, rec.type as 'next_nap' | 'bedtime', napPayload, key);
+            return storedNapTargetsRepo
+              .update(existingId, rec.type as 'next_nap' | 'bedtime', napPayload, key)
+              .catch(() => {});
           }
-          return storedNapTargetsRepo.insert(domainBaby.id, rec.type as 'next_nap' | 'bedtime', napPayload, key).then((id) => {
-            currentStoredTargetIdRef.current = id;
-          });
+          return storedNapTargetsRepo
+            .insert(domainBaby.id, rec.type as 'next_nap' | 'bedtime', napPayload, key)
+            .then((id) => {
+              currentStoredTargetIdRef.current = id;
+            })
+            .catch(() => {});
         }
       })
       .catch((error) => {
@@ -478,11 +510,16 @@ export default function TodayScreen() {
         const napPayload = (local.type === 'next_nap' || local.type === 'bedtime') ? (local.payload as NapRecommendationPayload) : null;
         if (napPayload) {
           if (existingId) {
-            return storedNapTargetsRepo.update(existingId, local.type as 'next_nap' | 'bedtime', napPayload, key);
+            return storedNapTargetsRepo
+              .update(existingId, local.type as 'next_nap' | 'bedtime', napPayload, key)
+              .catch(() => {});
           }
-          return storedNapTargetsRepo.insert(domainBaby.id, local.type as 'next_nap' | 'bedtime', napPayload, key).then((id) => {
-            currentStoredTargetIdRef.current = id;
-          });
+          return storedNapTargetsRepo
+            .insert(domainBaby.id, local.type as 'next_nap' | 'bedtime', napPayload, key)
+            .then((id) => {
+              currentStoredTargetIdRef.current = id;
+            })
+            .catch(() => {});
         }
       })
       .finally(() => setRecommendationLoading(false));
@@ -877,6 +914,13 @@ export default function TodayScreen() {
             <ProfileAvatarButton />
           </View>
         </View>
+
+        {shouldShowTrialBanner && trialDaysRemaining != null ? (
+          <TrialStatusBanner
+            daysRemaining={trialDaysRemaining}
+            onPress={() => showPaywall()}
+          />
+        ) : null}
 
         {/* Status & recommendation — one card when user has logged sessions and awake time is reasonable (≤16h) */}
         {showStatusCard &&

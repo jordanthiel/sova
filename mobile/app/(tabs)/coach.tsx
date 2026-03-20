@@ -7,7 +7,7 @@ import { ProfileAvatarButton } from '@/components/ProfileAvatarButton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
-import { Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { usePremiumGate } from '@/hooks/usePremiumGate';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
@@ -931,7 +931,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   menuItemSelected: {
-    backgroundColor: 'rgba(199, 174, 255, 0.15)',
+    backgroundColor: Colors.dark.accentSoft,
   },
   loadingContainer: { flex: 1, justifyContent: 'center', padding: Spacing.lg },
   messagesContainer: { flex: 1 },
@@ -962,8 +962,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: Radius.full,
     borderWidth: 1,
-    borderColor: 'rgba(199, 174, 255, 0.25)',
-    backgroundColor: 'rgba(199, 174, 255, 0.08)',
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.accentSoft,
   },
   adjustmentSection: {
     marginTop: Spacing.xl,
@@ -985,8 +985,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   adjustmentChipActive: {
-    backgroundColor: '#C7AEFF',
-    borderColor: '#C7AEFF',
+    backgroundColor: Colors.dark.accent,
+    borderColor: Colors.dark.accent,
   },
   suggestedMemoriesCard: {
     marginHorizontal: Spacing.md,
@@ -995,7 +995,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(199, 174, 255, 0.2)',
+    borderColor: Colors.dark.border,
   },
   suggestedMemoriesActions: {
     flexDirection: 'row',
@@ -1008,7 +1008,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   suggestedMemoriesBtnSave: {
-    backgroundColor: '#C7AEFF',
+    backgroundColor: Colors.dark.accent,
   },
   suggestedMemoriesBtnDiscard: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',

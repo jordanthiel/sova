@@ -2,9 +2,10 @@ import { InsightsBundleCard } from '@/components/insights/InsightsBundleCard';
 import { AiForecastCard } from '@/components/recommendations/AiForecastCard';
 import { AiScheduleCard } from '@/components/recommendations/AiScheduleCard';
 import { Button } from '@/components/ui/Button';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
-import { Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors } from '@/hooks/use-theme-color';
@@ -15,7 +16,6 @@ import { useSleepData } from '@/hooks/useSleepData';
 import type { Database } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/services/analytics/track';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -185,13 +185,7 @@ export function InsightsTab() {
 
       {/* Get full analysis CTA */}
       <View style={styles.section}>
-        <View style={styles.ctaCard}>
-          <LinearGradient
-            colors={['rgba(199, 174, 255, 0.2)', 'rgba(157, 139, 255, 0.1)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.ctaGradient}
-          >
+        <DarkPanel style={styles.ctaCard} padding="lg" shadow="sm">
             <IconSymbol name="list.clipboard" size={32} color={colors.text} style={{ alignSelf: 'center', marginBottom: Spacing.sm }} />
             <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.xs, textAlign: 'center' }]}>
               Full Sleep Analysis
@@ -205,8 +199,7 @@ export function InsightsTab() {
               fullWidth
               variant="primary"
             />
-          </LinearGradient>
-        </View>
+        </DarkPanel>
       </View>
 
       {/* Latest recommendation (from recommendations table, e.g. legacy or other flows) */}
@@ -242,13 +235,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ctaCard: {
-    borderRadius: Radius.xl,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(199, 174, 255, 0.2)',
-  },
-  ctaGradient: {
-    padding: Spacing.lg,
     borderRadius: Radius.xl,
   },
 });

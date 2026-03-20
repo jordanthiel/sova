@@ -39,7 +39,7 @@ export function PremiumUpsellCard({
   return (
     <View style={[styles.wrapper, compact && styles.compactWrapper]}>
       <LinearGradient
-        colors={['rgba(199, 174, 255, 0.18)', 'rgba(255, 184, 77, 0.12)']}
+        colors={['rgba(102, 168, 255, 0.18)', 'rgba(102, 168, 255, 0.08)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.card, { borderColor: colors.borderLight }]}

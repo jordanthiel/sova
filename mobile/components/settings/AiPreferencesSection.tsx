@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
-import { Card } from '@/components/ui/Card';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Spacing, Typography, Radius } from '@/constants/theme';
+import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { track } from '@/services/analytics/track';
 import { getRecommendedNapCountForAge, getNapTransitionInsight, calculateAgeDays } from '@/utils/wakeWindowCalculator';
@@ -85,7 +85,7 @@ export function AiPreferencesSection({
         AI Preferences
       </Text>
 
-      <Card padding="md" style={styles.card}>
+      <DarkPanel padding="md" style={styles.card} shadow="sm">
         <PreferenceToggle
           label="Nap preference"
           optionA="Longer naps"
@@ -93,9 +93,9 @@ export function AiPreferencesSection({
           isA={preferences.preferLongerNaps}
           onToggle={(val) => handleToggle('preferLongerNaps', val)}
         />
-      </Card>
+      </DarkPanel>
 
-      <Card padding="md" style={styles.card}>
+      <DarkPanel padding="md" style={styles.card} shadow="sm">
         <Text style={[Typography.captionMedium, { color: colors.textSecondary, marginBottom: Spacing.sm }]}>
           Bedtime
         </Text>
@@ -132,9 +132,9 @@ export function AiPreferencesSection({
             }}
           />
         )}
-      </Card>
+      </DarkPanel>
 
-      <Card padding="md" style={styles.card}>
+      <DarkPanel padding="md" style={styles.card} shadow="sm">
         <Text style={[Typography.captionMedium, { color: colors.textSecondary, marginBottom: Spacing.sm }]}>
           Number of naps
         </Text>
@@ -168,10 +168,10 @@ export function AiPreferencesSection({
             </Text>
           </View>
         ) : null}
-      </Card>
+      </DarkPanel>
 
       {preferences.lastWakeWindowMinutes != null ? (
-        <Card padding="md" style={styles.card}>
+        <DarkPanel padding="md" style={styles.card} shadow="sm">
           <View style={styles.lastWakeRow}>
             <View>
               <Text style={[Typography.captionMedium, { color: colors.textSecondary }]}>
@@ -199,10 +199,10 @@ export function AiPreferencesSection({
               </TouchableOpacity>
             </View>
           </View>
-        </Card>
+        </DarkPanel>
       ) : null}
 
-      <Card padding="md" style={styles.card}>
+      <DarkPanel padding="md" style={styles.card} shadow="sm">
         <PreferenceToggle
           label="Schedule style"
           optionA="Strict"
@@ -210,7 +210,7 @@ export function AiPreferencesSection({
           isA={preferences.strictSchedule}
           onToggle={(val) => handleToggle('strictSchedule', val)}
         />
-      </Card>
+      </DarkPanel>
     </View>
   );
 }
@@ -292,8 +292,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   toggleOptionActive: {
-    backgroundColor: '#C7AEFF',
-    borderColor: '#C7AEFF',
+    backgroundColor: Colors.dark.accent,
+    borderColor: Colors.dark.accent,
   },
   timeInput: {
     marginTop: Spacing.sm,
@@ -317,8 +317,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   napChipActive: {
-    backgroundColor: '#C7AEFF',
-    borderColor: '#C7AEFF',
+    backgroundColor: Colors.dark.accent,
+    borderColor: Colors.dark.accent,
   },
   lastWakeRow: {
     flexDirection: 'row',

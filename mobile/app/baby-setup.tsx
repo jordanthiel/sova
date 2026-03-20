@@ -69,7 +69,7 @@ export default function BabySetupScreen() {
     try {
       const { data: family, error: familyError } = await supabase.rpc('ensure_user_family', {
         p_user_id: user.id,
-        p_family_name: `${babyName || 'My'} Family`,
+        p_family_name: null,
       });
       if (familyError) throw familyError;
 

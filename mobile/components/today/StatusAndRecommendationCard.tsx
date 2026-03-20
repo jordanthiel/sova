@@ -119,7 +119,7 @@ export function StatusAndRecommendationCard({
   return (
     <Card style={styles.card} padding="none">
       <LinearGradient
-        colors={['rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.01)']}
+        colors={[...gradients.cardBackground]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}

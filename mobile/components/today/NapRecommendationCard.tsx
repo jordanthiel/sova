@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/Card';
+import { Colors } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
@@ -103,7 +104,7 @@ export function NapRecommendationCard({
   return (
     <Card style={styles.card} padding="none">
       <LinearGradient
-        colors={['rgba(199, 174, 255, 0.15)', 'rgba(199, 174, 255, 0.05)']}
+        colors={[Colors.dark.accentSoft, 'rgba(102, 168, 255, 0.06)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}

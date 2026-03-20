@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Card } from '@/components/ui/Card';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { useCoachMemories } from '@/hooks/useCoachMemories';
@@ -23,18 +23,18 @@ export function CoachMemoriesSection({ babyId }: CoachMemoriesSectionProps) {
         Preferences and context saved from coach conversations. These are used to personalize recommendations. Remove any you no longer want.
       </Text>
       {loading ? (
-        <Card padding="md" style={styles.card}>
+        <DarkPanel padding="md" style={styles.card} shadow="sm">
           <Text style={[Typography.small, { color: colors.textTertiary }]}>Loading…</Text>
-        </Card>
+        </DarkPanel>
       ) : memories.length === 0 ? (
-        <Card padding="md" style={styles.card}>
+        <DarkPanel padding="md" style={styles.card} shadow="sm">
           <Text style={[Typography.small, { color: colors.textTertiary }]}>
             No memories yet. Chat with the coach and choose to save suggested memories when they appear.
           </Text>
-        </Card>
+        </DarkPanel>
       ) : (
         memories.map((m) => (
-          <Card key={m.id} padding="md" style={styles.card}>
+          <DarkPanel key={m.id} padding="md" style={styles.card} shadow="sm">
             <View style={styles.memoryRow}>
               <Text style={[Typography.body, { color: colors.text, flex: 1 }]}>{m.content}</Text>
               <TouchableOpacity
@@ -45,7 +45,7 @@ export function CoachMemoriesSection({ babyId }: CoachMemoriesSectionProps) {
                 <Text style={[Typography.captionMedium, { color: colors.accent }]}>Remove</Text>
               </TouchableOpacity>
             </View>
-          </Card>
+          </DarkPanel>
         ))
       )}
     </View>

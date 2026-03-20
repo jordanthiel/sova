@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { SleepScoreRing } from '@/components/ui/SleepScoreRing';
 import { Spacing, Typography, ChartTypography } from '@/constants/theme';
 import { chartConfig } from '@/constants/chartConfig';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
 import type { NightSleepScoreResult } from '@/utils/nightSleepScore';
 import { LineChart } from 'react-native-gifted-charts';
@@ -29,6 +29,7 @@ interface NightSleepScoreCardProps {
 
 export function NightSleepScoreCard({ result, trendData = [] }: NightSleepScoreCardProps) {
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
 
   const lineData = useMemo(() => {
     if (trendData.length < 2) return [];
@@ -48,7 +49,7 @@ export function NightSleepScoreCard({ result, trendData = [] }: NightSleepScoreC
   return (
     <Card style={styles.card} padding="none">
       <LinearGradient
-        colors={['rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.01)']}
+        colors={[...gradients.cardBackground]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}

@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, Switch } from 'react-native';
-import { Card } from '@/components/ui/Card';
-import { Spacing, Typography } from '@/constants/theme';
+import { Colors, Spacing, Typography } from '@/constants/theme';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { track } from '@/services/analytics/track';
 import type { NotificationConfig } from '@/types/domain';
@@ -55,7 +55,7 @@ export function NotificationsSection({
       </Text>
 
       {NOTIFICATION_OPTIONS.map(({ key, label, description }) => (
-        <Card key={key} padding="md" style={styles.card}>
+        <DarkPanel key={key} padding="md" style={styles.card} shadow="sm">
           <View style={styles.row}>
             <View style={styles.info}>
               <Text style={[Typography.bodyMedium, { color: colors.text }]}>
@@ -70,12 +70,12 @@ export function NotificationsSection({
               onValueChange={(val) => handleToggle(key, val)}
               trackColor={{
                 false: 'rgba(255, 255, 255, 0.1)',
-                true: 'rgba(199, 174, 255, 0.4)',
+                true: Colors.dark.accentSoft,
               }}
               thumbColor={config[key] ? colors.accent : '#5E7389'}
             />
           </View>
-        </Card>
+        </DarkPanel>
       ))}
     </View>
   );

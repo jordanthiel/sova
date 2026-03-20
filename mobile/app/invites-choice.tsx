@@ -102,8 +102,15 @@ export default function InvitesChoiceScreen() {
     );
   }
 
-  const familyName = (inv: PendingInvitation) =>
-    inv.family_name ?? 'a family';
+  const familyName = (inv: PendingInvitation) => {
+    const explicitName = inv.family_name?.trim();
+    if (explicitName) return explicitName;
+
+    const babyNames = inv.baby_names.filter(Boolean);
+    if (babyNames.length > 0) return babyNames.join(', ');
+
+    return 'your family';
+  };
   const inviterLabel = (inv: PendingInvitation) =>
     inv.inviter_name ? `Invited by ${inv.inviter_name}` : 'Invitation';
 

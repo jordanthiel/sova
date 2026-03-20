@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 
-export async function inviteParentToBaby(babyId: string, parentEmail: string) {
+async function getFamilyForBaby(babyId: string) {
   const { data: baby, error: babyError } = await supabase
     .from('babies')
     .select('family_id')
@@ -10,6 +10,12 @@ export async function inviteParentToBaby(babyId: string, parentEmail: string) {
   if (babyError || !baby?.family_id) {
     throw new Error('Family not found for this baby');
   }
+
+  return baby.family_id;
+}
+
+export async function inviteParentToBaby(babyId: string, parentEmail: string) {
+  const familyId = await getFamilyForBaby(babyId);
 
   // First, find the user by email
   const { data: profiles, error: userError } = await supabase
@@ -32,7 +38,7 @@ export async function inviteParentToBaby(babyId: string, parentEmail: string) {
   const { data: existing } = await supabase
     .from('family_members')
     .select('id')
-    .eq('family_id', baby.family_id)
+    .eq('family_id', familyId)
     .eq('user_id', profiles.id)
     .single();
 
@@ -44,7 +50,7 @@ export async function inviteParentToBaby(babyId: string, parentEmail: string) {
   const { data, error } = await supabase
     .from('family_members')
     .insert({
-      family_id: baby.family_id,
+      family_id: familyId,
       user_id: profiles.id,
       role: 'member',
       status: 'pending',
@@ -55,6 +61,31 @@ export async function inviteParentToBaby(babyId: string, parentEmail: string) {
 
   if (error) throw error;
   return data;
+}
+
+export async function inviteEmailToFamily(babyId: string, inviteeEmail: string) {
+  const familyId = await getFamilyForBaby(babyId);
+  const normalizedEmail = inviteeEmail.toLowerCase().trim();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('Not authenticated');
+  }
+
+  const { error } = await supabase
+    .from('family_invitations')
+    .upsert(
+      {
+        family_id: familyId,
+        email: normalizedEmail,
+        invited_by: user.id,
+      },
+      { onConflict: 'family_id,email', ignoreDuplicates: true }
+    );
+
+  if (error) throw error;
 }
 
 export async function acceptInvitation(invitationId: string) {
@@ -97,6 +128,7 @@ export type PendingInvitation = {
   id: string;
   family_id: string;
   family_name: string | null;
+  baby_names: string[];
   inviter_name: string | null;
 };
 
@@ -123,6 +155,19 @@ export async function getPendingInvitations(): Promise<PendingInvitation[]> {
   const rows = data || [];
   if (rows.length === 0) return [];
 
+  const familyIds = [...new Set(rows.map((r) => r.family_id).filter(Boolean))] as string[];
+  const { data: babies } = await supabase
+    .from('babies')
+    .select('family_id, name')
+    .in('family_id', familyIds);
+
+  const babyNamesByFamily = new Map<string, string[]>();
+  for (const baby of babies || []) {
+    const list = babyNamesByFamily.get(baby.family_id) ?? [];
+    if (baby.name) list.push(baby.name);
+    babyNamesByFamily.set(baby.family_id, list);
+  }
+
   const invitedByIds = [...new Set(rows.map((r) => r.invited_by).filter(Boolean))] as string[];
   const { data: profiles } = await supabase
     .from('profiles')
@@ -139,6 +184,7 @@ export async function getPendingInvitations(): Promise<PendingInvitation[]> {
       id: row.id,
       family_id: row.family_id,
       family_name: families?.name ?? null,
+      baby_names: babyNamesByFamily.get(row.family_id) ?? [],
       inviter_name: row.invited_by ? inviterByName.get(row.invited_by) ?? null : null,
     };
   });

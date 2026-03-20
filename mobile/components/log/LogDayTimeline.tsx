@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { format, addDays } from 'date-fns';
-import { Spacing, Typography, Radius, ChartTypography } from '@/constants/theme';
+import { Colors, Spacing, Typography, Radius, ChartTypography } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -207,7 +207,7 @@ export function LogDayTimeline({
             {showPreview && (
               <View style={[styles.sessionBlock, { top: previewTop, height: previewHeight }]} pointerEvents="none">
                 <LinearGradient
-                  colors={['rgba(199, 174, 255, 0.5)', 'rgba(157, 139, 255, 0.5)']}
+                  colors={[Colors.dark.accentSoft, 'rgba(127, 179, 255, 0.28)']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.sessionGradient}

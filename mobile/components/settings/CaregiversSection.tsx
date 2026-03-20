@@ -1,20 +1,20 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, Animated } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Spacing, Typography, Radius } from '@/constants/theme';
+import { DarkPanel } from '@/components/ui/DarkPanel';
+import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { track } from '@/services/analytics/track';
 import type { Caregiver } from '@/types/domain';
 
 interface CaregiversSectionProps {
   caregivers: Caregiver[];
-  onInvite: (email: string) => void;
+  onInvite: (email: string) => Promise<void>;
   /** When true, owner can remove non-owner caregivers. */
   canRemoveCaregivers?: boolean;
-  onRemove?: (caregiverId: string) => Promise<void>;
+  onRemove?: (caregiver: Caregiver) => Promise<void>;
 }
 
 const PERMISSION_LABELS: Record<Caregiver['permission'], string> = {
@@ -24,7 +24,7 @@ const PERMISSION_LABELS: Record<Caregiver['permission'], string> = {
 };
 
 const PERMISSION_COLORS: Record<Caregiver['permission'], string> = {
-  can_edit: '#C7AEFF',
+  can_edit: Colors.dark.accent,
   can_log: '#FFB84D',
   view_only: '#5E7389',
 };
@@ -34,23 +34,27 @@ export function CaregiversSection({ caregivers, onInvite, canRemoveCaregivers, o
   const [showInvite, setShowInvite] = useState(false);
   const [email, setEmail] = useState('');
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   const handleRemove = (cg: Caregiver) => {
     if (!onRemove || cg.role === 'owner') return;
+    const isPending = cg.status === 'pending';
     Alert.alert(
-      'Remove family member',
-      `Remove ${cg.name} from this family? They will lose access to every baby in the family.`,
+      isPending ? 'Cancel invite' : 'Remove family member',
+      isPending
+        ? `Cancel the invite for ${cg.email ?? cg.name}? They will no longer be able to join this family from that invitation.`
+        : `Remove ${cg.name} from this family? They will lose access to every baby in the family.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Remove',
+          text: isPending ? 'Cancel Invite' : 'Remove',
           style: 'destructive',
           onPress: async () => {
             setRemovingId(cg.id);
             try {
-              await onRemove(cg.id);
+              await onRemove(cg);
             } catch (err: any) {
-              Alert.alert('Error', err.message ?? 'Could not remove caregiver.');
+              Alert.alert('Error', err.message ?? (isPending ? 'Could not cancel invite.' : 'Could not remove caregiver.'));
             } finally {
               setRemovingId(null);
             }
@@ -60,16 +64,24 @@ export function CaregiversSection({ caregivers, onInvite, canRemoveCaregivers, o
     );
   };
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
     if (!email.trim() || !email.includes('@')) {
       Alert.alert('Invalid Email', 'Please enter a valid email address.');
       return;
     }
-    track('invite_caregiver', { email: email.trim() });
-    onInvite(email.trim());
-    setEmail('');
-    setShowInvite(false);
-    Alert.alert('Invited!', `Invitation sent to ${email.trim()}`);
+    const normalizedEmail = email.trim();
+    track('invite_caregiver', { email: normalizedEmail });
+    setInviteLoading(true);
+    try {
+      await onInvite(normalizedEmail);
+      setEmail('');
+      setShowInvite(false);
+      Alert.alert('Invited!', `Invitation created for ${normalizedEmail}.`);
+    } catch (err: any) {
+      Alert.alert('Invite Failed', err.message ?? 'Could not create invitation.');
+    } finally {
+      setInviteLoading(false);
+    }
   };
 
   return (
@@ -78,6 +90,7 @@ export function CaregiversSection({ caregivers, onInvite, canRemoveCaregivers, o
         <Text style={[Typography.h3, { color: colors.text }]}>Family Members</Text>
         <TouchableOpacity
           onPress={() => setShowInvite(!showInvite)}
+          disabled={inviteLoading}
           activeOpacity={0.7}
         >
           <Text style={[Typography.captionMedium, { color: colors.accent }]}>
@@ -87,7 +100,7 @@ export function CaregiversSection({ caregivers, onInvite, canRemoveCaregivers, o
       </View>
 
       {showInvite && (
-        <Card style={styles.inviteCard} padding="md">
+        <DarkPanel style={styles.inviteCard} padding="md" shadow="sm">
           <TextInput
             style={[styles.input, { color: colors.text, borderColor: colors.border }]}
             placeholder="Email address"
@@ -99,27 +112,35 @@ export function CaregiversSection({ caregivers, onInvite, canRemoveCaregivers, o
             autoFocus
           />
           <Button
-            title="Send Invite"
+            title={inviteLoading ? 'Sending...' : 'Send Invite'}
             onPress={handleInvite}
             variant="primary"
             size="sm"
             fullWidth
+            loading={inviteLoading}
+            disabled={inviteLoading}
           />
-        </Card>
+        </DarkPanel>
       )}
 
       {caregivers.length === 0 ? (
-        <Card padding="md">
+        <DarkPanel padding="md" shadow="sm">
           <Text style={[Typography.body, { color: colors.textSecondary, textAlign: 'center' }]}>
             No other family members yet. Invite someone to share access to every baby in this family.
           </Text>
-        </Card>
+        </DarkPanel>
       ) : (
         caregivers.map((cg) => {
+          const isPending = cg.status === 'pending';
           const isRemovable = !!canRemoveCaregivers && cg.role !== 'owner' && !!onRemove;
+          const subtitle = isPending
+            ? 'Invited'
+            : cg.role === 'owner'
+              ? 'Admin'
+              : 'Member';
 
           const caregiverCard = (
-            <Card style={styles.caregiverCard} padding="md">
+            <DarkPanel style={styles.caregiverCard} padding="md" shadow="sm">
               <View style={styles.caregiverRow}>
                 <View style={styles.caregiverAvatar}>
                   <Text style={styles.avatarText}>
@@ -131,17 +152,27 @@ export function CaregiversSection({ caregivers, onInvite, canRemoveCaregivers, o
                     {cg.name}
                   </Text>
                   <Text style={[Typography.small, { color: colors.textTertiary }]}>
-                    {cg.role === 'owner' ? 'Admin' : 'Member'}
+                    {subtitle}
+                    {cg.email ? ` • ${cg.email}` : ''}
                   </Text>
                 </View>
-                <Badge
-                  label={PERMISSION_LABELS[cg.permission]}
-                  backgroundColor={`${PERMISSION_COLORS[cg.permission]}20`}
-                  color={PERMISSION_COLORS[cg.permission]}
-                  size="sm"
-                />
+                {isPending ? (
+                  <Badge
+                    label="Invited"
+                    backgroundColor="rgba(255, 184, 77, 0.12)"
+                    color="#FFB84D"
+                    size="sm"
+                  />
+                ) : (
+                  <Badge
+                    label={PERMISSION_LABELS[cg.permission]}
+                    backgroundColor={`${PERMISSION_COLORS[cg.permission]}20`}
+                    color={PERMISSION_COLORS[cg.permission]}
+                    size="sm"
+                  />
+                )}
               </View>
-            </Card>
+            </DarkPanel>
           );
 
           if (!isRemovable) {
@@ -177,7 +208,7 @@ export function CaregiversSection({ caregivers, onInvite, canRemoveCaregivers, o
                   {removingId === cg.id ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.deleteText}>Delete</Text>
+                    <Text style={styles.deleteText}>{isPending ? 'Cancel' : 'Delete'}</Text>
                   )}
                 </TouchableOpacity>
               </Animated.View>
@@ -230,13 +261,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(199, 174, 255, 0.15)',
+    backgroundColor: Colors.dark.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     ...Typography.bodySemiBold,
-    color: '#C7AEFF',
+    color: Colors.dark.accent,
   },
   caregiverInfo: {
     flex: 1,

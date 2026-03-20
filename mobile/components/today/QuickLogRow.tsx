@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { Spacing, Typography, Radius } from '@/constants/theme';
+import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
@@ -120,8 +120,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(199, 174, 255, 0.3)',
-    backgroundColor: 'rgba(199, 174, 255, 0.08)',
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.accentSoft,
     gap: Spacing.sm,
   },
   outlineText: {

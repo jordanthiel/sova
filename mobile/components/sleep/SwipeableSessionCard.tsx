@@ -2,8 +2,8 @@ import { useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Animated } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
-import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { Avatar } from '@/components/ui/Avatar';
 import { Spacing, Typography, Radius } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -78,9 +78,10 @@ export function SwipeableSessionCard({ session, onPress, onDelete, isLast, logge
         onPress={onPress}
         activeOpacity={0.7}
       >
-        <Card
+        <DarkPanel
           style={[styles.sessionCard, !isLast && { marginBottom: Spacing.sm }]}
           padding="md"
+          shadow="sm"
         >
           <View style={styles.sessionRow}>
             <View style={[styles.sessionIcon, { backgroundColor: isNap ? colors.napColorSoft : colors.nightColorSoft }]}>
@@ -118,7 +119,7 @@ export function SwipeableSessionCard({ session, onPress, onDelete, isLast, logge
               </Text>
             </View>
           </View>
-        </Card>
+        </DarkPanel>
       </TouchableOpacity>
     </Swipeable>
   );

@@ -1,16 +1,14 @@
 /**
  * Hook to keep the Nap Live Activity in sync with Today screen state.
- * Starts when there is a recommendation or active session; updates on change and every minute; ends when neither.
+ * Starts only while a sleep session is active, updates on change and every second, and ends when the session ends.
  */
 
-import { addMinutes } from 'date-fns';
 import { useCallback, useEffect, useRef } from 'react';
 import type { Database } from '@/lib/supabase';
 import type { NapRecommendationPayload } from '@/types/domain';
 import type { NapLiveActivityState } from '@/types/liveActivity';
 import {
   endNapLiveActivity,
-  getNapLiveActivityId,
   startNapLiveActivity,
   updateNapLiveActivity,
 } from '@/services/liveActivity';
@@ -26,7 +24,7 @@ export interface UseNapLiveActivityParams {
 }
 
 function buildState(params: UseNapLiveActivityParams): NapLiveActivityState | null {
-  const { activeSession, napPayload, capAtIso, babyName, isBedtime } = params;
+  const { activeSession, capAtIso, babyName } = params;
 
   if (activeSession) {
     return {
@@ -38,23 +36,6 @@ function buildState(params: UseNapLiveActivityParams): NapLiveActivityState | nu
     };
   }
 
-  if (napPayload) {
-    const capAtIso =
-      !isBedtime &&
-      napPayload.shouldCapNap !== false &&
-      napPayload.recommendedCapMinutes != null
-        ? addMinutes(new Date(napPayload.startWindowBegin), napPayload.recommendedCapMinutes).toISOString()
-        : null;
-    return {
-      mode: 'awake',
-      windowStartIso: napPayload.startWindowBegin,
-      windowEndIso: napPayload.startWindowEnd,
-      isBedtime,
-      babyName: babyName ?? undefined,
-      capAtIso: capAtIso ?? undefined,
-    };
-  }
-
   return null;
 }
 
@@ -62,28 +43,18 @@ const UPDATE_INTERVAL_MS = 60 * 1000;
 const SLEEPING_UPDATE_INTERVAL_MS = 1000;
 
 export function useNapLiveActivity(params: UseNapLiveActivityParams): void {
-  const { activeSession, napPayload, capAtIso, babyName, isBedtime } = params;
   const state = buildState(params);
-  const hasActivityRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const paramsRef = useRef(params);
   paramsRef.current = params;
 
   const startOrUpdate = useCallback(() => {
     if (!state) return;
-    getNapLiveActivityId().then((id) => {
-      if (id) {
-        updateNapLiveActivity(state);
-      } else {
-        const newId = startNapLiveActivity(state);
-        if (newId) hasActivityRef.current = true;
-      }
-    });
+    void startNapLiveActivity(state);
   }, [state]);
 
   const end = useCallback(() => {
     endNapLiveActivity();
-    hasActivityRef.current = false;
   }, []);
 
   useEffect(() => {

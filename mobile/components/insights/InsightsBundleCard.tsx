@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Spacing, Typography, Radius, Shadows } from '@/constants/theme';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
+import { useThemeColors } from '@/hooks/use-theme-color';
 import { useAiInsight } from '@/hooks/useAiInsight';
 
 interface InsightItem {
@@ -26,7 +26,6 @@ export function InsightsBundleCard({
   onInsightPress?: (message: string) => void;
 }) {
   const colors = useThemeColors();
-  const gradients = useThemeGradients();
   const [expanded, setExpanded] = useState(true);
   const didFetch = useRef(false);
   const prevBabyId = useRef<string | null>(null);
@@ -58,13 +57,17 @@ export function InsightsBundleCard({
   if (!loading && !data && !error) return null;
 
   return (
-    <View style={[styles.wrapper, Shadows.sm]}>
+    <DarkPanel style={[styles.wrapper, Shadows.sm]} padding="none" shadow="none">
       <TouchableOpacity onPress={() => setExpanded(!expanded)} activeOpacity={0.85}>
-        <LinearGradient
-          colors={[...gradients.heroAccent]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
+        <View
+          style={[
+            styles.headerGradient,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderBottomWidth: expanded ? 1 : 0,
+              borderBottomColor: colors.borderLight,
+            },
+          ]}
         >
           <View style={styles.headerRow}>
             <IconSymbol name="lightbulb.fill" size={20} color={colors.text} />
@@ -82,11 +85,11 @@ export function InsightsBundleCard({
               color="rgba(255,255,255,0.7)"
             />
           </View>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
 
       {expanded && (
-        <View style={[styles.body, { backgroundColor: colors.surface }]}>
+        <View style={styles.body}>
           {loading ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator size="small" color={colors.accent} />
@@ -147,7 +150,7 @@ export function InsightsBundleCard({
           )}
         </View>
       )}
-    </View>
+    </DarkPanel>
   );
 }
 

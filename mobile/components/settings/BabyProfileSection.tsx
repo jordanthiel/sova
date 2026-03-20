@@ -1,5 +1,5 @@
 import { Avatar } from '@/components/ui/Avatar';
-import { Card } from '@/components/ui/Card';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { getBabyPhotoUri, pickBabyPhoto, uploadBabyPhoto } from '@/services/photoUpload';
@@ -47,7 +47,7 @@ export function BabyProfileSection({ baby, onEditName }: BabyProfileSectionProps
   };
 
   return (
-    <Card padding="lg">
+    <DarkPanel padding="lg" shadow="sm">
       <View style={styles.profileRow}>
         <TouchableOpacity onPress={handlePickPhoto} activeOpacity={0.7}>
           {photoUri ? (
@@ -97,8 +97,8 @@ export function BabyProfileSection({ baby, onEditName }: BabyProfileSectionProps
                 style={[
                   styles.chip,
                   isSelected && {
-                    backgroundColor: 'rgba(199, 174, 255, 0.15)',
-                    borderColor: 'rgba(199, 174, 255, 0.3)',
+                    backgroundColor: colors.accentSoft,
+                    borderColor: colors.border,
                   },
                 ]}
               >
@@ -115,7 +115,7 @@ export function BabyProfileSection({ baby, onEditName }: BabyProfileSectionProps
           })}
         </View>
       </View> */}
-    </Card>
+    </DarkPanel>
   );
 }
 

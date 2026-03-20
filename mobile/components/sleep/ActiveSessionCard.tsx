@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { format } from 'date-fns';
 import { Radius, Shadows, Spacing, Fonts } from '@/constants/theme';
-import { useThemeGradients } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 
 interface ActiveSessionCardProps {
   sessionId: string;
@@ -18,6 +18,7 @@ interface ActiveSessionCardProps {
 export function ActiveSessionCard({ sessionId, babyId, startTime, type, capSuggestion }: ActiveSessionCardProps) {
   const [duration, setDuration] = useState('00:00:00');
   const [whyExpanded, setWhyExpanded] = useState(false);
+  const colors = useThemeColors();
   const gradients = useThemeGradients();
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export function ActiveSessionCard({ sessionId, babyId, startTime, type, capSugge
   }, [startTime]);
 
   const isNap = type === 'nap';
-  const gradientColors = isNap ? gradients.nap : gradients.night;
+  const gradientColors = gradients.cardBackground;
   const showCap = isNap && capSuggestion;
 
   const handlePress = () => {
@@ -54,7 +55,12 @@ export function ActiveSessionCard({ sessionId, babyId, startTime, type, capSugge
         <TouchableOpacity onPress={handlePress} activeOpacity={0.85} style={styles.topRow}>
           <View style={styles.left}>
             <View style={styles.statusRow}>
-              <View style={styles.liveDot} />
+              <View
+                style={[
+                  styles.liveDot,
+                  { backgroundColor: isNap ? colors.napColor : colors.nightColor },
+                ]}
+              />
               <Text style={styles.label}>
                 {isNap ? 'Nap in progress' : 'Night sleep'}
               </Text>
@@ -119,7 +125,6 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#FFFFFF',
   },
   label: {
     fontSize: 10,

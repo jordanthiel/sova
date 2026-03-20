@@ -17,7 +17,7 @@ import { useRealtimeCaregivers } from '@/hooks/useRealtimeCaregivers';
 import { useSleepData } from '@/hooks/useSleepData';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
 import { track } from '@/services/analytics/track';
-import { Spacing, Typography, Radius } from '@/constants/theme';
+import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 
 type TabId = 'trends' | 'insights';
@@ -152,7 +152,7 @@ export default function InsightsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0D0918',
+    backgroundColor: Colors.dark.background,
   },
   loadingContainer: {
     flex: 1,
@@ -179,6 +179,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   tabActive: {
-    backgroundColor: '#C7AEFF',
+    backgroundColor: Colors.dark.accent,
   },
 });

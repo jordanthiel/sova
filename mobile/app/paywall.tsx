@@ -77,6 +77,21 @@ export default function PaywallScreen() {
   const selectedPackage =
     packages.find((pkg) => (pkg as any)?.identifier === selectedIdentifier) ?? packages[0] ?? null;
   const featureLabel = feature ? PREMIUM_FEATURE_LABELS[feature] : 'premium AI tools';
+  const isTrialEndingSoon = trialDaysRemaining != null && trialDaysRemaining > 0 && trialDaysRemaining <= 3;
+  const heroTitle = isTrialEndingSoon
+    ? trialDaysRemaining === 1
+      ? 'Your free trial ends tomorrow'
+      : `Your free trial ends in ${trialDaysRemaining} days`
+    : 'Unlock Sova Premium';
+  const heroSubtitle = isTrialEndingSoon
+    ? `Keep ${featureLabel}, AI recommendations, coach support, and daily insights without interruption. Choose a plan below before your trial runs out.`
+    : `Subscribe to keep ${featureLabel} and the rest of Sova's AI features available after your free trial.`;
+  const trialStatusLabel =
+    trialDaysRemaining == null
+      ? null
+      : trialDaysRemaining > 0
+      ? `${trialDaysRemaining} day${trialDaysRemaining === 1 ? '' : 's'} left in your 7-day free trial`
+      : 'Your 7-day free trial has ended';
 
   const handlePurchase = async () => {
     if (!selectedPackage) return;
@@ -133,7 +148,7 @@ export default function PaywallScreen() {
             <IconSymbol name="sparkles" size={28} color={colors.accent} />
           </View>
           <Text style={[Typography.h1, { color: colors.text, textAlign: 'center' }]}>
-            Unlock Sova Premium
+            {heroTitle}
           </Text>
           <Text
             style={[
@@ -141,26 +156,24 @@ export default function PaywallScreen() {
               { color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
             ]}
           >
-            Subscribe to keep {featureLabel} and the rest of Sova&apos;s AI features available after your free trial.
+            {heroSubtitle}
           </Text>
 
-          {trialDaysRemaining != null ? (
+          {trialStatusLabel ? (
             <Text
               style={[
                 Typography.captionMedium,
                 { color: colors.accent, textAlign: 'center', marginTop: Spacing.md },
               ]}
             >
-              {trialDaysRemaining > 0
-                ? `${trialDaysRemaining} day${trialDaysRemaining === 1 ? '' : 's'} left in your 7-day free trial`
-                : 'Your 7-day free trial has ended'}
+              {trialStatusLabel}
             </Text>
           ) : null}
         </View>
 
         <View style={[styles.featuresCard, { borderColor: colors.borderLight }]}>
           <Text style={[Typography.bodySemiBold, { color: colors.text, marginBottom: Spacing.sm }]}>
-            Included with premium
+            {isTrialEndingSoon ? 'Why upgrade now' : 'Included with premium'}
           </Text>
           {[
             'AI sleep coach conversations',

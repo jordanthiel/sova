@@ -1,13 +1,13 @@
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { Typography } from '@/constants/theme';
+import { Colors, Typography } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 
 export function scoreColor(score: number): string {
-  if (score >= 80) return '#68D391';
-  if (score >= 60) return '#C7AEFF';
-  if (score >= 40) return '#F6AD55';
-  return '#FC8181';
+  if (score >= 80) return Colors.dark.success;
+  if (score >= 60) return Colors.dark.accent;
+  if (score >= 40) return Colors.dark.warning;
+  return Colors.dark.error;
 }
 
 interface SleepScoreRingProps {

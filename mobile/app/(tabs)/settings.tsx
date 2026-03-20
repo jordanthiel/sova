@@ -5,10 +5,10 @@ import { CaregiversSection } from '@/components/settings/CaregiversSection';
 import { CoachMemoriesSection } from '@/components/settings/CoachMemoriesSection';
 import { NotificationsSection } from '@/components/settings/NotificationsSection';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
-import { Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
@@ -197,17 +197,13 @@ export default function SettingsScreen() {
 
   const handleInviteCaregiver = async (email: string) => {
     if (!currentBabyId) return;
-    try {
-      await caregiversRepo.invite(currentBabyId, email);
-      await refetchCaregivers();
-    } catch (err: any) {
-      Alert.alert('Invite Failed', err.message || 'Could not send invitation.');
-    }
+    await caregiversRepo.invite(currentBabyId, email);
+    await refetchCaregivers();
   };
 
-  const handleRemoveCaregiver = async (caregiverId: string) => {
+  const handleRemoveCaregiver = async (caregiver: Baby['caregivers'][number]) => {
     if (!currentBabyId) return;
-    await caregiversRepo.remove(currentBabyId, caregiverId);
+    await caregiversRepo.remove(currentBabyId, caregiver);
     await refetchCaregivers();
   };
 
@@ -448,7 +444,7 @@ export default function SettingsScreen() {
               <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.md }]}>
                 Data
               </Text>
-              <Card padding="md" style={styles.importCard}>
+              <DarkPanel padding="md" style={styles.importCard} shadow="sm">
                 <Text style={[Typography.bodyMedium, { color: colors.text, marginBottom: Spacing.xs }]}>
                   Import sleep from CSV
                 </Text>
@@ -462,9 +458,9 @@ export default function SettingsScreen() {
                   size="sm"
                   disabled={importing}
                 />
-              </Card>
+              </DarkPanel>
 
-              <Card padding="md" style={[styles.importCard, { marginTop: Spacing.sm }]}>
+              <DarkPanel padding="md" style={[styles.importCard, { marginTop: Spacing.sm }]} shadow="sm">
                 <Text style={[Typography.bodyMedium, { color: colors.text, marginBottom: Spacing.xs }]}>
                   Import by email
                 </Text>
@@ -505,7 +501,7 @@ export default function SettingsScreen() {
                     Set EXPO_PUBLIC_SLEEP_IMPORT_INBOUND_DOMAIN in your app config to show your import address.
                   </Text>
                 )}
-              </Card>
+              </DarkPanel>
             </View>
 
         {/* Account actions */}
@@ -522,7 +518,7 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Card padding="md" style={styles.importCard}>
+          <DarkPanel padding="md" style={styles.importCard} shadow="sm">
             <Text style={[Typography.bodyMedium, { color: colors.text, marginBottom: Spacing.xs }]}>
               Request account deletion
             </Text>
@@ -535,7 +531,7 @@ export default function SettingsScreen() {
               variant="secondary"
               fullWidth
             />
-          </Card>
+          </DarkPanel>
         </View>
 
         <View style={styles.section}>
@@ -597,8 +593,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(199, 174, 255, 0.2)',
-    backgroundColor: 'rgba(199, 174, 255, 0.06)',
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.accentSoft,
     borderStyle: 'dashed',
   },
 });

@@ -104,7 +104,14 @@ export default function RootLayout() {
               <Stack.Screen name="log-sleep" options={{ headerShown: false, presentation: 'modal' }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-              <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal' }} />
+              <Stack.Screen
+                name="paywall"
+                options={{
+                  headerShown: false,
+                  presentation: 'formSheet',
+                  sheetAllowedDetents: [0.95],
+                }}
+              />
               <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
               <Stack.Screen
                 name="select-baby"

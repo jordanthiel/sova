@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   excludeBtnActive: {
-    borderColor: 'rgba(199, 174, 255, 0.4)',
-    backgroundColor: 'rgba(199, 174, 255, 0.08)',
+    borderColor: 'rgba(102, 168, 255, 0.30)',
+    backgroundColor: 'rgba(102, 168, 255, 0.12)',
   },
 });

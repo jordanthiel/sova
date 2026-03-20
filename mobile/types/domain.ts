@@ -38,6 +38,9 @@ export interface Caregiver {
   name: string;
   role: 'owner' | 'caregiver' | 'viewer';
   permission: 'can_log' | 'can_edit' | 'view_only';
+  email?: string | null;
+  status?: 'accepted' | 'pending';
+  inviteSource?: 'family_member' | 'family_invitation';
 }
 
 export type SleepEventType = 'nap' | 'night';

@@ -263,7 +263,7 @@ export default function HistoryScreen() {
                   </LinearGradient>
                 </View>
                 <View style={styles.statCard}>
-                  <LinearGradient colors={['rgba(199, 174, 255, 0.15)', 'rgba(199, 174, 255, 0.05)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
+                  <LinearGradient colors={['rgba(102, 168, 255, 0.15)', 'rgba(102, 168, 255, 0.05)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
                     <IconSymbol name="clock.fill" size={20} color={colors.text} style={styles.statIcon} />
                     <Text style={[styles.statValue, { color: colors.text }]}>{stats.avgNapDuration > 0 ? formatDuration(stats.avgNapDuration) : '-'}</Text>
                     <Text style={[Typography.caption, { color: colors.textSecondary }]}>Avg Nap</Text>
