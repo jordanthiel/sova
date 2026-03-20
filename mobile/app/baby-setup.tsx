@@ -20,7 +20,7 @@ import { Card } from '@/components/ui/Card';
 import { supabase } from '@/lib/supabase';
 import { Spacing, Typography, Radius } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { format } from 'date-fns';
 
 export default function BabySetupScreen() {
@@ -34,6 +34,7 @@ export default function BabySetupScreen() {
   const [user, setUser] = useState<any>(null);
   const [success, setSuccess] = useState(false);
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
 
   useEffect(() => {
     checkUser();
@@ -66,26 +67,24 @@ export default function BabySetupScreen() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: family, error: familyError } = await supabase.rpc('ensure_user_family', {
+        p_user_id: user.id,
+        p_family_name: `${babyName || 'My'} Family`,
+      });
+      if (familyError) throw familyError;
+
+      const { error } = await supabase
         .from('babies')
         .insert({
           name: babyName,
           birth_date: format(birthDate, 'yyyy-MM-dd'),
+          family_id: family.id,
           created_by: user.id,
         })
         .select()
         .single();
 
       if (error) throw error;
-
-      const { error: parentError } = await supabase.from('baby_parents').insert({
-        baby_id: data.id,
-        parent_id: user.id,
-        role: 'owner',
-        status: 'accepted',
-      });
-
-      if (parentError) throw parentError;
 
       setSuccess(true);
       setTimeout(() => {
@@ -112,7 +111,7 @@ export default function BabySetupScreen() {
   if (success) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <Animated.View entering={FadeInUp.duration(600)} style={styles.successContainer}>
           <IconSymbol name="party.popper" size={80} color={colors.text} style={styles.celebrationIcon} />
           <Text style={[Typography.h1, { color: colors.text, textAlign: 'center' }]}>
@@ -124,7 +123,7 @@ export default function BabySetupScreen() {
               { color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
             ]}
           >
-            Let's start tracking those sweet dreams
+            Let&apos;s start tracking those sweet dreams
           </Text>
         </Animated.View>
       </SafeAreaView>
@@ -133,7 +132,7 @@ export default function BabySetupScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
       {fromInvites && (
         <TouchableOpacity
           onPress={() => router.back()}
@@ -166,7 +165,7 @@ export default function BabySetupScreen() {
                 { color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
               ]}
             >
-              Let's get to know your little one
+              Let&apos;s get to know your little one
             </Text>
           </Animated.View>
 
@@ -238,7 +237,7 @@ export default function BabySetupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
+    backgroundColor: '#0D0918',
   },
   backButton: {
     flexDirection: 'row',

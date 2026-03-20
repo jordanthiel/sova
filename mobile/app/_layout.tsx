@@ -8,8 +8,9 @@ import { View, ActivityIndicator, StyleSheet, Text, Image } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { Colors, Typography, Spacing } from '@/constants/theme';
+import { Colors, Gradients, Typography, Spacing } from '@/constants/theme';
 import { CurrentBabyProvider } from '@/contexts/CurrentBabyContext';
+import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { supabase } from '@/lib/supabase';
 import { addLiveActivityRefreshListener, registerForPushNotifications } from '@/services/notifications';
 
@@ -22,12 +23,12 @@ const SovaDarkTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    primary: '#4ECDC4',
-    background: '#0B1426',
-    card: '#0D1B2A',
-    text: '#E8EDF2',
-    border: 'rgba(255, 255, 255, 0.08)',
-    notification: '#4ECDC4',
+    primary: Colors.dark.accent,
+    background: Colors.dark.background,
+    card: Colors.dark.surfaceSolid,
+    text: Colors.dark.text,
+    border: Colors.dark.border,
+    notification: Colors.dark.accent,
   },
 };
 
@@ -85,33 +86,36 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={SovaDarkTheme}>
         <CurrentBabyProvider>
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: '#0D1B2A' },
-            headerTintColor: '#E8EDF2',
-            headerShadowVisible: false,
-            contentStyle: { backgroundColor: '#0B1426' },
-          }}
-        >
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="baby-setup" options={{ headerShown: false }} />
-          <Stack.Screen name="invites-choice" options={{ headerShown: false }} />
-          <Stack.Screen name="baby-share" options={{ headerShown: true, title: 'Share Baby' }} />
-          <Stack.Screen name="day-overview" options={{ headerShown: false }} />
-          <Stack.Screen name="log-sleep" options={{ headerShown: false, presentation: 'modal' }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-          <Stack.Screen
-            name="select-baby"
-            options={{
-              headerShown: false,
-              presentation: 'formSheet',
-              sheetAllowedDetents: [0.5],
-            }}
-          />
-        </Stack>
+          <SubscriptionProvider>
+            <Stack
+              screenOptions={{
+            headerStyle: { backgroundColor: Colors.dark.surfaceSolid },
+            headerTintColor: Colors.dark.text,
+                headerShadowVisible: false,
+            contentStyle: { backgroundColor: Gradients.dark.screenBackground[0] },
+              }}
+            >
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen name="baby-setup" options={{ headerShown: false }} />
+              <Stack.Screen name="invites-choice" options={{ headerShown: false }} />
+              <Stack.Screen name="baby-share" options={{ headerShown: true, title: 'Share Baby' }} />
+              <Stack.Screen name="day-overview" options={{ headerShown: false }} />
+              <Stack.Screen name="log-sleep" options={{ headerShown: false, presentation: 'modal' }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+              <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal' }} />
+              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+              <Stack.Screen
+                name="select-baby"
+                options={{
+                  headerShown: false,
+                  presentation: 'formSheet',
+                  sheetAllowedDetents: [0.5],
+                }}
+              />
+            </Stack>
+          </SubscriptionProvider>
         </CurrentBabyProvider>
         <StatusBar style="light" />
       </ThemeProvider>

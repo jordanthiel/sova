@@ -70,9 +70,9 @@ export function NotificationsSection({
               onValueChange={(val) => handleToggle(key, val)}
               trackColor={{
                 false: 'rgba(255, 255, 255, 0.1)',
-                true: 'rgba(78, 205, 196, 0.4)',
+                true: 'rgba(199, 174, 255, 0.4)',
               }}
-              thumbColor={config[key] ? '#4ECDC4' : '#5E7389'}
+              thumbColor={config[key] ? colors.accent : '#5E7389'}
             />
           </View>
         </Card>

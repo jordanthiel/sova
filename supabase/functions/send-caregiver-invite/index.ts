@@ -89,49 +89,47 @@ async function handleRequest(req: Request) {
     return jsonResponse({ error: "Invalid or expired token" }, 401);
   }
 
-  // For new users: store in baby_invitations so when they sign up, they get auto-added to baby_parents
+  // Fetch baby/family and verify inviter is a family admin.
+  const { data: baby, error: babyError } = await supabase
+    .from("babies")
+    .select("name, family_id")
+    .eq("id", babyId)
+    .single();
+
+  if (babyError || !baby || !baby.family_id) {
+    return jsonResponse({ error: "Baby not found" }, 404);
+  }
+
+  const { data: membership } = await supabase
+      .from("family_members")
+      .select("id")
+      .eq("family_id", baby.family_id)
+      .eq("user_id", user.id)
+      .eq("status", "accepted")
+      .eq("role", "admin")
+      .maybeSingle();
+  if (!membership) {
+      return jsonResponse({ error: "Not authorized to invite to this baby" }, 403);
+  }
+
+  // For new users: store family invitation by email so signup converts it to a pending family membership.
   if (inviteToSignUp) {
     const { error: insertError } = await supabase
-      .from("baby_invitations")
+      .from("family_invitations")
       .upsert(
         {
-          baby_id: babyId,
+          family_id: baby.family_id,
           email: normalizedEmail,
           invited_by: user.id,
         },
-        { onConflict: "baby_id,email", ignoreDuplicates: true }
+        { onConflict: "family_id,email", ignoreDuplicates: true }
       );
     if (insertError) {
-      console.error("baby_invitations insert error:", insertError);
+      console.error("family_invitations insert error:", insertError);
       return jsonResponse(
         { error: "Failed to save invitation" },
         500
       );
-    }
-  }
-
-  // Fetch baby and verify inviter has access (owner or accepted caregiver)
-  const { data: baby, error: babyError } = await supabase
-    .from("babies")
-    .select("name, created_by")
-    .eq("id", babyId)
-    .single();
-
-  if (babyError || !baby) {
-    return jsonResponse({ error: "Baby not found" }, 404);
-  }
-
-  const isOwner = (baby as { created_by?: string }).created_by === user.id;
-  if (!isOwner) {
-    const { data: bp } = await supabase
-      .from("baby_parents")
-      .select("id")
-      .eq("baby_id", babyId)
-      .eq("parent_id", user.id)
-      .eq("status", "accepted")
-      .maybeSingle();
-    if (!bp) {
-      return jsonResponse({ error: "Not authorized to invite to this baby" }, 403);
     }
   }
 
@@ -145,11 +143,11 @@ async function handleRequest(req: Request) {
   const babyName = baby.name ?? "your baby";
   const inviterName =
     (inviterProfile as { full_name?: string } | null)?.full_name?.trim() ||
-    "A caregiver";
+    "A family admin";
 
   const subject = inviteToSignUp
-    ? `${inviterName} invited you to join Sova and track ${babyName}'s sleep`
-    : `${inviterName} invited you to track ${babyName}'s sleep in Sova`;
+    ? `${inviterName} invited you to join a Sova family`
+    : `${inviterName} invited you to join a Sova family`;
 
   const html = inviteToSignUp
     ? `
@@ -158,10 +156,10 @@ async function handleRequest(req: Request) {
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:24px;max-width:480px;margin:0 auto;color:#333;">
   <p style="font-size:16px;line-height:1.6;">
-    <strong>${inviterName}</strong> has invited you to help track <strong>${babyName}</strong>'s sleep in Sova.
+    <strong>${inviterName}</strong> invited you to join the family for <strong>${babyName}</strong> in Sova.
   </p>
   <p style="font-size:16px;line-height:1.6;">
-    Download the Sova app and sign up with this email address to join and start sharing sleep logs together.
+    Download the Sova app and sign up with this email address to join the family and access all of that family's babies together.
   </p>
 </body>
 </html>
@@ -172,10 +170,10 @@ async function handleRequest(req: Request) {
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:24px;max-width:480px;margin:0 auto;color:#333;">
   <p style="font-size:16px;line-height:1.6;">
-    <strong>${inviterName}</strong> has invited you to help track <strong>${babyName}</strong>'s sleep in Sova.
+    <strong>${inviterName}</strong> invited you to join the family for <strong>${babyName}</strong> in Sova.
   </p>
   <p style="font-size:16px;line-height:1.6;">
-    Open the Sova app to accept the invitation and start sharing sleep logs.
+    Open the Sova app to accept the invitation and access all babies in the family.
   </p>
   <p style="font-size:14px;color:#666;margin-top:24px;">
     If you don't have the Sova app yet, download it first, create an account with this email address, then you'll be able to accept the invitation.

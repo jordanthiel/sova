@@ -24,7 +24,7 @@ const PERMISSION_LABELS: Record<Caregiver['permission'], string> = {
 };
 
 const PERMISSION_COLORS: Record<Caregiver['permission'], string> = {
-  can_edit: '#4ECDC4',
+  can_edit: '#C7AEFF',
   can_log: '#FFB84D',
   view_only: '#5E7389',
 };
@@ -38,8 +38,8 @@ export function CaregiversSection({ caregivers, onInvite, canRemoveCaregivers, o
   const handleRemove = (cg: Caregiver) => {
     if (!onRemove || cg.role === 'owner') return;
     Alert.alert(
-      'Remove caregiver',
-      `Remove ${cg.name} from accessing this child? They will no longer see or log sleep for this baby.`,
+      'Remove family member',
+      `Remove ${cg.name} from this family? They will lose access to every baby in the family.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -75,7 +75,7 @@ export function CaregiversSection({ caregivers, onInvite, canRemoveCaregivers, o
   return (
     <View>
       <View style={styles.sectionHeader}>
-        <Text style={[Typography.h3, { color: colors.text }]}>Caregivers</Text>
+        <Text style={[Typography.h3, { color: colors.text }]}>Family Members</Text>
         <TouchableOpacity
           onPress={() => setShowInvite(!showInvite)}
           activeOpacity={0.7}
@@ -111,7 +111,7 @@ export function CaregiversSection({ caregivers, onInvite, canRemoveCaregivers, o
       {caregivers.length === 0 ? (
         <Card padding="md">
           <Text style={[Typography.body, { color: colors.textSecondary, textAlign: 'center' }]}>
-            No other caregivers yet. Invite someone to share sleep tracking.
+            No other family members yet. Invite someone to share access to every baby in this family.
           </Text>
         </Card>
       ) : (
@@ -131,7 +131,7 @@ export function CaregiversSection({ caregivers, onInvite, canRemoveCaregivers, o
                     {cg.name}
                   </Text>
                   <Text style={[Typography.small, { color: colors.textTertiary }]}>
-                    {cg.role === 'owner' ? 'Owner' : 'Caregiver'}
+                    {cg.role === 'owner' ? 'Admin' : 'Member'}
                   </Text>
                 </View>
                 <Badge
@@ -230,13 +230,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(78, 205, 196, 0.15)',
+    backgroundColor: 'rgba(199, 174, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     ...Typography.bodySemiBold,
-    color: '#4ECDC4',
+    color: '#C7AEFF',
   },
   caregiverInfo: {
     flex: 1,

@@ -205,11 +205,11 @@ const styles = StyleSheet.create({
   },
   eventCard: {},
   activeCard: {
-    borderColor: 'rgba(78, 205, 196, 0.3)',
+    borderColor: 'rgba(199, 174, 255, 0.3)',
     borderWidth: 1,
   },
   selectedCard: {
-    borderColor: 'rgba(78, 205, 196, 0.5)',
+    borderColor: 'rgba(199, 174, 255, 0.5)',
     borderWidth: 2,
   },
   checkbox: {
@@ -223,11 +223,11 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
   },
   checkboxSelected: {
-    borderColor: '#4ECDC4',
-    backgroundColor: 'rgba(78, 205, 196, 0.2)',
+    borderColor: '#C7AEFF',
+    backgroundColor: 'rgba(199, 174, 255, 0.2)',
   },
   checkmark: {
-    color: '#4ECDC4',
+    color: '#C7AEFF',
     fontSize: 14,
     fontWeight: '700',
   },

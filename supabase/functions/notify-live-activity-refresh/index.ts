@@ -57,18 +57,29 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data: parents, error: parentsError } = await supabase
-    .from("baby_parents")
-    .select("parent_id")
-    .eq("baby_id", babyId)
-    .eq("status", "accepted");
+  const { data: baby, error: babyError } = await supabase
+    .from("babies")
+    .select("family_id")
+    .eq("id", babyId)
+    .single();
 
-  if (parentsError) {
-    console.error("notify-live-activity-refresh parents error:", parentsError.message);
-    return jsonResponse({ error: "Failed to fetch caregivers" }, 500);
+  if (babyError || !baby?.family_id) {
+    console.error("notify-live-activity-refresh baby error:", babyError?.message);
+    return jsonResponse({ error: "Failed to fetch family for baby" }, 500);
   }
 
-  let userIds = (parents ?? []).map((p) => p.parent_id);
+  const { data: members, error: membersError } = await supabase
+    .from("family_members")
+    .select("user_id")
+    .eq("family_id", baby.family_id)
+    .eq("status", "accepted");
+
+  if (membersError) {
+    console.error("notify-live-activity-refresh family members error:", membersError.message);
+    return jsonResponse({ error: "Failed to fetch family members" }, 500);
+  }
+
+  let userIds = (members ?? []).map((p) => p.user_id);
   if (excludeUserId) {
     userIds = userIds.filter((id) => id !== excludeUserId);
   }

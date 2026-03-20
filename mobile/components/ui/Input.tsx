@@ -69,7 +69,7 @@ export function Input({
     ? colors.error
     : isFocused
       ? colors.accent
-      : 'rgba(255, 255, 255, 0.08)';
+      : colors.border;
 
   return (
     <View style={styles.wrapper}>
@@ -77,7 +77,7 @@ export function Input({
         style={[
           styles.container,
           {
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+            backgroundColor: 'rgba(32, 22, 60, 0.72)',
             borderColor,
           },
           isFocused && { borderWidth: 2, borderColor: colors.accent },

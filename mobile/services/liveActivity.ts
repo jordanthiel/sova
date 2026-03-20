@@ -118,7 +118,7 @@ const DEFAULT_CONFIG: LiveActivityConfig = {
   backgroundColor: '#0D1B2A',
   titleColor: '#E6F4FE',
   subtitleColor: '#B0C4DE',
-  progressViewTint: '#4ECDC4',
+  progressViewTint: '#C7AEFF',
   progressViewLabelColor: '#FFFFFF',
   timerType: 'digital',
   imagePosition: 'left',

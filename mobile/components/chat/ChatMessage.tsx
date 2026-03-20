@@ -30,7 +30,7 @@ export function ChatMessageComponent({ message }: ChatMessageProps) {
     heading1: { color: colors.chatAssistantText, fontSize: 20 },
     heading2: { color: colors.chatAssistantText, fontSize: 18 },
     heading3: { color: colors.chatAssistantText, fontSize: 16 },
-    blockquote: { borderLeftColor: colors.accent, backgroundColor: 'rgba(78, 205, 196, 0.08)' },
+    blockquote: { borderLeftColor: colors.accent, backgroundColor: colors.shimmer },
     hr: { backgroundColor: colors.border },
   };
 

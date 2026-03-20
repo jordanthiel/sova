@@ -207,7 +207,7 @@ export function LogDayTimeline({
             {showPreview && (
               <View style={[styles.sessionBlock, { top: previewTop, height: previewHeight }]} pointerEvents="none">
                 <LinearGradient
-                  colors={['rgba(78, 205, 196, 0.5)', 'rgba(59, 168, 160, 0.5)']}
+                  colors={['rgba(199, 174, 255, 0.5)', 'rgba(157, 139, 255, 0.5)']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.sessionGradient}

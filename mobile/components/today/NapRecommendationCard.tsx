@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Radius, Spacing, Typography } from '@/constants/theme';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import type { NapRecommendationPayload, RestOfDayScheduleEvent } from '@/types/domain';
 import { formatDuration, roundDateToNearest5Minutes, roundTimeStringToNearest5 } from '@/utils/formatTime';
 import { format } from 'date-fns';
@@ -68,6 +68,7 @@ export function NapRecommendationCard({
   onRefresh,
 }: NapRecommendationCardProps) {
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
   const [explanationExpanded, setExplanationExpanded] = useState(false);
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
 
@@ -102,7 +103,7 @@ export function NapRecommendationCard({
   return (
     <Card style={styles.card} padding="none">
       <LinearGradient
-        colors={['rgba(78, 205, 196, 0.15)', 'rgba(78, 205, 196, 0.05)']}
+        colors={['rgba(199, 174, 255, 0.15)', 'rgba(199, 174, 255, 0.05)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
@@ -200,7 +201,7 @@ export function NapRecommendationCard({
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={['#4ECDC4', '#3BA8A0']}
+              colors={[...gradients.accent]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.primaryActionGradient}

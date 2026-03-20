@@ -20,32 +20,26 @@ export function useBabies() {
         return;
       }
 
-      // Get babies where user is owner
-      const { data: ownedBabies } = await supabase
-        .from('babies')
-        .select('*')
-        .eq('created_by', user.id);
-
-      // Get babies where user is a parent
-      const { data: parentBabies } = await supabase
-        .from('baby_parents')
-        .select(`
-          babies (*)
-        `)
-        .eq('parent_id', user.id)
+      const { data: memberships } = await supabase
+        .from('family_members')
+        .select('family_id')
+        .eq('user_id', user.id)
         .eq('status', 'accepted');
 
-      const allBabies: Baby[] = [
-        ...(ownedBabies || []),
-        ...(parentBabies?.map((bp: any) => bp.babies).filter(Boolean) || []),
-      ];
+      const familyIds = [...new Set((memberships || []).map((row) => row.family_id).filter(Boolean))];
+      if (familyIds.length === 0) {
+        setBabies([]);
+        return;
+      }
 
-      // Remove duplicates
-      const uniqueBabies = Array.from(
-        new Map(allBabies.map((baby) => [baby.id, baby])).values()
-      );
+      const { data: familyBabies, error } = await supabase
+        .from('babies')
+        .select('*')
+        .in('family_id', familyIds)
+        .order('birth_date', { ascending: false });
 
-      setBabies(uniqueBabies);
+      if (error) throw error;
+      setBabies(familyBabies || []);
     } catch (error) {
       console.error('Error loading babies:', error);
     } finally {

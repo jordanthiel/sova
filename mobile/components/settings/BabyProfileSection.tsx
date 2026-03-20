@@ -97,8 +97,8 @@ export function BabyProfileSection({ baby, onEditName }: BabyProfileSectionProps
                 style={[
                   styles.chip,
                   isSelected && {
-                    backgroundColor: 'rgba(78, 205, 196, 0.15)',
-                    borderColor: 'rgba(78, 205, 196, 0.3)',
+                    backgroundColor: 'rgba(199, 174, 255, 0.15)',
+                    borderColor: 'rgba(199, 174, 255, 0.3)',
                   },
                 ]}
               >

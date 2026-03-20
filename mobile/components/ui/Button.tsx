@@ -49,9 +49,14 @@ export function Button({
 
     switch (variant) {
       case 'primary':
-        return { ...base, backgroundColor: disabled ? 'rgba(78, 205, 196, 0.3)' : colors.accent };
+        return {
+          ...base,
+          backgroundColor: disabled ? colors.accentSoft : colors.accent,
+          borderWidth: 1,
+          borderColor: disabled ? colors.borderLight : colors.border,
+        };
       case 'secondary':
-        return { ...base, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: 'rgba(78, 205, 196, 0.3)' };
+        return { ...base, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.border };
       case 'ghost':
         return { ...base, backgroundColor: 'transparent' };
       case 'danger':
@@ -68,7 +73,7 @@ export function Button({
 
     switch (variant) {
       case 'primary':
-        return { ...base, color: '#0B1426' };
+        return { ...base, color: colors.background };
       case 'secondary':
         return { ...base, color: colors.accent };
       case 'ghost':
@@ -82,7 +87,7 @@ export function Button({
     }
   };
 
-  if (variant === 'gradient' && !disabled) {
+  if ((variant === 'primary' || variant === 'gradient') && !disabled) {
     return (
       <TouchableOpacity
         onPress={handlePress}
@@ -93,11 +98,11 @@ export function Button({
         <LinearGradient
           colors={[...gradients.accent]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+          end={{ x: 1, y: 0.2 }}
           style={[getContainerStyle(), fullWidth && styles.fullWidth]}
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#0B1426" />
+            <ActivityIndicator size="small" color={colors.background} />
           ) : (
             <>
               {icon}
@@ -117,7 +122,7 @@ export function Button({
       style={[getContainerStyle(), fullWidth && styles.fullWidth, style]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={variant === 'primary' ? '#0B1426' : variant === 'danger' ? '#FFF' : colors.accent} />
+        <ActivityIndicator size="small" color={variant === 'primary' ? colors.background : variant === 'danger' ? '#FFF' : colors.accent} />
       ) : (
         <>
           {icon}

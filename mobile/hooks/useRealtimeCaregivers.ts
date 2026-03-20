@@ -27,25 +27,34 @@ export function useRealtimeCaregivers(babyId: string | null) {
     fetchCaregivers();
 
     if (!babyId) return;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    const channel = supabase
-      .channel(`baby_parents:${babyId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'baby_parents',
-          filter: `baby_id=eq.${babyId}`,
-        },
-        () => {
-          fetchCaregivers();
-        }
-      )
-      .subscribe();
+    supabase
+      .from('babies')
+      .select('family_id')
+      .eq('id', babyId)
+      .single()
+      .then(({ data }) => {
+        if (!data?.family_id) return;
+        channel = supabase
+          .channel(`family_members:${data.family_id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'family_members',
+              filter: `family_id=eq.${data.family_id}`,
+            },
+            () => {
+              fetchCaregivers();
+            }
+          )
+          .subscribe();
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [babyId, fetchCaregivers]);
 

@@ -1,16 +1,20 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { View, ActivityIndicator, StyleSheet, Text, Image, Linking } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Image, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { shouldShowOnboarding } from '@/app/onboarding';
-import { Colors, Typography, Spacing } from '@/constants/theme';
+import { Colors, Gradients, Spacing } from '@/constants/theme';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 export default function Index() {
   const router = useRouter();
   const colors = Colors.dark;
+  const { isReady: subscriptionReady } = useSubscription();
 
   useEffect(() => {
+    if (!subscriptionReady) return;
+
     const checkAuthAndRedirect = async () => {
       try {
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -25,28 +29,26 @@ export default function Index() {
 
         if (session?.user) {
           try {
-            const { data: babies } = await supabase
-              .from('baby_parents')
-              .select('baby_id')
-              .eq('parent_id', session.user.id)
-              .eq('status', 'accepted')
-              .limit(1);
+            const { data: memberships } = await supabase
+              .from('family_members')
+              .select('family_id, status')
+              .eq('user_id', session.user.id)
+              .in('status', ['accepted', 'pending']);
 
-            const { data: createdBabies } = await supabase
-              .from('babies')
-              .select('id')
-              .eq('created_by', session.user.id)
-              .limit(1);
+            const acceptedFamilyIds = [...new Set((memberships || []).filter((m) => m.status === 'accepted').map((m) => m.family_id))];
 
-            const hasAcceptedOrOwn = (babies?.length ?? 0) > 0 || (createdBabies?.length ?? 0) > 0;
-
-            if (!hasAcceptedOrOwn) {
-              const { data: pending } = await supabase
-                .from('baby_parents')
+            let familyBabies: { id: string }[] | null = null;
+            if (acceptedFamilyIds.length > 0) {
+              const { data } = await supabase
+                .from('babies')
                 .select('id')
-                .eq('parent_id', session.user.id)
-                .eq('status', 'pending')
+                .in('family_id', acceptedFamilyIds)
                 .limit(1);
+              familyBabies = data;
+            }
+
+            if ((familyBabies?.length ?? 0) === 0) {
+              const pending = (memberships || []).filter((m) => m.status === 'pending');
               if (pending && pending.length > 0) {
                 router.replace('/invites-choice');
                 return;
@@ -88,11 +90,11 @@ export default function Index() {
     };
 
     setTimeout(checkAuthAndRedirect, 100);
-  }, [router]);
+  }, [router, subscriptionReady]);
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...Gradients.dark.screenBackground]} style={StyleSheet.absoluteFill} />
       <Image
         source={require('@/assets/images/sova_icon.png')}
         style={styles.logo}
@@ -108,7 +110,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0B1426',
+    backgroundColor: Colors.dark.background,
   },
   logo: {
     width: 100,

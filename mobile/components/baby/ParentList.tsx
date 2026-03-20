@@ -12,7 +12,7 @@ import { Spacing, Typography } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import type { Database } from '@/lib/supabase';
 
-type BabyParent = Database['public']['Tables']['baby_parents']['Row'];
+type FamilyMember = Database['public']['Tables']['family_members']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
 interface ParentListProps {
@@ -21,7 +21,7 @@ interface ParentListProps {
 }
 
 export function ParentList({ babyId, onInvitePress }: ParentListProps) {
-  const [parents, setParents] = useState<(BabyParent & { profile: Profile })[]>([]);
+  const [parents, setParents] = useState<(FamilyMember & { profile: Profile })[]>([]);
   const [loading, setLoading] = useState(true);
   const colors = useThemeColors();
 
@@ -32,16 +32,34 @@ export function ParentList({ babyId, onInvitePress }: ParentListProps) {
   const loadParents = async () => {
     try {
       const { data, error } = await supabase
-        .from('baby_parents')
-        .select(`*, profiles:parent_id (id, email, full_name)`)
-        .eq('baby_id', babyId)
+        .from('babies')
+        .select('family_id')
+        .eq('id', babyId)
+        .single();
+
+      if (error || !data?.family_id) throw error ?? new Error('Family not found');
+
+      const { data: members, error: membersError } = await supabase
+        .from('family_members')
+        .select('*')
+        .eq('family_id', data.family_id)
         .eq('status', 'accepted');
 
-      if (error) throw error;
+      if (membersError) throw membersError;
 
-      const parentsWithProfiles = (data || []).map((item: any) => ({
+      const userIds = (members || []).map((member) => member.user_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profileById = new Map((profiles || []).map((profile) => [profile.id, profile]));
+
+      const parentsWithProfiles = (members || []).map((item: any) => ({
         ...item,
-        profile: Array.isArray(item.profiles) ? item.profiles[0] : item.profiles,
+        profile: profileById.get(item.user_id) ?? null,
       }));
       setParents(parentsWithProfiles);
     } catch (error) {
@@ -63,12 +81,12 @@ export function ParentList({ babyId, onInvitePress }: ParentListProps) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={[Typography.h3, { color: colors.text }]}>Parents</Text>
+        <Text style={[Typography.h3, { color: colors.text }]}>Family Members</Text>
         <Button title="+ Invite" onPress={onInvitePress} variant="secondary" size="sm" />
       </View>
 
       {parents.length === 0 ? (
-        <EmptyState icon="people.fill" title="No parents" message="Invite someone to share access to this baby's data." />
+        <EmptyState icon="people.fill" title="No family members" message="Invite someone to share access to every baby in this family." />
       ) : (
         parents.map((parent, index) => (
           <View key={parent.id}>
@@ -86,9 +104,9 @@ export function ParentList({ babyId, onInvitePress }: ParentListProps) {
                   )}
                 </View>
                 <Badge
-                  label={parent.role}
-                  backgroundColor={parent.role === 'owner' ? colors.accentSoft : colors.successSoft}
-                  color={parent.role === 'owner' ? colors.accent : colors.success}
+                  label={parent.role === 'admin' ? 'admin' : 'member'}
+                  backgroundColor={parent.role === 'admin' ? colors.accentSoft : colors.successSoft}
+                  color={parent.role === 'admin' ? colors.accent : colors.success}
                 />
               </View>
             </Card>

@@ -11,7 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Typography, Radius } from '@/constants/theme';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { EventLogType } from '@/types/domain';
 
@@ -38,6 +38,7 @@ const EVENT_TYPES: Array<{
 
 export function LogEventSheet({ visible, onClose, onSubmit }: LogEventSheetProps) {
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
   const [selectedType, setSelectedType] = useState<EventLogType | null>(null);
   const [note, setNote] = useState('');
 
@@ -140,7 +141,7 @@ export function LogEventSheet({ visible, onClose, onSubmit }: LogEventSheetProps
                       colors={
                         needsNote && !note.trim()
                           ? ['#333', '#333']
-                          : ['#4ECDC4', '#3BA8A0']
+                          : [...gradients.accent]
                       }
                       style={styles.submitBtnGradient}
                     >

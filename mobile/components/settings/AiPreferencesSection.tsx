@@ -292,8 +292,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   toggleOptionActive: {
-    backgroundColor: '#4ECDC4',
-    borderColor: '#4ECDC4',
+    backgroundColor: '#C7AEFF',
+    borderColor: '#C7AEFF',
   },
   timeInput: {
     marginTop: Spacing.sm,
@@ -317,8 +317,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   napChipActive: {
-    backgroundColor: '#4ECDC4',
-    borderColor: '#4ECDC4',
+    backgroundColor: '#C7AEFF',
+    borderColor: '#C7AEFF',
   },
   lastWakeRow: {
     flexDirection: 'row',

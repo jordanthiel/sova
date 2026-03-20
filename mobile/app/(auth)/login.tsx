@@ -17,7 +17,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
-import { Spacing, Typography, Radius } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
@@ -41,25 +41,7 @@ export default function LoginScreen() {
       if (error) throw error;
 
       if (data.user) {
-        const { data: babies, error: babiesError } = await supabase
-          .from('baby_parents')
-          .select('baby_id')
-          .eq('parent_id', data.user.id)
-          .eq('status', 'accepted')
-          .limit(1);
-        if (babiesError) throw babiesError;
-
-        const { data: createdBabies } = await supabase
-          .from('babies')
-          .select('id')
-          .eq('created_by', data.user.id)
-          .limit(1);
-
-        if (babies?.length === 0 && createdBabies?.length === 0) {
-          router.replace('/baby-setup');
-        } else {
-          router.replace('/(tabs)');
-        }
+        router.replace('/');
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to sign in');
@@ -70,7 +52,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -84,7 +66,7 @@ export default function LoginScreen() {
           <Animated.View entering={FadeInDown.duration(600)} style={styles.headerSection}>
             <View style={styles.heroBadge}>
               <LinearGradient
-                colors={['#4ECDC4', '#3BA8A0']}
+                colors={[...gradients.accent]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.heroBadgeGradient}
@@ -153,7 +135,7 @@ export default function LoginScreen() {
           <Animated.View entering={FadeInDown.duration(600).delay(400)} style={styles.footer}>
             <TouchableOpacity onPress={() => router.push('/(auth)/signup')} style={styles.linkButton}>
               <Text style={[Typography.body, { color: colors.textSecondary }]}>
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
               </Text>
               <Text style={[Typography.bodySemiBold, { color: colors.accent }]}>Sign Up</Text>
             </TouchableOpacity>
@@ -167,7 +149,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
+    backgroundColor: '#0D0918',
   },
   keyboardView: {
     flex: 1,

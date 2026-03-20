@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Radius, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { Shadows } from '@/constants/theme';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 
@@ -16,8 +16,8 @@ const ROUTE_CONFIG: Record<string, { title: string; icon: 'house.fill' | 'calend
   insights: { title: 'Insights', icon: 'sparkles' },
 };
 
-const ACCENT = '#4ECDC4';
-const INACTIVE = '#5E7389';
+const ACCENT = Colors.dark.accent;
+const INACTIVE = Colors.dark.tabIconDefault;
 
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -83,7 +83,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
           accessibilityLabel="Log sleep"
           accessibilityRole="button"
         >
-          <IconSymbol name="plus" size={28} color="#0B1426" />
+          <IconSymbol name="plus" size={28} color={Colors.dark.background} />
         </TouchableOpacity>
       </View>
     </View>
@@ -108,10 +108,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: '#0D1B2A',
+    backgroundColor: Colors.dark.surfaceSolid,
     borderRadius: Radius.xxl,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: Colors.dark.border,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     ...Shadows.md,
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconWrapActive: {
-    backgroundColor: 'rgba(78, 205, 196, 0.12)',
+    backgroundColor: Colors.dark.accentSoft,
   },
   tabLabel: {
     fontSize: 10,

@@ -6,7 +6,6 @@ import type {
   RestOfDayScheduleEvent,
 } from '@/types/domain';
 import {
-  getEffectiveWakeWindowMinutes,
   calculateAgeDays,
   getWakeWindowForAge,
   getAdaptiveWakeWindowMinutes,
@@ -16,6 +15,8 @@ import {
 import { formatDuration, roundToNearest5, roundDateToNearest5Minutes } from '@/utils/formatTime';
 import { format, addMinutes, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns';
 import { supabase } from '@/lib/supabase';
+import { getPremiumAccessErrorFromResponse } from '@/services/subscription';
+import { isPremiumAccessRequiredError } from '@/types/subscription';
 
 // ─── Shared constants ───────────────────────────────────────────
 
@@ -118,6 +119,7 @@ export async function getNextNapRecommendation(
     const remote = await fetchRemoteRecommendation(baby, events, now, memories);
     if (remote) return remote;
   } catch (err) {
+    if (isPremiumAccessRequiredError(err)) throw err;
     console.warn('[recommendations] Remote fetch failed, using local:', err);
   }
   return getLocalNapRecommendation(baby, events, now);
@@ -175,7 +177,11 @@ async function fetchRemoteRecommendation(
     }),
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const premiumError = await getPremiumAccessErrorFromResponse(res, 'recommendations');
+    if (premiumError) throw premiumError;
+    return null;
+  }
 
   const data = await res.json();
   const nextSleep = data?.next_sleep;
@@ -474,7 +480,6 @@ export function getLocalNapRecommendation(
   const wakeWindowMin = isBedtimeScenario ? lastWakeWindow : standardWakeWindow;
   const minutesUntilNap = Math.max(wakeWindowMin - awakeMinutes, 0);
   const windowStart = addMinutes(now, minutesUntilNap);
-  const windowEnd = addMinutes(windowStart, 15);
 
   const confidence: 'low' | 'medium' | 'high' =
     awakeMinutes > wakeWindowMin * 0.8

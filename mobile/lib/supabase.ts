@@ -15,6 +15,15 @@ export type Database = {
           timezone: string | null;
           expo_push_token: string | null;
           expo_push_token_updated_at: string | null;
+          trial_started_at: string | null;
+          trial_ends_at: string | null;
+          subscription_status: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
+          subscription_provider: 'revenuecat' | null;
+          subscription_product_id: string | null;
+          subscription_expires_at: string | null;
+          subscription_updated_at: string | null;
+          revenuecat_app_user_id: string | null;
+          revenuecat_customer_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -26,6 +35,15 @@ export type Database = {
           timezone?: string | null;
           expo_push_token?: string | null;
           expo_push_token_updated_at?: string | null;
+          trial_started_at?: string | null;
+          trial_ends_at?: string | null;
+          subscription_status?: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
+          subscription_provider?: 'revenuecat' | null;
+          subscription_product_id?: string | null;
+          subscription_expires_at?: string | null;
+          subscription_updated_at?: string | null;
+          revenuecat_app_user_id?: string | null;
+          revenuecat_customer_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -37,6 +55,15 @@ export type Database = {
           timezone?: string | null;
           expo_push_token?: string | null;
           expo_push_token_updated_at?: string | null;
+          trial_started_at?: string | null;
+          trial_ends_at?: string | null;
+          subscription_status?: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
+          subscription_provider?: 'revenuecat' | null;
+          subscription_product_id?: string | null;
+          subscription_expires_at?: string | null;
+          subscription_updated_at?: string | null;
+          revenuecat_app_user_id?: string | null;
+          revenuecat_customer_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -47,6 +74,7 @@ export type Database = {
           id: string;
           name: string;
           birth_date: string;
+          family_id: string;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -55,6 +83,7 @@ export type Database = {
           id?: string;
           name: string;
           birth_date: string;
+          family_id: string;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -63,9 +92,118 @@ export type Database = {
           id?: string;
           name?: string;
           birth_date?: string;
+          family_id?: string;
           created_by?: string;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      families: {
+        Row: {
+          id: string;
+          name: string;
+          created_by: string;
+          trial_started_at: string | null;
+          trial_ends_at: string | null;
+          subscription_status: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
+          subscription_provider: 'revenuecat' | null;
+          subscription_product_id: string | null;
+          subscription_expires_at: string | null;
+          subscription_updated_at: string | null;
+          revenuecat_app_user_id: string | null;
+          revenuecat_customer_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          created_by: string;
+          trial_started_at?: string | null;
+          trial_ends_at?: string | null;
+          subscription_status?: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
+          subscription_provider?: 'revenuecat' | null;
+          subscription_product_id?: string | null;
+          subscription_expires_at?: string | null;
+          subscription_updated_at?: string | null;
+          revenuecat_app_user_id?: string | null;
+          revenuecat_customer_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          created_by?: string;
+          trial_started_at?: string | null;
+          trial_ends_at?: string | null;
+          subscription_status?: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
+          subscription_provider?: 'revenuecat' | null;
+          subscription_product_id?: string | null;
+          subscription_expires_at?: string | null;
+          subscription_updated_at?: string | null;
+          revenuecat_app_user_id?: string | null;
+          revenuecat_customer_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      family_members: {
+        Row: {
+          id: string;
+          family_id: string;
+          user_id: string;
+          role: 'admin' | 'member';
+          status: 'pending' | 'accepted' | 'declined';
+          invited_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          user_id: string;
+          role?: 'admin' | 'member';
+          status?: 'pending' | 'accepted' | 'declined';
+          invited_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          user_id?: string;
+          role?: 'admin' | 'member';
+          status?: 'pending' | 'accepted' | 'declined';
+          invited_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      family_invitations: {
+        Row: {
+          id: string;
+          family_id: string;
+          email: string;
+          invited_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          email: string;
+          invited_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          email?: string;
+          invited_by?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -325,7 +463,117 @@ export type Database = {
       };
     };
     Views: {};
-    Functions: {};
+    Functions: {
+      ensure_profile_trial: {
+        Args: {
+          p_user_id?: string;
+        };
+        Returns: Database['public']['Tables']['profiles']['Row'];
+      };
+      ensure_user_family: {
+        Args: {
+          p_user_id?: string;
+          p_family_name?: string | null;
+        };
+        Returns: Database['public']['Tables']['families']['Row'];
+      };
+      ensure_family_trial: {
+        Args: {
+          p_family_id: string;
+        };
+        Returns: Database['public']['Tables']['families']['Row'];
+      };
+      get_user_family_id: {
+        Args: {
+          p_user_id?: string;
+        };
+        Returns: string;
+      };
+      get_entitlement_status: {
+        Args: {
+          p_user_id: string;
+        };
+        Returns: {
+          has_premium_access: boolean;
+          has_subscription_access: boolean;
+          is_trial_active: boolean;
+          access_source: 'subscription' | 'trial' | 'none';
+          trial_started_at: string | null;
+          trial_ends_at: string | null;
+          subscription_status: Database['public']['Tables']['profiles']['Row']['subscription_status'];
+          subscription_provider: Database['public']['Tables']['profiles']['Row']['subscription_provider'];
+          subscription_product_id: string | null;
+          subscription_expires_at: string | null;
+        }[];
+      };
+      get_my_entitlement_status: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          has_premium_access: boolean;
+          has_subscription_access: boolean;
+          is_trial_active: boolean;
+          access_source: 'subscription' | 'trial' | 'none';
+          trial_started_at: string | null;
+          trial_ends_at: string | null;
+          subscription_status: Database['public']['Tables']['profiles']['Row']['subscription_status'];
+          subscription_provider: Database['public']['Tables']['profiles']['Row']['subscription_provider'];
+          subscription_product_id: string | null;
+          subscription_expires_at: string | null;
+        }[];
+      };
+      get_family_entitlement_status: {
+        Args: {
+          p_family_id: string;
+        };
+        Returns: {
+          family_id: string;
+          has_premium_access: boolean;
+          has_subscription_access: boolean;
+          is_trial_active: boolean;
+          access_source: 'subscription' | 'trial' | 'none';
+          trial_started_at: string | null;
+          trial_ends_at: string | null;
+          subscription_status: Database['public']['Tables']['families']['Row']['subscription_status'];
+          subscription_provider: Database['public']['Tables']['families']['Row']['subscription_provider'];
+          subscription_product_id: string | null;
+          subscription_expires_at: string | null;
+        }[];
+      };
+      get_my_family_entitlement_status: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          family_id: string;
+          has_premium_access: boolean;
+          has_subscription_access: boolean;
+          is_trial_active: boolean;
+          access_source: 'subscription' | 'trial' | 'none';
+          trial_started_at: string | null;
+          trial_ends_at: string | null;
+          subscription_status: Database['public']['Tables']['families']['Row']['subscription_status'];
+          subscription_provider: Database['public']['Tables']['families']['Row']['subscription_provider'];
+          subscription_product_id: string | null;
+          subscription_expires_at: string | null;
+        }[];
+      };
+      get_baby_entitlement_status: {
+        Args: {
+          p_baby_id: string;
+        };
+        Returns: {
+          family_id: string;
+          has_premium_access: boolean;
+          has_subscription_access: boolean;
+          is_trial_active: boolean;
+          access_source: 'subscription' | 'trial' | 'none';
+          trial_started_at: string | null;
+          trial_ends_at: string | null;
+          subscription_status: Database['public']['Tables']['families']['Row']['subscription_status'];
+          subscription_provider: Database['public']['Tables']['families']['Row']['subscription_provider'];
+          subscription_product_id: string | null;
+          subscription_expires_at: string | null;
+        }[];
+      };
+    };
     Enums: {};
     CompositeTypes: {};
   };

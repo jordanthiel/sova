@@ -1,5 +1,7 @@
 import { BabySwitcher } from '@/components/baby/BabySwitcher';
 import { ProfileAvatarButton } from '@/components/ProfileAvatarButton';
+import { PremiumUpsellCard } from '@/components/premium/PremiumUpsellCard';
+import { AiForecastCard } from '@/components/recommendations/AiForecastCard';
 import { ActiveSessionCard } from '@/components/sleep/ActiveSessionCard';
 import { SessionEditModal } from '@/components/sleep/SessionEditModal';
 import { SwipeableSessionCard } from '@/components/sleep/SwipeableSessionCard';
@@ -11,7 +13,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { Spacing, Typography } from '@/constants/theme';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { usePremiumGate } from '@/hooks/usePremiumGate';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
 import { useCoachMemories } from '@/hooks/useCoachMemories';
 import { useNapLiveActivity } from '@/hooks/useNapLiveActivity';
@@ -44,6 +47,7 @@ import type {
   SleepEvent,
 } from '@/types/domain';
 import { DEFAULT_NOTIFICATION_CONFIG } from '@/types/domain';
+import { isPremiumAccessRequiredError } from '@/types/subscription';
 import { getExtendedDayBounds, getExtendedDayKey, sessionOverlapsExtendedDay } from '@/utils/dateUtils';
 import { formatDuration } from '@/utils/formatTime';
 import { getNightSummaries, isNightComplete } from '@/utils/nightSleepScore';
@@ -119,6 +123,8 @@ export default function TodayScreen() {
   const [notificationConfig, setNotificationConfig] = useState<NotificationConfig>(DEFAULT_NOTIFICATION_CONFIG);
   const [excludedDateKeys, setExcludedDateKeys] = useState<Set<string>>(new Set());
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
+  const { hasPremiumAccess, showPaywall } = usePremiumGate();
 
   useEffect(() => {
     if (!currentBabyId) return;
@@ -159,6 +165,10 @@ export default function TodayScreen() {
     .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
   const napCount = todaySessions.filter((s) => s.type === 'nap').length;
   const nightCount = todaySessions.filter((s) => s.type === 'night').length;
+  const currentExtendedDayKey = getExtendedDayKey(new Date());
+  const hasStartedNighttimeSession = allSessions.some(
+    (s) => s.type === 'night' && getExtendedDayKey(new Date(s.start_time)) === currentExtendedDayKey
+  );
 
   useEffect(() => {
     const endedSessions = allSessions
@@ -335,6 +345,14 @@ export default function TodayScreen() {
 
   // Load stored target first; only refetch when session data changed or no stored target (target stays static until next rec)
   useEffect(() => {
+    if (!hasPremiumAccess) {
+      setRecommendation(null);
+      setRecommendationLoading(false);
+      lastFetchKeyRef.current = null;
+      activeFetchKeyRef.current = null;
+      currentStoredTargetIdRef.current = null;
+      return;
+    }
     if (!domainBaby || activeSession) {
       setRecommendation(null);
       setRecommendationLoading(false);
@@ -402,8 +420,12 @@ export default function TodayScreen() {
             }).catch(() => {});
           }
         })
-        .catch(() => {
+        .catch((error) => {
           if (activeFetchKeyRef.current !== key) return;
+          if (isPremiumAccessRequiredError(error)) {
+            showPaywall('recommendations');
+            return;
+          }
           const local = getLocalNapRecommendation(domainBaby, events, new Date());
           setRecommendation(local);
           const napPayload = (local.type === 'next_nap' || local.type === 'bedtime') ? (local.payload as NapRecommendationPayload) : null;
@@ -419,10 +441,14 @@ export default function TodayScreen() {
     };
 
     loadStoredThenMaybeRefetch();
-  }, [domainBaby, activeSession, hasAnyEndedSessions, fetchKey, lastWakeTime, lastEndedSession, memoryStrings, allSessions, eventsForRecommendation]);
+  }, [hasPremiumAccess, domainBaby, activeSession, hasAnyEndedSessions, fetchKey, lastWakeTime, lastEndedSession, memoryStrings, allSessions, showPaywall, eventsForRecommendation]);
 
   const handleRefreshRecommendation = useCallback(() => {
     if (!domainBaby || activeSession) return;
+    if (!hasPremiumAccess) {
+      showPaywall('recommendations');
+      return;
+    }
     const key = `${domainBaby.id}:${sessionDataKey}:${memoryStrings.join(',')}`;
     const existingId = currentStoredTargetIdRef.current;
     activeFetchKeyRef.current = null;
@@ -442,7 +468,11 @@ export default function TodayScreen() {
           });
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        if (isPremiumAccessRequiredError(error)) {
+          showPaywall('recommendations');
+          return;
+        }
         const local = getLocalNapRecommendation(domainBaby, events, new Date());
         setRecommendation(local);
         const napPayload = (local.type === 'next_nap' || local.type === 'bedtime') ? (local.payload as NapRecommendationPayload) : null;
@@ -457,7 +487,7 @@ export default function TodayScreen() {
       })
       .finally(() => setRecommendationLoading(false));
     track('refresh_recommendation', { babyId: domainBaby.id });
-  }, [domainBaby, activeSession, sessionDataKey, memoryStrings, eventsForRecommendation]);
+  }, [domainBaby, activeSession, hasPremiumAccess, sessionDataKey, memoryStrings, showPaywall, eventsForRecommendation]);
 
   const isBedtimeRec = recommendation?.type === 'bedtime';
   const napPayload =
@@ -475,7 +505,7 @@ export default function TodayScreen() {
 
   // Cap suggestion for active nap (for Live Activity)
   const capSuggestionForLA =
-    domainBaby && activeSession?.type === 'nap'
+    hasPremiumAccess && domainBaby && activeSession?.type === 'nap'
       ? getSuggestedNapCap(
           domainBaby,
           allSessions.map(sessionToSleepEvent),
@@ -686,6 +716,10 @@ export default function TodayScreen() {
   };
 
   const handleWhy = () => {
+    if (!hasPremiumAccess) {
+      showPaywall('recommendations');
+      return;
+    }
     track('open_coach_from_why', { babyId: currentBabyId });
     const recommendationSummary =
       napPayload == null
@@ -796,7 +830,7 @@ export default function TodayScreen() {
   if (babiesLoading || loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <View style={styles.loadingContainer}>
           <SkeletonCard style={{ marginBottom: Spacing.md }} />
           <SkeletonCard style={{ marginBottom: Spacing.md }} />
@@ -809,7 +843,7 @@ export default function TodayScreen() {
   if (babies.length === 0) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <EmptyState icon="figure.child" title="Welcome to Sova" message="Add your little one to start tracking their sleep and get personalized recommendations." actionTitle="Add Baby" onAction={() => router.push('/baby-setup')} />
       </SafeAreaView>
     );
@@ -818,7 +852,7 @@ export default function TodayScreen() {
   if (!currentBabyId || !baby) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <View style={styles.loadingContainer}><SkeletonCard /></View>
       </SafeAreaView>
     );
@@ -826,7 +860,7 @@ export default function TodayScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -845,25 +879,32 @@ export default function TodayScreen() {
         </View>
 
         {/* Status & recommendation — one card when user has logged sessions and awake time is reasonable (≤16h) */}
-        {showStatusCard && (
-          <StatusAndRecommendationCard
-            awakeMinutes={activeSession ? 0 : awakeMinutes}
-            recommendedWakeWindow={displayWakeWindow}
-            nextNapTime={recommendationLoading ? null : nextNapTimeStr}
-            nextSleepLabel={isBedtimeRec ? 'Bedtime' : 'Next nap'}
-            confidence={recommendation?.confidence ?? 'medium'}
-            isAsleep={!!activeSession}
-            loading={recommendationLoading}
-            napPayload={napPayload}
-            isBedtime={isBedtimeRec}
-            napsCompletedToday={napCount}
-            onStartNap={handleStartNap}
-            onDelay={handleDelay}
-            onSkip={handleSkip}
-            onWhy={handleWhy}
-            onRefresh={handleRefreshRecommendation}
-          />
-        )}
+        {showStatusCard &&
+          (hasPremiumAccess ? (
+            <StatusAndRecommendationCard
+              awakeMinutes={activeSession ? 0 : awakeMinutes}
+              recommendedWakeWindow={displayWakeWindow}
+              nextNapTime={recommendationLoading ? null : nextNapTimeStr}
+              nextSleepLabel={isBedtimeRec ? 'Bedtime' : 'Next nap'}
+              confidence={recommendation?.confidence ?? 'medium'}
+              isAsleep={!!activeSession}
+              loading={recommendationLoading}
+              napPayload={napPayload}
+              isBedtime={isBedtimeRec}
+              napsCompletedToday={napCount}
+              onStartNap={handleStartNap}
+              onDelay={handleDelay}
+              onSkip={handleSkip}
+              onWhy={handleWhy}
+              onRefresh={handleRefreshRecommendation}
+            />
+          ) : (
+            <PremiumUpsellCard
+              feature="recommendations"
+              title="Unlock AI sleep recommendations"
+              message="Get personalized nap timing, bedtime guidance, and nap-cap suggestions tailored to your baby's day."
+            />
+          ))}
 
         {/* Active session card */}
         {activeSession && (
@@ -874,7 +915,7 @@ export default function TodayScreen() {
               startTime={new Date(activeSession.start_time)}
               type={activeSession.type as 'nap' | 'night'}
               capSuggestion={
-                domainBaby && activeSession.type === 'nap'
+                hasPremiumAccess && domainBaby && activeSession.type === 'nap'
                   ? getSuggestedNapCap(
                       domainBaby,
                       allSessions.map(sessionToSleepEvent),
@@ -884,6 +925,21 @@ export default function TodayScreen() {
                   : null
               }
             />
+          </View>
+        )}
+
+        {hasStartedNighttimeSession && (
+          <View style={styles.section}>
+            {hasPremiumAccess ? (
+              <AiForecastCard babyId={currentBabyId} />
+            ) : (
+              <PremiumUpsellCard
+                feature="insights"
+                compact
+                title="Unlock tonight's AI forecast"
+                message="See your personalized nighttime outlook, expected wakes, and bedtime guidance."
+              />
+            )}
           </View>
         )}
 
@@ -996,7 +1052,7 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1426' },
+  container: { flex: 1, backgroundColor: '#0D0918' },
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: Spacing.lg },
   loadingContainer: { flex: 1, padding: Spacing.lg, justifyContent: 'center' },

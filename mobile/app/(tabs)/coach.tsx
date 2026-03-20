@@ -2,13 +2,15 @@ import { BabySwitcher } from '@/components/baby/BabySwitcher';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatMessageComponent } from '@/components/chat/ChatMessage';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
+import { PremiumUpsellCard } from '@/components/premium/PremiumUpsellCard';
 import { ProfileAvatarButton } from '@/components/ProfileAvatarButton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { usePremiumGate } from '@/hooks/usePremiumGate';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useCoachMemories } from '@/hooks/useCoachMemories';
@@ -21,6 +23,7 @@ import * as coachService from '@/services/ai/coach';
 import { track } from '@/services/analytics/track';
 import { babiesRepo } from '@/services/repositories/babiesRepo';
 import type { Baby, BabyPreferences } from '@/types/domain';
+import { isPremiumAccessRequiredError } from '@/types/subscription';
 import { format, isToday, isYesterday } from 'date-fns';
 import { getExtendedDayBounds, sessionOverlapsExtendedDay } from '@/utils/dateUtils';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -185,6 +188,7 @@ export default function CoachScreen() {
   const [pendingSuggestedMemories, setPendingSuggestedMemories] = useState<string[] | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
   const initialMessageHandled = useRef(false);
   const prevMessageCountRef = useRef(0);
   const insets = useSafeAreaInsets();
@@ -192,6 +196,7 @@ export default function CoachScreen() {
   const bottomPadding = keyboardVisible ? 0 : TAB_BAR_HEIGHT + insets.bottom;
   const menuSlideAnim = useRef(new Animated.Value(0)).current;
   const MENU_PANEL_WIDTH = Math.min(280, Dimensions.get('window').width * 0.8);
+  const premiumGate = usePremiumGate();
 
   useEffect(() => {
     const show = Keyboard.addListener(
@@ -352,6 +357,10 @@ export default function CoachScreen() {
 
   const handleSendMessage = async (content: string) => {
     if (!currentBabyId || !baby) return;
+    if (!premiumGate.hasPremiumAccess) {
+      premiumGate.showPaywall('coach');
+      return;
+    }
 
     setSending(true);
     track('ask_ai', { babyId: currentBabyId, prompt: content.substring(0, 50) });
@@ -453,6 +462,10 @@ export default function CoachScreen() {
       // selectedConversationId hasn't updated yet so refetch would clear messages.
       if (selectedConversationId) refetchMessages(true);
     } catch (error: any) {
+      if (isPremiumAccessRequiredError(error)) {
+        premiumGate.showPaywall('coach');
+        return;
+      }
       console.error('Error in coach:', error);
       const { data: { user } } = await supabase.auth.getUser();
       const convId = selectedConversationId;
@@ -481,7 +494,7 @@ export default function CoachScreen() {
   if (babiesLoading || (selectedConversationId !== null && messagesLoading)) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <View style={styles.loadingContainer}>
           <SkeletonCard style={{ marginBottom: Spacing.md }} />
           <SkeletonCard />
@@ -493,7 +506,7 @@ export default function CoachScreen() {
   if (babies.length === 0) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <EmptyState icon="message.fill" title="Sleep Coach" message="Add a baby to start chatting with your AI sleep coach." />
       </SafeAreaView>
     );
@@ -502,8 +515,23 @@ export default function CoachScreen() {
   if (!currentBabyId || !baby) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <View style={styles.loadingContainer}><SkeletonCard /></View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!premiumGate.hasPremiumAccess) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
+        <View style={styles.lockedContainer}>
+          <PremiumUpsellCard
+            feature="coach"
+            title="Unlock your AI sleep coach"
+            message={`Keep asking personalized questions about ${baby.name}'s sleep, schedules, transitions, and bedtime.`}
+          />
+        </View>
       </SafeAreaView>
     );
   }
@@ -537,7 +565,7 @@ export default function CoachScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: bottomPadding }]} edges={['top']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
 
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -617,7 +645,7 @@ export default function CoachScreen() {
                   setShowConversationList(false);
                 }}
               >
-                <IconSymbol name="plus" size={20} color="#0B1426" />
+                <IconSymbol name="plus" size={20} color={colors.background} />
               </TouchableOpacity>
             </View>
             {filteredConversations.length === 0 ? (
@@ -671,12 +699,12 @@ export default function CoachScreen() {
             <View style={styles.welcomeContainer}>
               <View style={styles.welcomeBadge}>
                 <LinearGradient
-                  colors={['#4ECDC4', '#3BA8A0']}
+                  colors={[...gradients.accent]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.welcomeBadgeGradient}
                 >
-                  <IconSymbol name="moon.fill" size={40} color="#0B1426" />
+                  <IconSymbol name="moon.fill" size={40} color={colors.background} />
                 </LinearGradient>
               </View>
               <Text style={[Typography.h2, { color: colors.text, textAlign: 'center' }]}>
@@ -744,7 +772,7 @@ export default function CoachScreen() {
                             Typography.caption,
                             {
                               color: isActive
-                                ? '#0B1426'
+                                ? colors.background
                                 : colors.textSecondary,
                             },
                           ]}
@@ -800,7 +828,7 @@ export default function CoachScreen() {
                       }}
                       activeOpacity={0.7}
                     >
-                      <Text style={[Typography.captionMedium, { color: '#0B1426' }]}>Save</Text>
+                      <Text style={[Typography.captionMedium, { color: colors.background }]}>Save</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.suggestedMemoriesBtn, styles.suggestedMemoriesBtnDiscard]}
@@ -825,7 +853,12 @@ export default function CoachScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1426' },
+  container: { flex: 1, backgroundColor: '#0D0918' },
+  lockedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: Spacing.lg,
+  },
   keyboardView: { flex: 1 },
   header: {
     flexDirection: 'row',
@@ -898,7 +931,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   menuItemSelected: {
-    backgroundColor: 'rgba(78, 205, 196, 0.15)',
+    backgroundColor: 'rgba(199, 174, 255, 0.15)',
   },
   loadingContainer: { flex: 1, justifyContent: 'center', padding: Spacing.lg },
   messagesContainer: { flex: 1 },
@@ -929,8 +962,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: Radius.full,
     borderWidth: 1,
-    borderColor: 'rgba(78, 205, 196, 0.25)',
-    backgroundColor: 'rgba(78, 205, 196, 0.08)',
+    borderColor: 'rgba(199, 174, 255, 0.25)',
+    backgroundColor: 'rgba(199, 174, 255, 0.08)',
   },
   adjustmentSection: {
     marginTop: Spacing.xl,
@@ -952,8 +985,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   adjustmentChipActive: {
-    backgroundColor: '#4ECDC4',
-    borderColor: '#4ECDC4',
+    backgroundColor: '#C7AEFF',
+    borderColor: '#C7AEFF',
   },
   suggestedMemoriesCard: {
     marginHorizontal: Spacing.md,
@@ -962,7 +995,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(78, 205, 196, 0.2)',
+    borderColor: 'rgba(199, 174, 255, 0.2)',
   },
   suggestedMemoriesActions: {
     flexDirection: 'row',
@@ -975,7 +1008,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   suggestedMemoriesBtnSave: {
-    backgroundColor: '#4ECDC4',
+    backgroundColor: '#C7AEFF',
   },
   suggestedMemoriesBtnDiscard: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',

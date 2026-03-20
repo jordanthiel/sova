@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import { Spacing, Typography, Radius } from '@/constants/theme';
+import { Colors, Gradients, Spacing, Typography, Radius } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -35,28 +35,28 @@ const PAGES: (Omit<OnboardingPage, 'emoji'> & { icon: IconName })[] = [
     title: 'Today Tab',
     description:
       'See your baby\'s current sleep status at a glance. Get AI-powered nap recommendations, one-tap logging, and a live wake window tracker.',
-    accent: '#4ECDC4',
+    accent: Colors.dark.accent,
   },
   {
     icon: 'list.clipboard',
     title: 'Log Tab',
     description:
       'Browse sleep history day by day. Log naps, night sleep, feeds, diapers, and medications. Tap the + button anytime.',
-    accent: '#FFB84D',
+    accent: Colors.dark.napColor,
   },
   {
     icon: 'message.fill',
     title: 'AI Coach',
     description:
       'Chat with your personal sleep coach. Ask about nap timing, bedtime, wake windows, or nap transitions — and get personalized answers.',
-    accent: '#5BA3E8',
+    accent: Colors.dark.nightColor,
   },
   {
     icon: 'sparkles',
     title: 'Insights',
     description:
       'AI surfaces sleep patterns, consistency metrics, and actionable suggestions. Apply suggestions directly to improve your baby\'s routine.',
-    accent: '#818CF8',
+    accent: Gradients.dark.accent[1],
   },
   {
     icon: 'gearshape.fill',
@@ -103,7 +103,7 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={['#0B1426', '#0D1B2A', '#101E30']}
+        colors={[...Gradients.dark.screenBackground]}
         style={StyleSheet.absoluteFill}
       />
 
@@ -184,7 +184,7 @@ export async function shouldShowOnboarding(): Promise<boolean> {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
+    backgroundColor: Colors.dark.background,
   },
   skipRow: {
     alignItems: 'flex-end',
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   },
   skipText: {
     ...Typography.bodyMedium,
-    color: '#9BAFC4',
+    color: Colors.dark.textSecondary,
   },
   page: {
     width: SCREEN_WIDTH,
@@ -212,12 +212,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   title: {
-    color: '#E8EDF2',
+    color: Colors.dark.text,
     textAlign: 'center',
     marginBottom: Spacing.md,
   },
   description: {
-    color: '#9BAFC4',
+    color: Colors.dark.textSecondary,
     textAlign: 'center',
     lineHeight: 26,
   },
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: Colors.dark.border,
   },
   nextButton: {
     width: '100%',
@@ -246,6 +246,6 @@ const styles = StyleSheet.create({
   },
   nextText: {
     ...Typography.button,
-    color: '#0B1426',
+    color: Colors.dark.background,
   },
 });

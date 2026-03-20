@@ -16,7 +16,7 @@ import { Card } from '@/components/ui/Card';
 import { getPendingInvitations, acceptInvitation, type PendingInvitation } from '@/utils/babyInvitations';
 import { Spacing, Typography, Radius } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { shouldShowOnboarding } from '@/app/onboarding';
 
 export default function InvitesChoiceScreen() {
@@ -24,6 +24,7 @@ export default function InvitesChoiceScreen() {
   const [loading, setLoading] = useState(true);
   const [acceptingId, setAcceptingId] = useState<string | 'all' | null>(null);
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
 
   useEffect(() => {
     loadInvites();
@@ -90,7 +91,7 @@ export default function InvitesChoiceScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={[Typography.body, { color: colors.textSecondary, marginTop: Spacing.md }]}>
@@ -101,14 +102,14 @@ export default function InvitesChoiceScreen() {
     );
   }
 
-  const babyName = (inv: PendingInvitation) =>
-    inv.baby_name ?? 'a baby';
+  const familyName = (inv: PendingInvitation) =>
+    inv.family_name ?? 'a family';
   const inviterLabel = (inv: PendingInvitation) =>
     inv.inviter_name ? `Invited by ${inv.inviter_name}` : 'Invitation';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -117,7 +118,7 @@ export default function InvitesChoiceScreen() {
         <Animated.View entering={FadeInDown.duration(600)} style={styles.headerSection}>
           <IconSymbol name="envelope.fill" size={56} color={colors.text} style={styles.heroIcon} />
           <Text style={[Typography.h1, { color: colors.text, textAlign: 'center' }]}>
-            You're invited
+            You&apos;re invited
           </Text>
           <Text
             style={[
@@ -125,7 +126,7 @@ export default function InvitesChoiceScreen() {
               { color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
             ]}
           >
-            Someone invited you to help track sleep. Accept to join, or create your own baby profile.
+            Someone invited you to join a family. Accept to share access to all babies in that family, or create your own family.
           </Text>
         </Animated.View>
 
@@ -135,7 +136,7 @@ export default function InvitesChoiceScreen() {
               <View style={styles.inviteRow}>
                 <View style={styles.inviteInfo}>
                   <Text style={[Typography.bodySemiBold, { color: colors.text }]}>
-                    {babyName(inv)}
+                    {familyName(inv)}
                   </Text>
                   <Text style={[Typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
                     {inviterLabel(inv)}
@@ -180,7 +181,7 @@ export default function InvitesChoiceScreen() {
               Create new baby profile
             </Text>
             <Text style={[Typography.caption, { color: colors.textSecondary, marginTop: Spacing.xs }]}>
-              Set up your own baby and start tracking from scratch
+              Start your own family and add your first baby
             </Text>
           </TouchableOpacity>
         </Animated.View>
@@ -192,7 +193,7 @@ export default function InvitesChoiceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
+    backgroundColor: '#0D0918',
   },
   centered: {
     flex: 1,

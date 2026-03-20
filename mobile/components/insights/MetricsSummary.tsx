@@ -19,7 +19,7 @@ export function MetricsSummary(props: MetricsSummaryProps) {
 
   const metrics: { label: string; value: string; icon: IconSymbolName; gradientColors: readonly [string, string] }[] = [
     { label: 'Morning WW', value: props.avgMorningWakeWindow > 0 ? formatDuration(props.avgMorningWakeWindow) : '—', icon: 'sun.max.fill', gradientColors: ['rgba(255, 184, 77, 0.15)', 'rgba(255, 184, 77, 0.05)'] },
-    { label: 'Midday WW', value: props.avgMiddayWakeWindow > 0 ? formatDuration(props.avgMiddayWakeWindow) : '—', icon: 'sun.max.fill', gradientColors: ['rgba(78, 205, 196, 0.15)', 'rgba(78, 205, 196, 0.05)'] },
+    { label: 'Midday WW', value: props.avgMiddayWakeWindow > 0 ? formatDuration(props.avgMiddayWakeWindow) : '—', icon: 'sun.max.fill', gradientColors: ['rgba(199, 174, 255, 0.15)', 'rgba(199, 174, 255, 0.05)'] },
     { label: 'Evening WW', value: props.avgEveningWakeWindow > 0 ? formatDuration(props.avgEveningWakeWindow) : '—', icon: 'clock.fill', gradientColors: ['rgba(129, 140, 248, 0.15)', 'rgba(129, 140, 248, 0.05)'] },
     { label: 'Night Sleep', value: props.nightSleepTotal > 0 ? formatDuration(props.nightSleepTotal) : '—', icon: 'moon.fill', gradientColors: ['rgba(91, 163, 232, 0.15)', 'rgba(91, 163, 232, 0.05)'] },
   ];

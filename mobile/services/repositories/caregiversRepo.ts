@@ -2,6 +2,20 @@ import { supabase } from '@/lib/supabase';
 import { inviteParentToBaby } from '@/utils/babyInvitations';
 import type { Caregiver } from '@/types/domain';
 
+async function getFamilyForBaby(babyId: string) {
+  const { data, error } = await supabase
+    .from('babies')
+    .select('family_id')
+    .eq('id', babyId)
+    .single();
+
+  if (error || !data?.family_id) {
+    throw new Error('Family not found for this baby');
+  }
+
+  return data.family_id;
+}
+
 function rowToCaregiver(row: any, fallbackName = 'Caregiver'): Caregiver {
   try {
     const profile = row?.profiles ?? row;
@@ -9,65 +23,53 @@ function rowToCaregiver(row: any, fallbackName = 'Caregiver'): Caregiver {
       (profile?.full_name && String(profile.full_name).trim()) ||
       (profile?.email && String(profile.email).trim()) ||
       fallbackName;
-    const id = row?.parent_id ?? row?.id;
+    const id = row?.user_id ?? row?.parent_id ?? row?.id;
     if (!id) return null as unknown as Caregiver;
     return {
       id,
       name,
-      role: row?.role === 'owner' ? 'owner' : 'caregiver',
-      permission: row?.role === 'owner' ? 'can_edit' : 'can_log',
+      role: row?.role === 'admin' ? 'owner' : 'caregiver',
+      permission: row?.role === 'admin' ? 'can_edit' : 'can_log',
     };
   } catch {
-    const id = row?.parent_id ?? row?.id;
+    const id = row?.user_id ?? row?.parent_id ?? row?.id;
     if (!id) return null as unknown as Caregiver;
     return {
       id,
       name: fallbackName,
-      role: row?.role === 'owner' ? 'owner' : 'caregiver',
-      permission: row?.role === 'owner' ? 'can_edit' : 'can_log',
+      role: row?.role === 'admin' ? 'owner' : 'caregiver',
+      permission: row?.role === 'admin' ? 'can_edit' : 'can_log',
     };
   }
 }
 
 export const caregiversRepo = {
   async list(babyId: string): Promise<Caregiver[]> {
-    const { data: baby, error: babyError } = await supabase
-      .from('babies')
-      .select('created_by')
-      .eq('id', babyId)
-      .single();
-
-    if (babyError) {
-      console.warn('[caregiversRepo] Error loading baby owner:', babyError.message);
-    }
-    const ownerId = baby?.created_by;
+    const familyId = await getFamilyForBaby(babyId);
 
     let rows: any[] | null = null;
     let error: { message: string } | null = null;
 
-    const { data: withProfiles, error: err1 } = await supabase
-      .from('baby_parents')
-      .select('id, parent_id, role, status, profiles(full_name, email)')
-      .eq('baby_id', babyId)
+    const { data: members, error: err1 } = await supabase
+      .from('family_members')
+      .select('id, user_id, role, status')
+      .eq('family_id', familyId)
       .eq('status', 'accepted');
 
-    if (!err1 && withProfiles) {
-      rows = withProfiles;
-    } else {
-      if (err1) {
-        console.warn('[caregiversRepo] Error loading caregivers (with profiles):', err1.message);
-      }
-      const { data: withoutProfiles, error: err2 } = await supabase
-        .from('baby_parents')
-        .select('id, parent_id, role, status')
-        .eq('baby_id', babyId)
-        .eq('status', 'accepted');
-      if (!err2 && withoutProfiles) {
-        rows = withoutProfiles;
-      } else if (err2) {
-        console.warn('[caregiversRepo] Error loading caregivers (without profiles):', err2.message);
-        error = err2;
-      }
+    if (!err1 && members) {
+      const userIds = members.map((member) => member.user_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds);
+      const profileById = new Map((profiles || []).map((profile) => [profile.id, profile]));
+      rows = members.map((member) => ({
+        ...member,
+        profiles: profileById.get(member.user_id) ?? null,
+      }));
+    } else if (err1) {
+      console.warn('[caregiversRepo] Error loading caregivers:', err1.message);
+      error = err1;
     }
 
     if (error || !rows) {
@@ -77,20 +79,6 @@ export const caregiversRepo = {
     const list = rows
       .map((row: any) => rowToCaregiver(row, 'Caregiver'))
       .filter(Boolean) as Caregiver[];
-    if (ownerId && !list.some((c) => c.id === ownerId)) {
-      // Owner not in baby_parents (e.g. legacy data); add them
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, email')
-        .eq('id', ownerId)
-        .single();
-      list.unshift({
-        id: ownerId,
-        name: (profile as any)?.full_name || (profile as any)?.email || 'You',
-        role: 'owner',
-        permission: 'can_edit',
-      });
-    }
     return list;
   },
 
@@ -126,17 +114,18 @@ export const caregiversRepo = {
     caregiverId: string,
     permission: Caregiver['permission']
   ): Promise<void> {
-    const roleMap: Record<string, 'owner' | 'member'> = {
-      can_edit: 'owner',
+    const familyId = await getFamilyForBaby(babyId);
+    const roleMap: Record<string, 'admin' | 'member'> = {
+      can_edit: 'admin',
       can_log: 'member',
       view_only: 'member',
     };
 
     const { error } = await supabase
-      .from('baby_parents')
+      .from('family_members')
       .update({ role: roleMap[permission] ?? 'member' })
-      .eq('baby_id', babyId)
-      .eq('parent_id', caregiverId);
+      .eq('family_id', familyId)
+      .eq('user_id', caregiverId);
 
     if (error) {
       console.warn('[caregiversRepo] Error updating permission:', error.message);
@@ -145,11 +134,12 @@ export const caregiversRepo = {
   },
 
   async remove(babyId: string, caregiverId: string): Promise<void> {
+    const familyId = await getFamilyForBaby(babyId);
     const { error } = await supabase
-      .from('baby_parents')
+      .from('family_members')
       .delete()
-      .eq('baby_id', babyId)
-      .eq('parent_id', caregiverId);
+      .eq('family_id', familyId)
+      .eq('user_id', caregiverId);
 
     if (error) {
       console.warn('[caregiversRepo] Error removing caregiver:', error.message);

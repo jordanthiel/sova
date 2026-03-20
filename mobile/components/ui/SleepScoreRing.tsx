@@ -5,7 +5,7 @@ import { useThemeColors } from '@/hooks/use-theme-color';
 
 export function scoreColor(score: number): string {
   if (score >= 80) return '#68D391';
-  if (score >= 60) return '#4ECDC4';
+  if (score >= 60) return '#C7AEFF';
   if (score >= 40) return '#F6AD55';
   return '#FC8181';
 }

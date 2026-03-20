@@ -187,7 +187,7 @@ export function InsightsTab() {
       <View style={styles.section}>
         <View style={styles.ctaCard}>
           <LinearGradient
-            colors={['rgba(78, 205, 196, 0.2)', 'rgba(59, 168, 160, 0.1)']}
+            colors={['rgba(199, 174, 255, 0.2)', 'rgba(157, 139, 255, 0.1)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.ctaGradient}
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(78, 205, 196, 0.2)',
+    borderColor: 'rgba(199, 174, 255, 0.2)',
   },
   ctaGradient: {
     padding: Spacing.lg,

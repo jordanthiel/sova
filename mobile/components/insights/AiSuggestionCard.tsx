@@ -36,7 +36,7 @@ export function AiSuggestionCard({ suggestion, onApply }: AiSuggestionCardProps)
         activeOpacity={0.7}
       >
         <LinearGradient
-          colors={['rgba(78, 205, 196, 0.2)', 'rgba(78, 205, 196, 0.1)']}
+          colors={['rgba(199, 174, 255, 0.2)', 'rgba(199, 174, 255, 0.1)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.actionGradient}
@@ -70,6 +70,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(78, 205, 196, 0.25)',
+    borderColor: 'rgba(199, 174, 255, 0.25)',
   },
 });

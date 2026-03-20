@@ -4,19 +4,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { BabySwitcher } from '@/components/baby/BabySwitcher';
+import { PremiumUpsellCard } from '@/components/premium/PremiumUpsellCard';
 import { ProfileAvatarButton } from '@/components/ProfileAvatarButton';
 import { TrendsTab } from '@/components/insights/TrendsTab';
 import { InsightsTab } from '@/components/insights/InsightsTab';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
+import { usePremiumGate } from '@/hooks/usePremiumGate';
 import { useBabies } from '@/hooks/useBabies';
 import { useRealtimeCaregivers } from '@/hooks/useRealtimeCaregivers';
 import { useSleepData } from '@/hooks/useSleepData';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
 import { track } from '@/services/analytics/track';
 import { Spacing, Typography, Radius } from '@/constants/theme';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 
 type TabId = 'trends' | 'insights';
 
@@ -28,6 +30,8 @@ export default function InsightsScreen() {
   const { caregivers } = useRealtimeCaregivers(currentBabyId);
   const [activeTab, setActiveTab] = useState<TabId>('trends');
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
+  const premiumGate = usePremiumGate();
 
   useEffect(() => {
     if (!isHydrated || babiesLoading || babies.length === 0) return;
@@ -47,7 +51,7 @@ export default function InsightsScreen() {
   if (babiesLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <View style={styles.loadingContainer}>
           <SkeletonCard style={{ marginBottom: Spacing.md }} />
           <SkeletonCard style={{ marginBottom: Spacing.md }} />
@@ -60,7 +64,7 @@ export default function InsightsScreen() {
   if (babies.length === 0) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <EmptyState
           icon="sparkles"
           title="Select a baby"
@@ -72,7 +76,7 @@ export default function InsightsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -97,7 +101,7 @@ export default function InsightsScreen() {
           <Text
             style={[
               Typography.captionMedium,
-              { color: activeTab === 'trends' ? '#0B1426' : colors.textSecondary },
+              { color: activeTab === 'trends' ? colors.background : colors.textSecondary },
             ]}
           >
             Trends
@@ -111,7 +115,7 @@ export default function InsightsScreen() {
           <Text
             style={[
               Typography.captionMedium,
-              { color: activeTab === 'insights' ? '#0B1426' : colors.textSecondary },
+              { color: activeTab === 'insights' ? colors.background : colors.textSecondary },
             ]}
           >
             Insights
@@ -129,7 +133,17 @@ export default function InsightsScreen() {
           </View>
         )
       ) : (
-        <InsightsTab />
+        premiumGate.hasPremiumAccess ? (
+          <InsightsTab />
+        ) : (
+          <View style={styles.loadingContainer}>
+            <PremiumUpsellCard
+              feature="insights"
+              title="Unlock AI insights"
+              message="Get personalized discoveries, schedule guidance, forecasts, and full sleep analysis tailored to your baby's patterns."
+            />
+          </View>
+        )
       )}
     </SafeAreaView>
   );
@@ -138,7 +152,7 @@ export default function InsightsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
+    backgroundColor: '#0D0918',
   },
   loadingContainer: {
     flex: 1,
@@ -165,6 +179,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   tabActive: {
-    backgroundColor: '#4ECDC4',
+    backgroundColor: '#C7AEFF',
   },
 });

@@ -48,10 +48,10 @@ export function BabyShareModal({ visible, babyId, onClose, onSuccess }: BabyShar
         <View style={[styles.modalContent, { backgroundColor: '#132140', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)' }, Shadows.lg]}>
           <IconSymbol name="envelope.fill" size={40} color={colors.text} style={styles.emojiIcon} />
           <Text style={[Typography.h2, { color: colors.text, marginBottom: Spacing.xs }]}>
-            Invite Parent
+            Invite Family Member
           </Text>
           <Text style={[Typography.body, { color: colors.textSecondary, marginBottom: Spacing.lg }]}>
-            Enter their email to share access
+            Enter their email to invite them to your family and all babies in it
           </Text>
 
           <Input

@@ -104,7 +104,7 @@ export default function SelectBabyScreen() {
               <Text
                 style={[
                   Typography.bodyLarge,
-                  { color: isActive ? '#0B1426' : colors.text, marginLeft: Spacing.md },
+                  { color: isActive ? colors.background : colors.text, marginLeft: Spacing.md },
                 ]}
               >
                 {baby.name}

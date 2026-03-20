@@ -13,7 +13,7 @@ import { SleepScoreRing } from '@/components/ui/SleepScoreRing';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
 import { useNightSleepScores } from '@/hooks/useNightSleepScores';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
@@ -74,6 +74,7 @@ export default function LogScreen() {
   const stripRangeRef = useRef({ stripStart, stripEnd });
   stripRangeRef.current = { stripStart, stripEnd };
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
   const { sessions: allSessions } = useRealtimeSleepSessions(currentBabyId);
 
   useEffect(() => {
@@ -527,7 +528,7 @@ export default function LogScreen() {
   if (babiesLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <View style={styles.loadingContainer}>
           <SkeletonCard style={{ marginBottom: Spacing.md }} />
           <SkeletonCard />
@@ -539,7 +540,7 @@ export default function LogScreen() {
   if (babies.length === 0) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <EmptyState icon="list.clipboard" title="No babies yet" message="Add a baby to start logging sleep events." actionTitle="Add Baby" onAction={() => router.push('/baby-setup')} />
       </SafeAreaView>
     );
@@ -572,7 +573,7 @@ export default function LogScreen() {
             }}
             activeOpacity={0.7}
           >
-            <Text style={[Typography.captionMedium, { color: viewMode === mode ? '#0B1426' : colors.textSecondary }]}>
+            <Text style={[Typography.captionMedium, { color: viewMode === mode ? colors.background : colors.textSecondary }]}>
               {mode === 'list' ? 'List' : mode === 'daily' ? 'Daily' : 'Weekly'}
             </Text>
           </TouchableOpacity>
@@ -633,7 +634,7 @@ export default function LogScreen() {
   if (viewMode === 'list') {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         {isSelectionMode && (
           <View style={[styles.selectionBar, styles.selectionBarTop, { backgroundColor: colors.surface }]}>
             <TouchableOpacity onPress={handleCancelSelection} style={styles.selectionBarBtn} activeOpacity={0.7}>
@@ -732,7 +733,7 @@ export default function LogScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -774,7 +775,7 @@ export default function LogScreen() {
               }}
               activeOpacity={0.7}
             >
-              <Text style={[Typography.captionMedium, { color: viewMode === mode ? '#0B1426' : colors.textSecondary }]}>
+              <Text style={[Typography.captionMedium, { color: viewMode === mode ? colors.background : colors.textSecondary }]}>
                 {mode === 'list' ? 'List' : mode === 'daily' ? 'Daily' : 'Weekly'}
               </Text>
             </TouchableOpacity>
@@ -949,7 +950,7 @@ export default function LogScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
+    backgroundColor: '#0D0918',
   },
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: Spacing.lg },
@@ -981,8 +982,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   viewModeChipActive: {
-    backgroundColor: '#4ECDC4',
-    borderColor: '#4ECDC4',
+    backgroundColor: '#C7AEFF',
+    borderColor: '#C7AEFF',
   },
   listWithHeaders: {
     paddingHorizontal: Spacing.md,
@@ -995,7 +996,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   listDayHeaderSticky: {
-    backgroundColor: '#0B1426',
+    backgroundColor: '#0D0918',
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xs,
@@ -1055,7 +1056,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     overflow: 'hidden',
     elevation: 8,
-    shadowColor: '#4ECDC4',
+    shadowColor: '#9B6BFF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -1067,7 +1068,7 @@ const styles = StyleSheet.create({
   },
   fabText: {
     ...Typography.button,
-    color: '#0B1426',
+    color: '#0D0918',
   },
   selectionBar: {
     flexDirection: 'row',

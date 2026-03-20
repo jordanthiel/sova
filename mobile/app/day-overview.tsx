@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { Radius, Spacing, Typography } from '@/constants/theme';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { Card } from '@/components/ui/Card';
 import { SleepScoreRing } from '@/components/ui/SleepScoreRing';
 import { formatDuration } from '@/utils/formatTime';
@@ -19,6 +19,7 @@ import { excludedDaysRepo } from '@/services/repositories/excludedDaysRepo';
 export default function DayOverviewScreen() {
   const { dateKey, babyId } = useLocalSearchParams<{ dateKey: string; babyId: string }>();
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
   const { sessions: allSessions } = useRealtimeSleepSessions(babyId ?? null);
 
   if (!dateKey || !babyId) {
@@ -70,7 +71,7 @@ export default function DayOverviewScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.closeBtn}>
           <Text style={[styles.closeText, { color: colors.textSecondary }]}>← Back</Text>
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   excludeBtnActive: {
-    borderColor: 'rgba(78, 205, 196, 0.4)',
-    backgroundColor: 'rgba(78, 205, 196, 0.08)',
+    borderColor: 'rgba(199, 174, 255, 0.4)',
+    backgroundColor: 'rgba(199, 174, 255, 0.08)',
   },
 });

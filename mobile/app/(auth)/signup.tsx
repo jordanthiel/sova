@@ -16,7 +16,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
-import { Spacing, Typography, Radius } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 
@@ -50,7 +50,12 @@ export default function SignupScreen() {
 
       if (data.user) {
         await supabase.from('profiles').update({ full_name: fullName }).eq('id', data.user.id);
-        Alert.alert('Success', 'Account created!', [
+        try {
+          await supabase.rpc('ensure_profile_trial', { p_user_id: data.user.id });
+        } catch {
+          // The signup trigger also initializes the trial, so this best-effort call can fail safely.
+        }
+        Alert.alert('Success', 'Account created. Your 7-day premium trial has started.', [
           { text: 'OK', onPress: () => router.replace('/invites-choice') },
         ]);
       }
@@ -63,7 +68,7 @@ export default function SignupScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -77,12 +82,12 @@ export default function SignupScreen() {
           <Animated.View entering={FadeInDown.duration(600)} style={styles.headerSection}>
             <View style={styles.heroBadge}>
               <LinearGradient
-                colors={['#FFB84D', '#FF9A3C']}
+                colors={[...gradients.accent]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.heroBadgeGradient}
               >
-                <IconSymbol name="sparkles" size={48} color="#0B1426" />
+                <IconSymbol name="sparkles" size={48} color={colors.background} />
               </LinearGradient>
             </View>
             <Text style={[Typography.h1, { color: colors.text, textAlign: 'center' }]}>
@@ -94,7 +99,7 @@ export default function SignupScreen() {
                 { color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
               ]}
             >
-              Start your baby's sleep journey
+              Start your baby&apos;s sleep journey
             </Text>
           </Animated.View>
 
@@ -164,7 +169,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
+    backgroundColor: '#0D0918',
   },
   keyboardView: {
     flex: 1,

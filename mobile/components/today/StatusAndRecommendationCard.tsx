@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Spacing, Typography, Radius } from '@/constants/theme';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { formatDuration, roundDateToNearest5Minutes, roundTimeStringToNearest5 } from '@/utils/formatTime';
 import type { ConfidenceLevel, NapRecommendationPayload, RestOfDayScheduleEvent } from '@/types/domain';
 
@@ -78,6 +78,7 @@ export function StatusAndRecommendationCard({
   onRefresh,
 }: StatusAndRecommendationCardProps) {
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
   const [showMore, setShowMore] = useState(false);
 
   const progress = Math.min(awakeMinutes / recommendedWakeWindow, 1);
@@ -208,7 +209,7 @@ export function StatusAndRecommendationCard({
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#4ECDC4', '#3BA8A0']}
+                colors={[...gradients.accent]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.primaryButtonGradient}

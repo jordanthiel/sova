@@ -10,34 +10,34 @@ import { Platform } from 'react-native';
 export const Colors = {
   light: {
     // Core — we default to dark-mode-first for this design
-    text: '#E8EDF2',
-    textSecondary: '#9BAFC4',
-    textTertiary: '#5E7389',
-    background: '#0B1426',
+    text: '#F5F1FF',
+    textSecondary: '#C0B4DE',
+    textTertiary: '#7D719C',
+    background: '#0D0918',
     surface: 'rgba(255, 255, 255, 0.06)',
     surfaceElevated: 'rgba(255, 255, 255, 0.10)',
-    surfaceSolid: '#132140',
+    surfaceSolid: '#171129',
 
     // Brand
-    tint: '#4ECDC4',
-    accent: '#4ECDC4',
-    accentSoft: 'rgba(78, 205, 196, 0.15)',
+    tint: '#C7AEFF',
+    accent: '#C7AEFF',
+    accentSoft: 'rgba(199, 174, 255, 0.16)',
 
     // Icons & Tab Bar
-    icon: '#5E7389',
-    tabIconDefault: '#5E7389',
-    tabIconSelected: '#4ECDC4',
+    icon: '#7D719C',
+    tabIconDefault: '#7D719C',
+    tabIconSelected: '#C7AEFF',
 
     // Sleep-specific
-    sleepBlue: '#1A2E4A',
-    napColor: '#FFB84D',
-    napColorSoft: 'rgba(255, 184, 77, 0.15)',
-    nightColor: '#5BA3E8',
-    nightColorSoft: 'rgba(91, 163, 232, 0.15)',
+    sleepBlue: '#231A45',
+    napColor: '#F4BC73',
+    napColorSoft: 'rgba(244, 188, 115, 0.16)',
+    nightColor: '#9D8BFF',
+    nightColorSoft: 'rgba(157, 139, 255, 0.18)',
 
     // Borders
-    border: 'rgba(255, 255, 255, 0.08)',
-    borderLight: 'rgba(255, 255, 255, 0.04)',
+    border: 'rgba(199, 174, 255, 0.16)',
+    borderLight: 'rgba(199, 174, 255, 0.08)',
 
     // Semantic
     success: '#68D391',
@@ -48,50 +48,50 @@ export const Colors = {
     errorSoft: 'rgba(252, 129, 129, 0.15)',
 
     // Chat
-    chatUser: '#4ECDC4',
+    chatUser: '#B996FF',
     chatUserText: '#FFFFFF',
     chatAssistant: 'rgba(255, 255, 255, 0.06)',
-    chatAssistantText: '#E8EDF2',
+    chatAssistantText: '#F5F1FF',
 
     // Misc
     overlay: 'rgba(0, 0, 0, 0.6)',
-    shimmer: 'rgba(255, 255, 255, 0.06)',
+    shimmer: 'rgba(199, 174, 255, 0.08)',
 
     // Moon / stars
-    moonYellow: '#FFD93D',
-    moonGlow: 'rgba(255, 217, 61, 0.25)',
+    moonYellow: '#F5C36A',
+    moonGlow: 'rgba(245, 195, 106, 0.22)',
     starWhite: '#FFFFFF',
   },
   dark: {
     // Core
-    text: '#E8EDF2',
-    textSecondary: '#9BAFC4',
-    textTertiary: '#5E7389',
-    background: '#0B1426',
+    text: '#F5F1FF',
+    textSecondary: '#C0B4DE',
+    textTertiary: '#7D719C',
+    background: '#0D0918',
     surface: 'rgba(255, 255, 255, 0.06)',
     surfaceElevated: 'rgba(255, 255, 255, 0.10)',
-    surfaceSolid: '#132140',
+    surfaceSolid: '#171129',
 
     // Brand
-    tint: '#4ECDC4',
-    accent: '#4ECDC4',
-    accentSoft: 'rgba(78, 205, 196, 0.15)',
+    tint: '#C7AEFF',
+    accent: '#C7AEFF',
+    accentSoft: 'rgba(199, 174, 255, 0.16)',
 
     // Icons & Tab Bar
-    icon: '#5E7389',
-    tabIconDefault: '#5E7389',
-    tabIconSelected: '#4ECDC4',
+    icon: '#7D719C',
+    tabIconDefault: '#7D719C',
+    tabIconSelected: '#C7AEFF',
 
     // Sleep-specific
-    sleepBlue: '#1A2E4A',
-    napColor: '#FFB84D',
-    napColorSoft: 'rgba(255, 184, 77, 0.15)',
-    nightColor: '#5BA3E8',
-    nightColorSoft: 'rgba(91, 163, 232, 0.15)',
+    sleepBlue: '#231A45',
+    napColor: '#F4BC73',
+    napColorSoft: 'rgba(244, 188, 115, 0.16)',
+    nightColor: '#9D8BFF',
+    nightColorSoft: 'rgba(157, 139, 255, 0.18)',
 
     // Borders
-    border: 'rgba(255, 255, 255, 0.08)',
-    borderLight: 'rgba(255, 255, 255, 0.04)',
+    border: 'rgba(199, 174, 255, 0.16)',
+    borderLight: 'rgba(199, 174, 255, 0.08)',
 
     // Semantic
     success: '#68D391',
@@ -102,18 +102,18 @@ export const Colors = {
     errorSoft: 'rgba(252, 129, 129, 0.15)',
 
     // Chat
-    chatUser: '#4ECDC4',
+    chatUser: '#B996FF',
     chatUserText: '#FFFFFF',
     chatAssistant: 'rgba(255, 255, 255, 0.06)',
-    chatAssistantText: '#E8EDF2',
+    chatAssistantText: '#F5F1FF',
 
     // Misc
     overlay: 'rgba(0, 0, 0, 0.6)',
-    shimmer: 'rgba(255, 255, 255, 0.06)',
+    shimmer: 'rgba(199, 174, 255, 0.08)',
 
     // Moon / stars
-    moonYellow: '#FFD93D',
-    moonGlow: 'rgba(255, 217, 61, 0.25)',
+    moonYellow: '#F5C36A',
+    moonGlow: 'rgba(245, 195, 106, 0.22)',
     starWhite: '#FFFFFF',
   },
 };
@@ -123,59 +123,59 @@ export const Colors = {
 export const Gradients = {
   light: {
     // Primary brand gradient
-    accent: ['#4ECDC4', '#44A3AA'] as const,
-    accentSoft: ['rgba(78, 205, 196, 0.2)', 'rgba(78, 205, 196, 0.05)'] as const,
+    accent: ['#E4D7FF', '#9B6BFF'] as const,
+    accentSoft: ['rgba(199, 174, 255, 0.24)', 'rgba(155, 107, 255, 0.08)'] as const,
 
     // Sleep type gradients
-    nap: ['#FFB84D', '#FF9A3C'] as const,
-    napSoft: ['rgba(255, 184, 77, 0.2)', 'rgba(255, 154, 60, 0.08)'] as const,
-    night: ['#5BA3E8', '#818CF8'] as const,
-    nightSoft: ['rgba(91, 163, 232, 0.2)', 'rgba(129, 140, 248, 0.08)'] as const,
+    nap: ['#F4C17D', '#E39A63'] as const,
+    napSoft: ['rgba(244, 193, 125, 0.22)', 'rgba(227, 154, 99, 0.08)'] as const,
+    night: ['#C9B3FF', '#7E5BFF'] as const,
+    nightSoft: ['rgba(201, 179, 255, 0.24)', 'rgba(126, 91, 255, 0.08)'] as const,
 
     // Urgency / status
     urgent: ['#FC8181', '#F56565'] as const,
     success: ['#68D391', '#48BB78'] as const,
 
     // Surface / decorative
-    hero: ['#0D2137', '#162B50'] as const,
-    heroAccent: ['#1A3A5C', '#0D4B6E'] as const,
-    warm: ['#F6D365', '#FDA085'] as const,
-    cool: ['rgba(91, 163, 232, 0.15)', 'rgba(129, 140, 248, 0.08)'] as const,
-    sunset: ['#FA709A', '#FEE140'] as const,
-    moonGlow: ['rgba(255, 217, 61, 0.3)', 'rgba(255, 217, 61, 0)'] as const,
+    hero: ['#151028', '#1D1537'] as const,
+    heroAccent: ['#241A44', '#6F46F7'] as const,
+    warm: ['#F4C17D', '#E88C7D'] as const,
+    cool: ['rgba(185, 150, 255, 0.18)', 'rgba(111, 70, 247, 0.08)'] as const,
+    sunset: ['#E99BFF', '#8B5CF6'] as const,
+    moonGlow: ['rgba(199, 174, 255, 0.28)', 'rgba(199, 174, 255, 0)'] as const,
 
     // Card / glass overlays
-    glassDark: ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.02)'] as const,
-    glassLight: ['rgba(255, 255, 255, 0.10)', 'rgba(255, 255, 255, 0.04)'] as const,
+    glassDark: ['rgba(72, 44, 132, 0.22)', 'rgba(19, 14, 36, 0.92)'] as const,
+    glassLight: ['rgba(81, 52, 150, 0.22)', 'rgba(25, 18, 48, 0.94)'] as const,
 
     // Background
-    screenBackground: ['#0B1426', '#0D1B2A', '#101E30'] as const,
-    cardBackground: ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.03)'] as const,
+    screenBackground: ['#0D0918', '#151028', '#1B1434'] as const,
+    cardBackground: ['rgba(90, 63, 158, 0.22)', 'rgba(24, 18, 44, 0.92)'] as const,
   },
   dark: {
-    accent: ['#4ECDC4', '#44A3AA'] as const,
-    accentSoft: ['rgba(78, 205, 196, 0.2)', 'rgba(78, 205, 196, 0.05)'] as const,
+    accent: ['#E4D7FF', '#9B6BFF'] as const,
+    accentSoft: ['rgba(199, 174, 255, 0.24)', 'rgba(155, 107, 255, 0.08)'] as const,
 
-    nap: ['#FFB84D', '#FF9A3C'] as const,
-    napSoft: ['rgba(255, 184, 77, 0.2)', 'rgba(255, 154, 60, 0.08)'] as const,
-    night: ['#5BA3E8', '#818CF8'] as const,
-    nightSoft: ['rgba(91, 163, 232, 0.2)', 'rgba(129, 140, 248, 0.08)'] as const,
+    nap: ['#F4C17D', '#E39A63'] as const,
+    napSoft: ['rgba(244, 193, 125, 0.22)', 'rgba(227, 154, 99, 0.08)'] as const,
+    night: ['#C9B3FF', '#7E5BFF'] as const,
+    nightSoft: ['rgba(201, 179, 255, 0.24)', 'rgba(126, 91, 255, 0.08)'] as const,
 
     urgent: ['#FC8181', '#F56565'] as const,
     success: ['#68D391', '#48BB78'] as const,
 
-    hero: ['#0D2137', '#162B50'] as const,
-    heroAccent: ['#1A3A5C', '#0D4B6E'] as const,
-    warm: ['#F6D365', '#FDA085'] as const,
-    cool: ['rgba(91, 163, 232, 0.15)', 'rgba(129, 140, 248, 0.08)'] as const,
-    sunset: ['#FA709A', '#FEE140'] as const,
-    moonGlow: ['rgba(255, 217, 61, 0.3)', 'rgba(255, 217, 61, 0)'] as const,
+    hero: ['#151028', '#1D1537'] as const,
+    heroAccent: ['#241A44', '#6F46F7'] as const,
+    warm: ['#F4C17D', '#E88C7D'] as const,
+    cool: ['rgba(185, 150, 255, 0.18)', 'rgba(111, 70, 247, 0.08)'] as const,
+    sunset: ['#E99BFF', '#8B5CF6'] as const,
+    moonGlow: ['rgba(199, 174, 255, 0.28)', 'rgba(199, 174, 255, 0)'] as const,
 
-    glassDark: ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.02)'] as const,
-    glassLight: ['rgba(255, 255, 255, 0.10)', 'rgba(255, 255, 255, 0.04)'] as const,
+    glassDark: ['rgba(72, 44, 132, 0.22)', 'rgba(19, 14, 36, 0.92)'] as const,
+    glassLight: ['rgba(81, 52, 150, 0.22)', 'rgba(25, 18, 48, 0.94)'] as const,
 
-    screenBackground: ['#0B1426', '#0D1B2A', '#101E30'] as const,
-    cardBackground: ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.03)'] as const,
+    screenBackground: ['#0D0918', '#151028', '#1B1434'] as const,
+    cardBackground: ['rgba(90, 63, 158, 0.22)', 'rgba(24, 18, 44, 0.92)'] as const,
   },
 } as const;
 

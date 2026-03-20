@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import { getPremiumAccessErrorFromResponse } from '@/services/subscription';
 
 type Mode = 'next_sleep' | 'nap_evaluation' | 'micro_insight' | 'daily_schedule' | 'forecast' | 'insights_bundle';
 
@@ -88,6 +89,8 @@ export function useAiInsight<T = Record<string, unknown>>(
         });
 
         if (!res.ok) {
+          const premiumError = await getPremiumAccessErrorFromResponse(res, 'insights');
+          if (premiumError) throw premiumError;
           const errBody = await res.json().catch(() => ({}));
           throw new Error((errBody as any).error || `Request failed (${res.status})`);
         }
@@ -110,7 +113,7 @@ export function useAiInsight<T = Record<string, unknown>>(
         inflightRef.current = false;
       }
     },
-    [babyId, mode, cacheKey, cacheTtlMs, suffixPart]
+    [babyId, mode, cacheKey, cacheTtlMs]
   );
 
   return { data, loading, error, fetch: fetchInsight, clearCache };

@@ -13,23 +13,22 @@ export const babiesRepo = {
 
     const savedId = await AsyncStorage.getItem(ACTIVE_BABY_KEY);
 
-    const { data: ownedBabies } = await supabase
-      .from('babies')
-      .select('*')
-      .eq('created_by', user.id);
-
-    const { data: parentBabies } = await supabase
-      .from('baby_parents')
-      .select('babies (*)')
-      .eq('parent_id', user.id)
+    const { data: memberships } = await supabase
+      .from('family_members')
+      .select('family_id')
+      .eq('user_id', user.id)
       .eq('status', 'accepted');
 
-    const allBabies = [
-      ...(ownedBabies || []),
-      ...(parentBabies?.map((bp: any) => bp.babies).filter(Boolean) || []),
-    ];
+    const familyIds = [...new Set((memberships || []).map((row) => row.family_id).filter(Boolean))];
+    if (familyIds.length === 0) return null;
 
-    const unique = Array.from(new Map(allBabies.map((b) => [b.id, b])).values());
+    const { data: familyBabies } = await supabase
+      .from('babies')
+      .select('*')
+      .in('family_id', familyIds)
+      .order('birth_date', { ascending: false });
+
+    const unique = Array.from(new Map((familyBabies || []).map((b) => [b.id, b])).values());
     if (unique.length === 0) return null;
 
     const target = savedId ? unique.find((b) => b.id === savedId) : unique[0];

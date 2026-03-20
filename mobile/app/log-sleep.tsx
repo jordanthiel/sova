@@ -434,7 +434,7 @@ export default function LogSleepScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -574,7 +574,7 @@ export default function LogSleepScreen() {
             />
             {Platform.OS === 'ios' && (
               <TouchableOpacity onPress={closePicker} style={[styles.pickerDone, { backgroundColor: colors.accent }]}>
-                <Text style={[styles.pickerDoneText, { color: '#0B1426' }]}>Done</Text>
+                <Text style={[styles.pickerDoneText, { color: colors.background }]}>Done</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -707,7 +707,7 @@ export default function LogSleepScreen() {
 // ─── Styles ───────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1426' },
+  container: { flex: 1, backgroundColor: '#0D0918' },
 
   // Header
   header: {
@@ -921,5 +921,5 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
     alignItems: 'center',
   },
-  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#0B1426' },
+  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#0D0918' },
 });

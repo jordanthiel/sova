@@ -2,9 +2,9 @@ import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Spacing, Typography, Radius } from '@/constants/theme';
+import { Colors, Spacing, Typography } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
 import type { ConfidenceLevel } from '@/types/domain';
 
@@ -22,7 +22,7 @@ interface StatusCardProps {
 
 const CONFIDENCE_COLORS: Record<ConfidenceLevel, string> = {
   low: '#F6AD55',
-  medium: '#4ECDC4',
+  medium: Colors.dark.accent,
   high: '#68D391',
 };
 
@@ -36,6 +36,7 @@ export function StatusCard({
   loading = false,
 }: StatusCardProps) {
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
 
   const progress = Math.min(awakeMinutes / recommendedWakeWindow, 1);
   const isOverdue = awakeMinutes > recommendedWakeWindow;
@@ -90,7 +91,7 @@ export function StatusCard({
               colors={
                 isOverdue
                   ? ['#FC8181', '#F56565']
-                  : ['#4ECDC4', '#3BA8A0']
+                  : [...gradients.accent]
               }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}

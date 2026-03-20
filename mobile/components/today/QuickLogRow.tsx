@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Typography, Radius } from '@/constants/theme';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 interface QuickLogRowProps {
@@ -19,6 +19,7 @@ export function QuickLogRow({
   onAddNote,
 }: QuickLogRowProps) {
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
 
   const handlePress = (action: () => void) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -54,7 +55,7 @@ export function QuickLogRow({
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={['#4ECDC4', '#3BA8A0']}
+              colors={[...gradients.accent]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.buttonGradient}
@@ -119,8 +120,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(78, 205, 196, 0.3)',
-    backgroundColor: 'rgba(78, 205, 196, 0.08)',
+    borderColor: 'rgba(199, 174, 255, 0.3)',
+    backgroundColor: 'rgba(199, 174, 255, 0.08)',
     gap: Spacing.sm,
   },
   outlineText: {

@@ -26,7 +26,19 @@ export type TrackableEvent =
   | 'view_settings'
   | 'toggle_notification'
   | 'onboarding_complete'
-  | 'photo_upload';
+  | 'photo_upload'
+  | 'log_view_mode'
+  | 'request_account_deletion_tap'
+  | 'import_sleep_csv'
+  | 'paywall_viewed'
+  | 'premium_feature_blocked'
+  | 'subscription_purchase_started'
+  | 'subscription_purchase_completed'
+  | 'subscription_purchase_cancelled'
+  | 'subscription_purchase_failed'
+  | 'subscription_restore_started'
+  | 'subscription_restore_success'
+  | 'subscription_restore_failed';
 
 /**
  * Analytics provider interface.

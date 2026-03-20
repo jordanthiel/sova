@@ -1,6 +1,16 @@
 import { supabase } from '@/lib/supabase';
 
 export async function inviteParentToBaby(babyId: string, parentEmail: string) {
+  const { data: baby, error: babyError } = await supabase
+    .from('babies')
+    .select('family_id')
+    .eq('id', babyId)
+    .single();
+
+  if (babyError || !baby?.family_id) {
+    throw new Error('Family not found for this baby');
+  }
+
   // First, find the user by email
   const { data: profiles, error: userError } = await supabase
     .from('profiles')
@@ -20,10 +30,10 @@ export async function inviteParentToBaby(babyId: string, parentEmail: string) {
 
   // Check if invitation already exists
   const { data: existing } = await supabase
-    .from('baby_parents')
+    .from('family_members')
     .select('id')
-    .eq('baby_id', babyId)
-    .eq('parent_id', profiles.id)
+    .eq('family_id', baby.family_id)
+    .eq('user_id', profiles.id)
     .single();
 
   if (existing) {
@@ -32,10 +42,10 @@ export async function inviteParentToBaby(babyId: string, parentEmail: string) {
 
   // Create invitation
   const { data, error } = await supabase
-    .from('baby_parents')
+    .from('family_members')
     .insert({
-      baby_id: babyId,
-      parent_id: profiles.id,
+      family_id: baby.family_id,
+      user_id: profiles.id,
       role: 'member',
       status: 'pending',
       invited_by: user.id,
@@ -54,10 +64,10 @@ export async function acceptInvitation(invitationId: string) {
   }
 
   const { data, error } = await supabase
-    .from('baby_parents')
+    .from('family_members')
     .update({ status: 'accepted' })
     .eq('id', invitationId)
-    .eq('parent_id', user.id)
+    .eq('user_id', user.id)
     .select()
     .single();
 
@@ -72,10 +82,10 @@ export async function declineInvitation(invitationId: string) {
   }
 
   const { data, error } = await supabase
-    .from('baby_parents')
+    .from('family_members')
     .update({ status: 'declined' })
     .eq('id', invitationId)
-    .eq('parent_id', user.id)
+    .eq('user_id', user.id)
     .select()
     .single();
 
@@ -85,8 +95,8 @@ export async function declineInvitation(invitationId: string) {
 
 export type PendingInvitation = {
   id: string;
-  baby_id: string;
-  baby_name: string | null;
+  family_id: string;
+  family_name: string | null;
   inviter_name: string | null;
 };
 
@@ -97,16 +107,16 @@ export async function getPendingInvitations(): Promise<PendingInvitation[]> {
   }
 
   const { data, error } = await supabase
-    .from('baby_parents')
+    .from('family_members')
     .select(`
       id,
-      baby_id,
+      family_id,
       invited_by,
-      babies (
+      families (
         name
       )
     `)
-    .eq('parent_id', user.id)
+    .eq('user_id', user.id)
     .eq('status', 'pending');
 
   if (error) throw error;
@@ -124,11 +134,11 @@ export async function getPendingInvitations(): Promise<PendingInvitation[]> {
   );
 
   return rows.map((row) => {
-    const babies = row.babies as { name?: string } | null;
+    const families = row.families as { name?: string } | null;
     return {
       id: row.id,
-      baby_id: row.baby_id,
-      baby_name: babies?.name ?? null,
+      family_id: row.family_id,
+      family_name: families?.name ?? null,
       inviter_name: row.invited_by ? inviterByName.get(row.invited_by) ?? null : null,
     };
   });

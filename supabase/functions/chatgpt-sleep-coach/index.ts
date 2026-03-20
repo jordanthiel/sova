@@ -47,6 +47,31 @@ interface RequestBody {
   memories?: string[];
 }
 
+interface EntitlementStatusRow {
+  family_id: string;
+  has_premium_access: boolean;
+  has_subscription_access: boolean;
+  is_trial_active: boolean;
+  access_source: 'subscription' | 'trial' | 'none';
+  trial_started_at: string | null;
+  trial_ends_at: string | null;
+  subscription_status: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
+  subscription_provider: 'revenuecat' | null;
+  subscription_product_id: string | null;
+  subscription_expires_at: string | null;
+}
+
+const PREMIUM_LOCKED_MODES = new Set<Mode>([
+  'next_sleep',
+  'chat',
+  'recommendation',
+  'nap_evaluation',
+  'micro_insight',
+  'daily_schedule',
+  'forecast',
+  'insights_bundle',
+]);
+
 // ─── LLM Abstraction ─────────────────────────────────────────────
 
 function resolveProvider(requested?: Provider): Provider {
@@ -165,6 +190,22 @@ const CORS_HEADERS = {
 
 function errorResponse(message: string, status = 400) {
   return new Response(JSON.stringify({ error: message }), { status, headers: CORS_HEADERS });
+}
+
+function premiumLockedResponse(code: 'trial_expired' | 'subscription_required') {
+  return new Response(
+    JSON.stringify({
+      error:
+        code === 'trial_expired'
+          ? 'Your free trial has ended. Subscribe to keep using AI features.'
+          : 'A premium subscription is required for this AI feature.',
+      code,
+    }),
+    {
+      status: 402,
+      headers: CORS_HEADERS,
+    }
+  );
 }
 
 function extractJsonFromText(raw: string): string {
@@ -1363,6 +1404,31 @@ Deno.serve(async (req: Request) => {
         const token = authHeader.replace('Bearer ', '');
         const { data: { user } } = await supabase.auth.getUser(token);
         if (user) userId = user.id;
+      }
+
+      if (PREMIUM_LOCKED_MODES.has(mode) && !userId) {
+        return errorResponse('Authentication required', 401);
+      }
+
+      if (PREMIUM_LOCKED_MODES.has(mode) && userId) {
+        const { data: entitlementRows, error: entitlementError } = await supabase
+          .rpc('get_baby_entitlement_status', { p_baby_id: baby_id });
+
+        if (entitlementError) {
+          console.error('Entitlement lookup failed:', entitlementError.message);
+          return errorResponse('Failed to verify premium access', 500);
+        }
+
+        const entitlement = Array.isArray(entitlementRows)
+          ? (entitlementRows[0] as EntitlementStatusRow | undefined)
+          : undefined;
+
+        if (!entitlement?.has_premium_access) {
+          const trialExpired =
+            entitlement?.trial_ends_at != null &&
+            new Date(entitlement.trial_ends_at).getTime() <= Date.now();
+          return premiumLockedResponse(trialExpired ? 'trial_expired' : 'subscription_required');
+        }
       }
 
       const { data: babyData } = await supabase.from('babies').select('name, birth_date').eq('id', baby_id).single();

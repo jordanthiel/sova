@@ -2,6 +2,8 @@ import type { ChatMessage, SleepEvent, Baby, AIRecommendation } from '@/types/do
 import { calculateAgeDays, getWakeWindowForAge } from '@/utils/wakeWindowCalculator';
 import { formatDuration } from '@/utils/formatTime';
 import { supabase } from '@/lib/supabase';
+import { getPremiumAccessErrorFromResponse } from '@/services/subscription';
+import { isPremiumAccessRequiredError } from '@/types/subscription';
 
 export interface CoachContext {
   baby: Baby;
@@ -42,6 +44,7 @@ export async function chat(
     const remote = await remoteChat(thread, context);
     if (remote) return remote;
   } catch (err) {
+    if (isPremiumAccessRequiredError(err)) throw err;
     console.warn('[coach] Remote chat failed, using local stub:', err);
   }
   const localMessage = await localChat(thread, context);
@@ -67,6 +70,7 @@ export async function explain(
     const remote = await remoteChat([explainMessage], context);
     if (remote) return remote.message;
   } catch (err) {
+    if (isPremiumAccessRequiredError(err)) throw err;
     console.warn('[coach] Remote explain failed, using local stub:', err);
   }
   return localExplain(recommendation, context);
@@ -128,7 +132,11 @@ async function remoteChat(
     }),
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const premiumError = await getPremiumAccessErrorFromResponse(res, 'coach');
+    if (premiumError) throw premiumError;
+    return null;
+  }
 
   const data = await res.json();
   const content = data?.response || data?.message || data?.recommendation;

@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
-import { useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
 import { useRealtimeCaregivers } from '@/hooks/useRealtimeCaregivers';
 import { loadNotificationConfigForBaby, saveNotificationConfigForBaby } from '@/lib/notificationSettings';
@@ -58,6 +58,7 @@ export default function SettingsScreen() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const colors = useThemeColors();
+  const gradients = useThemeGradients();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -210,9 +211,8 @@ export default function SettingsScreen() {
     await refetchCaregivers();
   };
 
-  const currentBaby = currentBabyId ? babies.find((b) => b.id === currentBabyId) : null;
   const canRemoveCaregivers = Boolean(
-    currentUserId && currentBaby && currentBaby.created_by === currentUserId
+    currentUserId && caregivers.some((member) => member.id === currentUserId && member.role === 'owner')
   );
 
   const handleLogout = () => {
@@ -337,7 +337,7 @@ export default function SettingsScreen() {
   if (babiesLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <View style={styles.loadingContainer}>
           <SkeletonCard style={{ marginBottom: Spacing.md }} />
           <SkeletonCard style={{ marginBottom: Spacing.md }} />
@@ -349,7 +349,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -567,7 +567,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
+    backgroundColor: '#0D0918',
   },
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: Spacing.lg },
@@ -597,8 +597,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(78, 205, 196, 0.2)',
-    backgroundColor: 'rgba(78, 205, 196, 0.06)',
+    borderColor: 'rgba(199, 174, 255, 0.2)',
+    backgroundColor: 'rgba(199, 174, 255, 0.06)',
     borderStyle: 'dashed',
   },
 });

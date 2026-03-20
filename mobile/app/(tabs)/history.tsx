@@ -121,7 +121,7 @@ export default function HistoryScreen() {
   if (babiesLoading || (loading && sessions.length === 0)) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
         <View style={styles.loadingContainer}>
           <SkeletonCard style={{ marginBottom: Spacing.md }} />
           <SkeletonCard style={{ marginBottom: Spacing.md }} />
@@ -133,7 +133,7 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -169,7 +169,7 @@ export default function HistoryScreen() {
                     <Text
                       style={[
                         Typography.captionMedium,
-                        { color: isActive ? '#0B1426' : colors.textSecondary },
+                        { color: isActive ? colors.background : colors.textSecondary },
                       ]}
                     >
                       {label}
@@ -198,7 +198,7 @@ export default function HistoryScreen() {
                           end={{ x: 1, y: 0 }}
                           style={styles.filterPillGradient}
                         >
-                          <Text style={[Typography.captionMedium, { color: '#0B1426' }]}>
+                          <Text style={[Typography.captionMedium, { color: colors.background }]}>
                             {range === 'week' ? 'Week' : range === 'month' ? 'Month' : 'All Time'}
                           </Text>
                         </LinearGradient>
@@ -263,7 +263,7 @@ export default function HistoryScreen() {
                   </LinearGradient>
                 </View>
                 <View style={styles.statCard}>
-                  <LinearGradient colors={['rgba(78, 205, 196, 0.15)', 'rgba(78, 205, 196, 0.05)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
+                  <LinearGradient colors={['rgba(199, 174, 255, 0.15)', 'rgba(199, 174, 255, 0.05)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
                     <IconSymbol name="clock.fill" size={20} color={colors.text} style={styles.statIcon} />
                     <Text style={[styles.statValue, { color: colors.text }]}>{stats.avgNapDuration > 0 ? formatDuration(stats.avgNapDuration) : '-'}</Text>
                     <Text style={[Typography.caption, { color: colors.textSecondary }]}>Avg Nap</Text>
@@ -361,7 +361,7 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B1426',
+    backgroundColor: '#0D0918',
   },
   scrollView: {
     flex: 1,
