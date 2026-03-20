@@ -14,6 +14,7 @@ import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useBabies } from '@/hooks/useBabies';
 import { supabase } from '@/lib/supabase';
 import { Spacing, Typography, Radius } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { format } from 'date-fns';
 import { formatDuration } from '@/utils/formatTime';
@@ -229,7 +230,7 @@ export default function HistoryScreen() {
 
             {sessions.length === 0 && (
               <EmptyState
-                icon="📊"
+                icon="chart.bar.fill"
                 title="No sessions yet"
                 message="Sleep sessions will appear here once you start tracking."
               />
@@ -249,28 +250,28 @@ export default function HistoryScreen() {
               <View style={styles.statsGrid}>
                 <View style={styles.statCard}>
                   <LinearGradient colors={['rgba(255, 184, 77, 0.15)', 'rgba(255, 184, 77, 0.05)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
-                    <Text style={styles.statEmoji}>☀️</Text>
+                    <IconSymbol name="sun.max.fill" size={20} color={colors.text} style={styles.statIcon} />
                     <Text style={[styles.statValue, { color: colors.text }]}>{stats.napCount}</Text>
                     <Text style={[Typography.caption, { color: colors.textSecondary }]}>Naps</Text>
                   </LinearGradient>
                 </View>
                 <View style={styles.statCard}>
                   <LinearGradient colors={['rgba(91, 163, 232, 0.15)', 'rgba(91, 163, 232, 0.05)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
-                    <Text style={styles.statEmoji}>🌙</Text>
+                    <IconSymbol name="moon.fill" size={20} color={colors.text} style={styles.statIcon} />
                     <Text style={[styles.statValue, { color: colors.text }]}>{stats.nightCount}</Text>
                     <Text style={[Typography.caption, { color: colors.textSecondary }]}>Nights</Text>
                   </LinearGradient>
                 </View>
                 <View style={styles.statCard}>
                   <LinearGradient colors={['rgba(78, 205, 196, 0.15)', 'rgba(78, 205, 196, 0.05)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
-                    <Text style={styles.statEmoji}>⏱</Text>
+                    <IconSymbol name="clock.fill" size={20} color={colors.text} style={styles.statIcon} />
                     <Text style={[styles.statValue, { color: colors.text }]}>{stats.avgNapDuration > 0 ? formatDuration(stats.avgNapDuration) : '-'}</Text>
                     <Text style={[Typography.caption, { color: colors.textSecondary }]}>Avg Nap</Text>
                   </LinearGradient>
                 </View>
                 <View style={styles.statCard}>
                   <LinearGradient colors={['rgba(129, 140, 248, 0.15)', 'rgba(129, 140, 248, 0.05)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
-                    <Text style={styles.statEmoji}>💤</Text>
+                    <IconSymbol name="moon.zzz.fill" size={20} color={colors.text} style={styles.statIcon} />
                     <Text style={[styles.statValue, { color: colors.text }]}>{stats.avgNightDuration > 0 ? formatDuration(stats.avgNightDuration) : '-'}</Text>
                     <Text style={[Typography.caption, { color: colors.textSecondary }]}>Avg Night</Text>
                   </LinearGradient>
@@ -286,7 +287,7 @@ export default function HistoryScreen() {
                 </Text>
                 {sessions.length === 0 ? (
                   <EmptyState
-                    icon="📊"
+                    icon="chart.bar.fill"
                     title="No sessions yet"
                     message="Sleep sessions will appear here once you start tracking."
                   />
@@ -306,7 +307,7 @@ export default function HistoryScreen() {
                               { backgroundColor: isNap ? 'rgba(255, 184, 77, 0.15)' : 'rgba(91, 163, 232, 0.15)' },
                             ]}
                           >
-                            <Text style={styles.sessionIconEmoji}>{isNap ? '☀️' : '🌙'}</Text>
+                            <IconSymbol name={isNap ? 'sun.max.fill' : 'moon.fill'} size={18} color={isNap ? '#FFB84D' : '#5BA3E8'} />
                           </View>
                           <View style={styles.sessionInfo}>
                             <View style={styles.sessionHeader}>
@@ -348,7 +349,7 @@ export default function HistoryScreen() {
         )}
 
         {!currentBabyId && (
-          <EmptyState icon="👶" title="Select a baby" message="Choose a baby to view their sleep history." />
+          <EmptyState icon="figure.child" title="Select a baby" message="Choose a baby to view their sleep history." />
         )}
 
         <View style={{ height: 110 }} />
@@ -432,10 +433,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: Radius.lg,
   },
-  statEmoji: {
-    fontSize: 20,
-    marginBottom: Spacing.xs,
-  },
+  statIcon: { marginBottom: Spacing.xs },
   statValue: {
     ...Typography.h3,
     marginBottom: 2,
@@ -452,9 +450,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  sessionIconEmoji: {
-    fontSize: 18,
   },
   sessionInfo: {
     flex: 1,

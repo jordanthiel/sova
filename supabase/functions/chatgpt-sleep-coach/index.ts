@@ -371,6 +371,239 @@ function getLastNightTotalMinutes(sleepData: SleepSession[]): number | null {
   return total > 0 ? total : null;
 }
 
+/**
+ * Infer today's "morning wake" (end of main night sleep before daytime) for forecast context.
+ */
+function inferTodayMorningWakeIso(
+  sleepData: SleepSession[],
+  currentTime: string,
+  timezone: string
+): string | null {
+  const nowMs = new Date(currentTime).getTime();
+  const todayKey = toLocalDateKey(currentTime, timezone);
+  const napsToday = sleepData
+    .filter((s) => s.type === 'nap' && s.end_time != null && toLocalDateKey(s.start_time, timezone) === todayKey)
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  const firstNapStartMs = napsToday.length > 0 ? new Date(napsToday[0].start_time).getTime() : null;
+
+  const nightsEndingToday = sleepData.filter((s) => {
+    if (s.type !== 'night' || !s.end_time) return false;
+    if (toLocalDateKey(s.end_time, timezone) !== todayKey) return false;
+    const endMs = new Date(s.end_time).getTime();
+    if (endMs > nowMs) return false;
+    if (firstNapStartMs != null && endMs >= firstNapStartMs) return false;
+    return true;
+  });
+
+  if (nightsEndingToday.length === 0) return null;
+
+  const sorted = [...nightsEndingToday].sort((a, b) => new Date(a.end_time!).getTime() - new Date(b.end_time!).getTime());
+  const chain: SleepSession[] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const s = sorted[i];
+    if (chain.length === 0) {
+      chain.unshift(s);
+      continue;
+    }
+    const prev = chain[0];
+    const gap = new Date(prev.start_time).getTime() - new Date(s.end_time!).getTime();
+    if (gap >= 0 && gap <= NIGHT_SEGMENT_GAP_MS) chain.unshift(s);
+    else break;
+  }
+  const wakeIso = chain.length > 0 ? chain[chain.length - 1].end_time! : sorted[sorted.length - 1].end_time!;
+  return wakeIso;
+}
+
+/** Compact block for tonight-only forecast: today's wake, naps, last nap / wake window, ongoing status. */
+function buildTonightDayPatternSummary(
+  sleepData: SleepSession[],
+  currentTime: string,
+  lastWakeTime: string | null,
+  timezone: string,
+  babyName: string
+): string {
+  const nowMs = new Date(currentTime).getTime();
+  const todayStart = startOfDayInTimezone(currentTime, timezone);
+  const todayKey = toLocalDateKey(currentTime, timezone);
+
+  const morningWake = inferTodayMorningWakeIso(sleepData, currentTime, timezone);
+  const wakeSource = lastWakeTime
+    ? `Last wake from tracking: ${fmtTime(lastWakeTime, timezone)}`
+    : morningWake
+    ? `Inferred morning wake (end of night before daytime): ${fmtTime(morningWake, timezone)}`
+    : 'Morning wake time: unclear from data (use naps and sessions below)';
+
+  const ongoingNap = sleepData.find((s) => s.type === 'nap' && s.end_time === null);
+  const ongoingNight = sleepData.find((s) => s.type === 'night' && s.end_time === null);
+
+  const todayNaps = sleepData.filter((s) => {
+    if (s.type !== 'nap') return false;
+    return new Date(s.start_time).getTime() >= todayStart.getTime();
+  });
+  const completedTodayNaps = todayNaps.filter((s) => s.end_time != null);
+  let totalNapMin = completedTodayNaps.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0);
+  if (ongoingNap && new Date(ongoingNap.start_time).getTime() >= todayStart.getTime()) {
+    totalNapMin += Math.round((nowMs - new Date(ongoingNap.start_time).getTime()) / 60000);
+  }
+  const napCountForDisplay = completedTodayNaps.length + (ongoingNap && new Date(ongoingNap.start_time).getTime() >= todayStart.getTime() ? 1 : 0);
+
+  let lastNapLine = 'Last nap: none logged yet today';
+  if (ongoingNap && new Date(ongoingNap.start_time).getTime() >= todayStart.getTime()) {
+    const soFar = Math.round((nowMs - new Date(ongoingNap.start_time).getTime()) / 60000);
+    lastNapLine = `Last nap: currently napping (started ${fmtTime(ongoingNap.start_time, timezone)}, ~${fmtDuration(soFar)} so far)`;
+  } else if (completedTodayNaps.length > 0) {
+    const last = completedTodayNaps.reduce((a, b) =>
+      new Date(a.end_time!).getTime() > new Date(b.end_time!).getTime() ? a : b
+    );
+    lastNapLine = `Last nap ended ${fmtTime(last.end_time!, timezone)} (${fmtDuration(last.duration_minutes)}).`;
+  }
+
+  const wakeRef = ongoingNap
+    ? ongoingNap.start_time
+    : ongoingNight
+    ? ongoingNight.start_time
+    : lastWakeTime || morningWake;
+  let wakeWindowLine = 'Current wake window: unknown (need last sleep end)';
+  if (wakeRef) {
+    const ww = Math.round((nowMs - new Date(wakeRef).getTime()) / 60000);
+    wakeWindowLine = `Time since last sleep ended (wake window context): ${fmtDuration(ww)} (since ${fmtTime(wakeRef, timezone)})`;
+  }
+
+  const statusLine = ongoingNight
+    ? `*** ${babyName} is asleep for the night right now — forecast describes likely quality/length of THIS ongoing night, not a future night. ***`
+    : ongoingNap
+    ? `*** ${babyName} is in a nap — bedtime/wake predictions should assume they will wake from this nap first. ***`
+    : '';
+
+  return [
+    '--- Tonight forecast: focus on THIS local calendar night ---',
+    statusLine,
+    wakeSource,
+    `Daytime so far: ${napCountForDisplay} nap(s), ${fmtDuration(totalNapMin)} total daytime sleep (naps today, incl. ongoing nap if any).`,
+    lastNapLine,
+    wakeWindowLine,
+    `Local "today" date key: ${todayKey}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+// ─── Tonight forecast JSON (normalized on server) ─────────────────
+
+type NightQuality = 'good' | 'fair' | 'challenging';
+type TrendLabel = 'improving' | 'stable' | 'declining' | 'transitioning';
+type Confidence = 'high' | 'medium' | 'low';
+
+interface TonightForecastRaw {
+  predicted_night_sleep_hours?: unknown;
+  bedtime_window_start?: unknown;
+  bedtime_window_end?: unknown;
+  expected_bedtime?: unknown;
+  expected_wakes?: unknown;
+  night_quality?: unknown;
+  confidence?: unknown;
+  summary?: unknown;
+  trend?: unknown;
+  trend_note?: unknown;
+  key_factors?: unknown;
+}
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function normalizeTonightForecast(parsed: Record<string, unknown> | null, fallbackSummary: string): {
+  predicted_night_sleep_hours: number | null;
+  bedtime_window_start: string | null;
+  bedtime_window_end: string | null;
+  expected_bedtime: string | null;
+  expected_wakes: number | null;
+  night_quality: NightQuality | null;
+  confidence: Confidence;
+  summary: string;
+  trend: TrendLabel;
+  trend_note: string;
+  key_factors: string[];
+} {
+  const empty = {
+    predicted_night_sleep_hours: null as number | null,
+    bedtime_window_start: null as string | null,
+    bedtime_window_end: null as string | null,
+    expected_bedtime: null as string | null,
+    expected_wakes: null as number | null,
+    night_quality: null as NightQuality | null,
+    confidence: 'medium' as Confidence,
+    summary: fallbackSummary.slice(0, 800),
+    trend: 'stable' as TrendLabel,
+    trend_note: '',
+    key_factors: [] as string[],
+  };
+
+  if (!parsed || typeof parsed !== 'object') return empty;
+
+  const p = parsed as TonightForecastRaw;
+
+  let hours: number | null = null;
+  if (typeof p.predicted_night_sleep_hours === 'number' && !Number.isNaN(p.predicted_night_sleep_hours)) {
+    hours = Math.round(clamp(p.predicted_night_sleep_hours, 3, 14) * 10) / 10;
+  }
+
+  const str = (v: unknown): string | null =>
+    typeof v === 'string' && v.trim().length > 0 ? v.trim().slice(0, 32) : null;
+
+  let wakes: number | null = null;
+  if (typeof p.expected_wakes === 'number' && !Number.isNaN(p.expected_wakes)) {
+    wakes = Math.round(clamp(p.expected_wakes, 0, 12));
+  }
+
+  const nq = p.night_quality;
+  let nightQuality: NightQuality | null = null;
+  if (nq === 'good' || nq === 'fair' || nq === 'challenging') nightQuality = nq;
+
+  const conf = p.confidence;
+  let confidence: Confidence = 'medium';
+  if (conf === 'high' || conf === 'medium' || conf === 'low') confidence = conf;
+
+  const tr = p.trend;
+  let trend: TrendLabel = 'stable';
+  if (tr === 'improving' || tr === 'stable' || tr === 'declining' || tr === 'transitioning') trend = tr;
+
+  const summary = typeof p.summary === 'string' && p.summary.trim().length > 5 ? p.summary.trim().slice(0, 600) : empty.summary;
+
+  const trend_note =
+    typeof p.trend_note === 'string' && p.trend_note.trim().length > 0 ? p.trend_note.trim().slice(0, 280) : '';
+
+  let key_factors: string[] = [];
+  if (Array.isArray(p.key_factors)) {
+    key_factors = p.key_factors
+      .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+      .map((x) => x.trim().slice(0, 200))
+      .slice(0, 4);
+  }
+  if (key_factors.length < 2) {
+    const pad = ['Recent nap timing and total daytime sleep', 'Typical night pattern for this age'];
+    for (const line of pad) {
+      if (key_factors.length >= 2) break;
+      if (!key_factors.includes(line)) key_factors.push(line);
+    }
+    key_factors = key_factors.slice(0, 4);
+  }
+
+  return {
+    predicted_night_sleep_hours: hours,
+    bedtime_window_start: str(p.bedtime_window_start),
+    bedtime_window_end: str(p.bedtime_window_end),
+    expected_bedtime: str(p.expected_bedtime),
+    expected_wakes: wakes,
+    night_quality: nightQuality,
+    confidence,
+    summary,
+    trend,
+    trend_note: trend_note || summary.split('. ')[0] || summary,
+    key_factors,
+  };
+}
+
 // ─── Context Builder ─────────────────────────────────────────────
 
 function buildSleepContext(
@@ -387,14 +620,23 @@ function buildSleepContext(
   const wakeWindows = getWakeWindowForAge(ageDays);
   const napCount = getNapCountForAge(ageDays);
   const napBudget = getDayNapBudget(ageDays);
+  const nowMs = new Date(currentTime).getTime();
+
+  const ongoingNap = sleepData.find((s) => s.type === 'nap' && s.end_time === null);
+  const ongoingNight = sleepData.find((s) => s.type === 'night' && s.end_time === null);
 
   const todaySessions = sleepData.filter((s) => {
     const sessionDate = new Date(s.start_time);
-    return sessionDate >= todayStart && s.end_time !== null;
+    return sessionDate >= todayStart;
   });
 
-  const todayNaps = todaySessions.filter((s) => s.type === 'nap');
-  const totalNapMinutes = todayNaps.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+  const todayNapsCompleted = todaySessions.filter((s) => s.type === 'nap' && s.end_time !== null);
+  let totalNapMinutes = todayNapsCompleted.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+  if (ongoingNap && new Date(ongoingNap.start_time).getTime() >= todayStart.getTime()) {
+    totalNapMinutes += Math.round((nowMs - new Date(ongoingNap.start_time).getTime()) / 60000);
+  }
+  const todayNapCountDisplay =
+    todayNapsCompleted.length + (ongoingNap && new Date(ongoingNap.start_time).getTime() >= todayStart.getTime() ? 1 : 0);
   const lastNightTotalMinutes = getLastNightTotalMinutes(sleepData);
 
   // Compute average nap durations and wake windows from history
@@ -442,19 +684,39 @@ function buildSleepContext(
     ? Math.round((new Date(currentTime).getTime() - new Date(lastWakeTime).getTime()) / 60000)
     : null;
 
+  const activeStatusLines: string[] = [];
+  if (ongoingNight) {
+    const soFarMin = Math.round((nowMs - new Date(ongoingNight.start_time).getTime()) / 60000);
+    activeStatusLines.push(
+      '*** CURRENT STATUS (CRITICAL) ***',
+      `${babyName} is CURRENTLY ASLEEP for NIGHT SLEEP — started ${fmtDateTime(ongoingNight.start_time, timezone)} (ongoing, ~${fmtDuration(soFarMin)} on the clock).`,
+      'Formal "last wake" in the data is NOT the present state — night sleep has already begun.',
+      'Do NOT recommend a new bedtime tonight, naps remaining today, or a schedule that assumes baby is awake right now.',
+      'For daily_schedule JSON: set "suggested_bedtime" to null, omit "bedtime" events, use an empty "schedule" array unless you list only post-wake tomorrow items, and explain in "notes".',
+    );
+  } else if (ongoingNap) {
+    const soFarMin = Math.round((nowMs - new Date(ongoingNap.start_time).getTime()) / 60000);
+    activeStatusLines.push(
+      '*** CURRENT STATUS (CRITICAL) ***',
+      `${babyName} is CURRENTLY IN AN ONGOING NAP — started ${fmtDateTime(ongoingNap.start_time, timezone)} (~${fmtDuration(soFarMin)} so far).`,
+      'Project the next event as waking from this nap (nap_end), then continue with realistic times for the rest of the day.',
+    );
+  }
+  const activeStatusBlock = activeStatusLines.length > 0 ? `${activeStatusLines.join('\n')}\n\n` : '';
+
   return {
-    todayNaps,
+    todayNaps: todayNapsCompleted,
     totalNapMinutes,
     lastNightTotalMinutes,
     wakeWindows,
     napBudget,
-    contextBlock: `Baby: ${babyName}, ${ageWeeks} weeks (${ageMonths} months, ${ageDays} days old)
+    contextBlock: `${activeStatusBlock}Baby: ${babyName}, ${ageWeeks} weeks (${ageMonths} months, ${ageDays} days old)
 Timezone: ${timezone}
 Current local time: ${fmtTime(currentTime, timezone)}
-${lastWakeTime ? `Baby last woke at: ${fmtTime(lastWakeTime, timezone)} (${awakeMinutes != null ? fmtDuration(awakeMinutes) + ' ago' : 'unknown'})` : 'Last wake time: unknown'}
+${ongoingNight ? 'Baby is asleep for the night right now (see CURRENT STATUS).\n' : ''}${lastWakeTime ? `Last wake before current sleep (from data): ${fmtTime(lastWakeTime, timezone)} (${awakeMinutes != null ? fmtDuration(awakeMinutes) + ' before current time' : 'unknown'})` : 'Last wake time: unknown'}
 
 --- Today's sleep ---
-Naps today: ${todayNaps.length} (${fmtDuration(totalNapMinutes)} total)
+Naps today: ${todayNapCountDisplay} (${fmtDuration(totalNapMinutes)} total; includes current nap duration if napping now)
 ${lastNightTotalMinutes != null ? `Last night total: ${fmtDuration(lastNightTotalMinutes)}` : 'No night sleep data yet'}
 
 --- Age-based reference ranges ---
@@ -883,7 +1145,7 @@ async function handleDailySchedule(
     [
       {
         role: 'system',
-        content: `You are an expert pediatric sleep consultant. Create a projected schedule for the rest of today in ${timezone}.\n\n${ctx.contextBlock}\n\nReturn JSON: { "schedule": [{ "time": "HH:MM AM/PM", "event": "nap_start"|"nap_end"|"bedtime", "label": "...", "note": "..." }], "total_naps": number, "suggested_bedtime": "HH:MM AM/PM", "notes": "one sentence" }. Only future events. Return ONLY valid JSON.`,
+        content: `You are an expert pediatric sleep consultant. Create a projected schedule for the rest of TODAY in ${timezone}, respecting CURRENT STATUS in the context.\n\n${ctx.contextBlock}\n\nRULES:\n- If context says baby is IN ONGOING NIGHT SLEEP: schedule must be [] (empty), suggested_bedtime must be null, notes must say they are already asleep for the night — do NOT invent a bedtime like 10pm.\n- If baby is IN AN ONGOING NAP: first events must reflect waking from that nap (nap_end), then nap_start/nap_end/bedtime as appropriate for after the nap — do not list a "bedtime" that occurs while they are still in the current nap.\n- If baby is awake: only future events (after current local time).\n\nReturn JSON: { "schedule": [{ "time": "HH:MM AM/PM", "event": "nap_start"|"nap_end"|"bedtime", "label": "...", "note": "..." }], "total_naps": number|null, "suggested_bedtime": "HH:MM AM/PM"|null, "notes": "one sentence" }. Return ONLY valid JSON.`,
       },
       { role: 'user', content: "Create today's schedule." },
     ],
@@ -906,24 +1168,72 @@ async function handleForecast(
 ) {
   const { current_time = new Date().toISOString(), timezone = 'UTC', last_wake_time = null } = body;
   const ctx = buildSleepContext(sleepData, current_time, last_wake_time, babyAgeDays, babyName, timezone);
+  const preferencesBlock = buildPreferencesBlock(body);
+  const tonightBlock = buildTonightDayPatternSummary(sleepData, current_time, last_wake_time, timezone, babyName);
+
+  const systemMessage = `You are an expert pediatric sleep analyst. Your task: forecast TONIGHT'S sleep for this baby (the upcoming local night — night sleep starting later today or already in progress if context says they are in night sleep).
+
+Anchor your reasoning on:
+- Today's wake-up time (use the "Tonight forecast" block and full context — prefer inferred morning wake / last wake from tracking)
+- Today's nap count and total daytime sleep so far
+- Timing of the last nap (or ongoing nap) and the current wake window / time since last sleep ended
+- How recent daytime patterns have correlated with better vs harder nights (see "Schedule → night sleep" in context)
+- What parents should realistically expect tonight: bedtime timing, night length, and night wakings — be practical and concise
+
+Rules:
+- All times in ${timezone}
+- If the baby is already in night sleep, frame predictions as likely duration/quality of this stretch and expected wakes, not a future bedtime
+- If data is thin, lower confidence and say what is unknown
+- Output must be valid JSON only, no markdown
+
+Return a single JSON object with exactly these keys:
+{
+  "predicted_night_sleep_hours": number | null,
+  "bedtime_window_start": "HH:MM AM/PM" | null,
+  "bedtime_window_end": "HH:MM AM/PM" | null,
+  "expected_bedtime": "HH:MM AM/PM" | null,
+  "expected_wakes": number | null,
+  "night_quality": "good" | "fair" | "challenging" | null,
+  "confidence": "high" | "medium" | "low",
+  "summary": "2-4 sentences: what to expect tonight in parent-friendly language",
+  "trend": "improving" | "stable" | "declining" | "transitioning",
+  "trend_note": "one short sentence on how today lines up with recent pattern",
+  "key_factors": [ "2-4 short bullets tied to TODAY's wake + daytime data and recent day→night correlations" ]
+}
+
+${tonightBlock}
+
+${ctx.contextBlock}${preferencesBlock}`;
 
   const responseText = await callLLM(
     provider,
     [
+      { role: 'system', content: systemMessage },
       {
-        role: 'system',
-        content: `You are an expert pediatric sleep analyst. Based on recent data, project the next 3 days.\n\n${ctx.contextBlock}\n\nReturn JSON: { "forecast": [{ "day": "Tomorrow"|"Day 3"|"Day 4", "expected_naps": number, "expected_total_nap_minutes": number, "expected_night_hours": number, "confidence": "high"|"medium"|"low", "note": "..." }], "trend": "improving"|"stable"|"declining"|"transitioning", "trend_note": "1 sentence" }. Return ONLY valid JSON.`,
+        role: 'user',
+        content: `Forecast ${babyName}'s sleep for TONIGHT only — bedtime window, likely night sleep hours, expected wakes, and confidence. Ground every point in today's wake-up and daytime sleep pattern and recent schedule→night trends.`,
       },
-      { role: 'user', content: 'Forecast the next few days.' },
     ],
-    { maxTokens: 400, temperature: 0.4, json: true }
+    { maxTokens: 900, temperature: 0.35, json: true }
   );
 
+  const jsonStr = extractJsonFromText(responseText);
+  let parsedObj: Record<string, unknown> | null = null;
   try {
-    return { forecast: JSON.parse(responseText), provider };
+    const parsed = JSON.parse(jsonStr);
+    parsedObj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
   } catch {
-    return { forecast: { forecast: [], trend_note: responseText }, provider };
+    parsedObj = null;
   }
+
+  const fallbackText =
+    typeof responseText === 'string' && responseText.trim().length > 0
+      ? responseText.trim().slice(0, 1200)
+      : 'We could not generate a detailed tonight forecast. Try again in a moment.';
+
+  const normalized = normalizeTonightForecast(parsedObj, fallbackText);
+
+  return { forecast: normalized, provider };
 }
 
 async function handleNapEvaluation(

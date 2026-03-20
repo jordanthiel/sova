@@ -16,6 +16,11 @@ export interface CoachContext {
 export interface ExtractedPreferences {
   last_wake_window_minutes?: number | null;
   bedtime_target_time?: string | null;
+  bedtime_type?: 'target' | 'flexible' | null;
+  target_nap_count?: number | null;
+  prefer_longer_naps?: boolean | null;
+  prefer_earlier_bedtime?: boolean | null;
+  strict_schedule?: boolean | null;
 }
 
 export interface ChatResult {
@@ -133,7 +138,12 @@ async function remoteChat(
   const hasExtracted =
     extracted_preferences &&
     (extracted_preferences.last_wake_window_minutes != null ||
-      (extracted_preferences.bedtime_target_time != null && extracted_preferences.bedtime_target_time !== ''));
+      (extracted_preferences.bedtime_target_time != null && extracted_preferences.bedtime_target_time !== '') ||
+      extracted_preferences.bedtime_type != null ||
+      extracted_preferences.target_nap_count != null ||
+      extracted_preferences.prefer_longer_naps != null ||
+      extracted_preferences.prefer_earlier_bedtime != null ||
+      extracted_preferences.strict_schedule != null);
   const suggested_memories = data?.suggested_memories as string[] | undefined;
   const hasSuggestedMemories = Array.isArray(suggested_memories) && suggested_memories.length > 0;
 

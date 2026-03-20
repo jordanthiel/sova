@@ -11,7 +11,7 @@ import 'react-native-reanimated';
 import { Colors, Typography, Spacing } from '@/constants/theme';
 import { CurrentBabyProvider } from '@/contexts/CurrentBabyContext';
 import { supabase } from '@/lib/supabase';
-import { registerForPushNotifications } from '@/services/notifications';
+import { addLiveActivityRefreshListener, registerForPushNotifications } from '@/services/notifications';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -60,6 +60,11 @@ export default function RootLayout() {
     init();
   }, []);
 
+  useEffect(() => {
+    const remove = addLiveActivityRefreshListener();
+    return remove;
+  }, []);
+
   if (!iconFontLoaded || isInitializing) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -93,6 +98,7 @@ export default function RootLayout() {
           <Stack.Screen name="baby-setup" options={{ headerShown: false }} />
           <Stack.Screen name="invites-choice" options={{ headerShown: false }} />
           <Stack.Screen name="baby-share" options={{ headerShown: true, title: 'Share Baby' }} />
+          <Stack.Screen name="day-overview" options={{ headerShown: false }} />
           <Stack.Screen name="log-sleep" options={{ headerShown: false, presentation: 'modal' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />

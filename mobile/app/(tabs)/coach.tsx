@@ -67,6 +67,107 @@ const ADJUSTMENT_CONTROLS: {
   { label: 'Flexible schedule', key: 'strictSchedule', value: false },
 ];
 
+function extractPreferenceIntent(content: string): Partial<BabyPreferences> {
+  const text = content.toLowerCase();
+  const patch: Partial<BabyPreferences> = {};
+
+  // Bedtime preference direction
+  if (
+    /\b(earlier bedtime|bedtime earlier|move bedtime earlier|earlier at night)\b/.test(text) ||
+    /\bbedtime\b/.test(text) && /\bearlier\b/.test(text)
+  ) {
+    patch.preferEarlierBedtime = true;
+  } else if (
+    /\b(later bedtime|bedtime later|move bedtime later)\b/.test(text) ||
+    /\bbedtime\b/.test(text) && /\blater\b/.test(text)
+  ) {
+    patch.preferEarlierBedtime = false;
+  }
+
+  // Nap length preference
+  if (/\b(longer naps?|lengthen naps?)\b/.test(text)) {
+    patch.preferLongerNaps = true;
+  } else if (/\b(shorter naps?|shorten naps?|cap naps? sooner)\b/.test(text)) {
+    patch.preferLongerNaps = false;
+  }
+
+  // Scheduling style
+  if (/\b(strict schedule|more strict|consistent schedule)\b/.test(text)) {
+    patch.strictSchedule = true;
+  } else if (/\b(flexible schedule|less strict|more flexible)\b/.test(text)) {
+    patch.strictSchedule = false;
+  }
+
+  // Target nap count ("2 naps", "3 nap schedule")
+  const napCountMatch = text.match(/\b([1-4])\s*naps?\b/);
+  if (napCountMatch) {
+    patch.targetNapCount = Number(napCountMatch[1]);
+  }
+
+  // Bedtime target time ("bedtime at 7:30", "target bedtime 19:15")
+  const bedtimeTimeMatch = text.match(/\b(?:bedtime|target bedtime)\D{0,12}(\d{1,2}):(\d{2})\s*(am|pm)?\b/);
+  if (bedtimeTimeMatch) {
+    let hour = Number(bedtimeTimeMatch[1]);
+    const minute = Number(bedtimeTimeMatch[2]);
+    const ampm = bedtimeTimeMatch[3];
+    if (!Number.isNaN(hour) && !Number.isNaN(minute) && minute >= 0 && minute <= 59) {
+      if (ampm) {
+        const suffix = ampm.toLowerCase();
+        if (suffix === 'pm' && hour !== 12) hour += 12;
+        if (suffix === 'am' && hour === 12) hour = 0;
+      }
+      if (hour >= 0 && hour <= 23) {
+        patch.bedtimeType = 'target';
+        patch.bedtimeTargetTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      }
+    }
+  } else if (/\bno fixed bedtime|flexible bedtime\b/.test(text)) {
+    patch.bedtimeType = 'flexible';
+    patch.bedtimeTargetTime = null;
+  }
+
+  // Last wake window override ("last wake window 180", "3 hour last wake window")
+  const wakeWindowMin = text.match(/\blast wake window\D{0,12}(\d{2,3})\s*(?:m|min|mins|minutes)?\b/);
+  if (wakeWindowMin) {
+    const minutes = Number(wakeWindowMin[1]);
+    if (minutes >= 60 && minutes <= 360) patch.lastWakeWindowMinutes = minutes;
+  } else {
+    const wakeWindowHours = text.match(/\blast wake window\D{0,12}(\d(?:\.\d)?)\s*(?:h|hr|hrs|hour|hours)\b/);
+    if (wakeWindowHours) {
+      const minutes = Math.round(Number(wakeWindowHours[1]) * 60);
+      if (minutes >= 60 && minutes <= 360) patch.lastWakeWindowMinutes = minutes;
+    }
+  }
+
+  return patch;
+}
+
+function summarizePreferencePatch(patch: Partial<BabyPreferences>): string | null {
+  const changes: string[] = [];
+  if (patch.preferEarlierBedtime != null) {
+    changes.push(patch.preferEarlierBedtime ? 'earlier bedtime preference' : 'later bedtime preference');
+  }
+  if (patch.preferLongerNaps != null) {
+    changes.push(patch.preferLongerNaps ? 'longer nap preference' : 'shorter nap preference');
+  }
+  if (patch.strictSchedule != null) {
+    changes.push(patch.strictSchedule ? 'strict schedule' : 'flexible schedule');
+  }
+  if (patch.targetNapCount != null) {
+    changes.push(`${patch.targetNapCount} naps target`);
+  }
+  if (patch.bedtimeType === 'target' && patch.bedtimeTargetTime) {
+    changes.push(`target bedtime ${patch.bedtimeTargetTime}`);
+  } else if (patch.bedtimeType === 'flexible') {
+    changes.push('flexible bedtime');
+  }
+  if (patch.lastWakeWindowMinutes != null) {
+    changes.push(`last wake window ${patch.lastWakeWindowMinutes}m`);
+  }
+  if (changes.length === 0) return null;
+  return `Noted - I'll actively update recommendations using: ${changes.join(', ')}.`;
+}
+
 export default function CoachScreen() {
   const params = useLocalSearchParams<{ initialMessage?: string }>();
   const { babies, loading: babiesLoading } = useBabies();
@@ -192,7 +293,7 @@ export default function CoachScreen() {
     }
   }, [params.initialMessage, currentBabyId, baby]);
 
-  const buildCoachContext = useCallback((): CoachContext | null => {
+  const buildCoachContext = useCallback((prefsOverride?: BabyPreferences): CoachContext | null => {
     if (!baby || !currentBabyId) return null;
 
     const endedSessions = allSessions
@@ -218,7 +319,7 @@ export default function CoachScreen() {
       id: currentBabyId,
       name: baby.name,
       birthdate: baby.birth_date,
-      preferences: preferences || {
+      preferences: prefsOverride || preferences || {
         preferLongerNaps: false,
         preferEarlierBedtime: false,
         strictSchedule: false,
@@ -256,6 +357,14 @@ export default function CoachScreen() {
     track('ask_ai', { babyId: currentBabyId, prompt: content.substring(0, 50) });
 
     try {
+      let effectivePreferences = preferences;
+      const intentPatch = extractPreferenceIntent(content);
+      if (Object.keys(intentPatch).length > 0) {
+        const updated = await babiesRepo.updatePreferences(currentBabyId, intentPatch);
+        setPreferences(updated);
+        effectivePreferences = updated;
+      }
+
       const result = await sendMessage(content, {
         conversationId: selectedConversationId,
         onCreateConversation: setSelectedConversationId,
@@ -264,7 +373,7 @@ export default function CoachScreen() {
       const { message: userMsg, conversationId: convId } = result;
       if (!selectedConversationId) refetchConversations();
 
-      const ctx = buildCoachContext();
+      const ctx = buildCoachContext(effectivePreferences ?? undefined);
       if (!ctx) throw new Error('No context available');
 
       const allMsgs = messages.map((m) => ({
@@ -281,9 +390,13 @@ export default function CoachScreen() {
       });
 
       const response = await coachService.chat(allMsgs, ctx);
+      const intentNote = summarizePreferencePatch(intentPatch);
       const assistantContent =
-        (response?.message?.content && String(response.message.content).trim()) ||
+        ((response?.message?.content && String(response.message.content).trim()) || '') ||
         "I'm not sure how to respond to that. Try asking about nap times, bedtime, or early wakeups.";
+      const composedAssistantContent = intentNote
+        ? `${intentNote}\n\n${assistantContent}`
+        : assistantContent;
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -292,7 +405,7 @@ export default function CoachScreen() {
           user_id: user.id,
           conversation_id: convId,
           role: 'assistant',
-          content: assistantContent,
+          content: composedAssistantContent,
         });
       }
 
@@ -304,6 +417,27 @@ export default function CoachScreen() {
         if (response.extracted_preferences.bedtime_target_time != null && response.extracted_preferences.bedtime_target_time.trim() !== '') {
           patch.bedtimeTargetTime = response.extracted_preferences.bedtime_target_time.trim();
           patch.bedtimeType = 'target';
+        }
+        if (response.extracted_preferences.bedtime_type != null) {
+          patch.bedtimeType = response.extracted_preferences.bedtime_type === 'target' ? 'target' : 'flexible';
+          if (patch.bedtimeType === 'flexible') {
+            patch.bedtimeTargetTime = null;
+          }
+        }
+        if (response.extracted_preferences.target_nap_count != null) {
+          const raw = response.extracted_preferences.target_nap_count;
+          patch.targetNapCount = typeof raw === 'number' && Number.isFinite(raw)
+            ? Math.max(1, Math.min(4, Math.round(raw)))
+            : null;
+        }
+        if (response.extracted_preferences.prefer_longer_naps != null) {
+          patch.preferLongerNaps = !!response.extracted_preferences.prefer_longer_naps;
+        }
+        if (response.extracted_preferences.prefer_earlier_bedtime != null) {
+          patch.preferEarlierBedtime = !!response.extracted_preferences.prefer_earlier_bedtime;
+        }
+        if (response.extracted_preferences.strict_schedule != null) {
+          patch.strictSchedule = !!response.extracted_preferences.strict_schedule;
         }
         if (Object.keys(patch).length > 0) {
           const updated = await babiesRepo.updatePreferences(currentBabyId, patch);
@@ -360,7 +494,7 @@ export default function CoachScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
-        <EmptyState icon="💬" title="Sleep Coach" message="Add a baby to start chatting with your AI sleep coach." />
+        <EmptyState icon="message.fill" title="Sleep Coach" message="Add a baby to start chatting with your AI sleep coach." />
       </SafeAreaView>
     );
   }
@@ -542,7 +676,7 @@ export default function CoachScreen() {
                   end={{ x: 1, y: 1 }}
                   style={styles.welcomeBadgeGradient}
                 >
-                  <Text style={styles.welcomeEmoji}>🌙</Text>
+                  <IconSymbol name="moon.fill" size={40} color="#0B1426" />
                 </LinearGradient>
               </View>
               <Text style={[Typography.h2, { color: colors.text, textAlign: 'center' }]}>
@@ -782,7 +916,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  welcomeEmoji: { fontSize: 40 },
   chipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',

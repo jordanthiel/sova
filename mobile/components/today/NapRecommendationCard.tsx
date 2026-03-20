@@ -109,7 +109,7 @@ export function NapRecommendationCard({
       >
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={{ fontSize: 20 }}>{isBedtime ? '🌙' : '💤'}</Text>
+            <IconSymbol name={isBedtime ? 'moon.fill' : 'moon.zzz.fill'} size={20} color={colors.text} />
             <Text style={[Typography.bodySemiBold, { color: colors.text }]}>
               {isBedtime ? 'Bedtime recommendation' : 'Nap recommendation'}
             </Text>

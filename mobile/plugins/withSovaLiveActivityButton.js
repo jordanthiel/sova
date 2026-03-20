@@ -8,9 +8,9 @@ const fs = require('fs');
 const path = require('path');
 
 const BUTTON_BLOCK = `
-        // Sova: action button (Start nap/bedtime or End session)
+        // Sova: action button (Start nap/bedtime or End session) — run=1 so app runs the action
         let isAwake = contentState.title.hasPrefix("Next nap") || contentState.title.hasPrefix("Bedtime")
-        let actionPath = isAwake ? "/(tabs)/?action=startNap" : "/(tabs)/?action=endSession"
+        let actionPath = isAwake ? "/(tabs)/?action=startNap&run=1" : "/(tabs)/?action=endSession&run=1"
         if let scheme = cachedSchemeForSovaButton, let url = URL(string: scheme + "://" + actionPath) {
           Link(destination: url) {
             Text(isAwake ? "Start" : "Stop")

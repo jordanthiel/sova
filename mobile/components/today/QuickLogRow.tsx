@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 interface QuickLogRowProps {
   hasActiveNap: boolean;
@@ -42,7 +43,7 @@ export function QuickLogRow({
               end={{ x: 1, y: 0 }}
               style={styles.buttonGradient}
             >
-              <Text style={styles.buttonEmoji}>⏹</Text>
+              <IconSymbol name="stop.fill" size={18} color="#0B1426" />
               <Text style={styles.buttonText}>End Nap</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -58,7 +59,7 @@ export function QuickLogRow({
               end={{ x: 1, y: 0 }}
               style={styles.buttonGradient}
             >
-              <Text style={styles.buttonEmoji}>😴</Text>
+              <IconSymbol name="moon.zzz.fill" size={18} color="#0B1426" />
               <Text style={styles.buttonText}>Start Nap</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -70,7 +71,7 @@ export function QuickLogRow({
           activeOpacity={0.8}
         >
           <View style={styles.outlineButton}>
-            <Text style={styles.outlineEmoji}>📝</Text>
+            <IconSymbol name="note.text" size={18} color={colors.accent} />
             <Text style={[styles.outlineText, { color: colors.accent }]}>
               Add Note
             </Text>
@@ -105,9 +106,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
     gap: Spacing.sm,
   },
-  buttonEmoji: {
-    fontSize: 18,
-  },
   buttonText: {
     ...Typography.button,
     color: '#0B1426',
@@ -124,9 +122,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(78, 205, 196, 0.3)',
     backgroundColor: 'rgba(78, 205, 196, 0.08)',
     gap: Spacing.sm,
-  },
-  outlineEmoji: {
-    fontSize: 18,
   },
   outlineText: {
     ...Typography.button,

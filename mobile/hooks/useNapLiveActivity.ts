@@ -3,6 +3,7 @@
  * Starts when there is a recommendation or active session; updates on change and every minute; ends when neither.
  */
 
+import { addMinutes } from 'date-fns';
 import { useCallback, useEffect, useRef } from 'react';
 import type { Database } from '@/lib/supabase';
 import type { NapRecommendationPayload } from '@/types/domain';
@@ -38,12 +39,19 @@ function buildState(params: UseNapLiveActivityParams): NapLiveActivityState | nu
   }
 
   if (napPayload) {
+    const capAtIso =
+      !isBedtime &&
+      napPayload.shouldCapNap !== false &&
+      napPayload.recommendedCapMinutes != null
+        ? addMinutes(new Date(napPayload.startWindowBegin), napPayload.recommendedCapMinutes).toISOString()
+        : null;
     return {
       mode: 'awake',
       windowStartIso: napPayload.startWindowBegin,
       windowEndIso: napPayload.startWindowEnd,
       isBedtime,
       babyName: babyName ?? undefined,
+      capAtIso: capAtIso ?? undefined,
     };
   }
 
@@ -51,6 +59,7 @@ function buildState(params: UseNapLiveActivityParams): NapLiveActivityState | nu
 }
 
 const UPDATE_INTERVAL_MS = 60 * 1000;
+const SLEEPING_UPDATE_INTERVAL_MS = 1000;
 
 export function useNapLiveActivity(params: UseNapLiveActivityParams): void {
   const { activeSession, napPayload, capAtIso, babyName, isBedtime } = params;
@@ -89,11 +98,14 @@ export function useNapLiveActivity(params: UseNapLiveActivityParams): void {
 
     startOrUpdate();
 
+    const isSleeping = state.mode === 'sleeping';
+    const intervalMs = isSleeping ? SLEEPING_UPDATE_INTERVAL_MS : UPDATE_INTERVAL_MS;
+
     if (!intervalRef.current) {
       intervalRef.current = setInterval(() => {
         const currentState = buildState(paramsRef.current);
         if (currentState) updateNapLiveActivity(currentState);
-      }, UPDATE_INTERVAL_MS);
+      }, intervalMs);
     }
 
     return () => {

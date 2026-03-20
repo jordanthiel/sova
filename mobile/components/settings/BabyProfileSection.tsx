@@ -5,6 +5,7 @@ import { useThemeColors } from '@/hooks/use-theme-color';
 import { getBabyPhotoUri, pickBabyPhoto, uploadBabyPhoto } from '@/services/photoUpload';
 import type { Baby } from '@/types/domain';
 import { calculateAgeDays } from '@/utils/wakeWindowCalculator';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { format } from 'date-fns';
 import { useEffect, useState } from 'react';
 import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -55,7 +56,7 @@ export function BabyProfileSection({ baby, onEditName }: BabyProfileSectionProps
             <Avatar name={baby.name} size={64} />
           )}
           <View style={styles.cameraBadge}>
-            <Text style={{ fontSize: 12 }}>📷</Text>
+            <IconSymbol name="camera.fill" size={12} color={colors.textSecondary} />
           </View>
         </TouchableOpacity>
         <View style={styles.profileInfo}>

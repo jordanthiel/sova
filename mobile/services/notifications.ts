@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
+import { refreshNapLiveActivityFromServer } from '@/services/liveActivity';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -249,4 +250,26 @@ export async function scheduleWakeWindowAlert(
 
 export async function cancelAllReminders(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
+/** Call from app init to handle push-driven Live Activity updates (e.g. when another user starts/ends a nap). */
+export function addLiveActivityRefreshListener(): () => void {
+  const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    const data = response.notification.request.content.data as { type?: string; babyId?: string };
+    if (data?.type === 'live_activity_refresh' && data?.babyId) {
+      refreshNapLiveActivityFromServer(data.babyId);
+    }
+  });
+
+  const subReceived = Notifications.addNotificationReceivedListener((notification) => {
+    const data = notification.request.content.data as { type?: string; babyId?: string };
+    if (data?.type === 'live_activity_refresh' && data?.babyId) {
+      refreshNapLiveActivityFromServer(data.babyId);
+    }
+  });
+
+  return () => {
+    sub.remove();
+    subReceived.remove();
+  };
 }

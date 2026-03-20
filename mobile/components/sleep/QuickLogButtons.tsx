@@ -2,6 +2,7 @@ import { StyleSheet, TouchableOpacity, View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 
 interface QuickLogButtonsProps {
@@ -43,7 +44,7 @@ export function QuickLogButtons({
           end={{ x: 1, y: 1 }}
           style={[styles.button, { borderColor: colors.napColor }]}
         >
-          <Text style={styles.emoji}>☀️</Text>
+          <IconSymbol name="sun.max.fill" size={28} color="#0B1426" />
           <Text style={[Typography.bodySemiBold, { color: colors.text }]}>Start Nap</Text>
           <Text style={[Typography.caption, { color: colors.textSecondary }]}>
             Log a daytime nap
@@ -62,7 +63,7 @@ export function QuickLogButtons({
           end={{ x: 1, y: 1 }}
           style={[styles.button, { borderColor: colors.nightColor }]}
         >
-          <Text style={styles.emoji}>🌙</Text>
+          <IconSymbol name="moon.fill" size={28} color="#0B1426" />
           <Text style={[Typography.bodySemiBold, { color: colors.text }]}>Start Night</Text>
           <Text style={[Typography.caption, { color: colors.textSecondary }]}>
             Log nighttime sleep
@@ -92,9 +93,5 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     borderWidth: 1.5,
     borderColor: 'transparent',
-  },
-  emoji: {
-    fontSize: 28,
-    marginBottom: Spacing.xs,
   },
 });

@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { EventLogType } from '@/types/domain';
 
 interface LogEventSheetProps {
@@ -22,17 +23,17 @@ interface LogEventSheetProps {
 
 const EVENT_TYPES: Array<{
   type: EventLogType;
-  emoji: string;
+  icon: import('@/components/ui/icon-symbol').IconSymbolName;
   label: string;
   available: boolean;
 }> = [
-  { type: 'nap', emoji: '☀️', label: 'Nap', available: true },
-  { type: 'night', emoji: '🌙', label: 'Night Sleep', available: true },
-  { type: 'feed', emoji: '🍼', label: 'Feed', available: true },
-  { type: 'diaper', emoji: '👶', label: 'Diaper', available: true },
-  { type: 'medication', emoji: '💊', label: 'Medication', available: true },
-  { type: 'night_wake', emoji: '🌗', label: 'Night Wake', available: true },
-  { type: 'note', emoji: '📝', label: 'Note', available: true },
+  { type: 'nap', icon: 'sun.max.fill', label: 'Nap', available: true },
+  { type: 'night', icon: 'moon.fill', label: 'Night Sleep', available: true },
+  { type: 'feed', icon: 'figure.child', label: 'Feed', available: true },
+  { type: 'diaper', icon: 'figure.child', label: 'Diaper', available: true },
+  { type: 'medication', icon: 'pills.fill', label: 'Medication', available: true },
+  { type: 'night_wake', icon: 'bed.double.fill', label: 'Night Wake', available: true },
+  { type: 'note', icon: 'note.text', label: 'Note', available: true },
 ];
 
 export function LogEventSheet({ visible, onClose, onSubmit }: LogEventSheetProps) {
@@ -161,7 +162,7 @@ export function LogEventSheet({ visible, onClose, onSubmit }: LogEventSheetProps
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.grid}>
-                  {EVENT_TYPES.map(({ type, emoji, label, available }) => (
+                  {EVENT_TYPES.map(({ type, icon, label, available }) => (
                     <TouchableOpacity
                       key={type}
                       style={[
@@ -172,7 +173,7 @@ export function LogEventSheet({ visible, onClose, onSubmit }: LogEventSheetProps
                       activeOpacity={0.7}
                       disabled={!available}
                     >
-                      <Text style={styles.typeEmoji}>{emoji}</Text>
+                      <IconSymbol name={icon} size={28} color={available ? colors.text : colors.textTertiary} />
                       <Text
                         style={[
                           Typography.captionMedium,
@@ -241,9 +242,6 @@ const styles = StyleSheet.create({
   },
   typeButtonDisabled: {
     opacity: 0.4,
-  },
-  typeEmoji: {
-    fontSize: 28,
   },
   noteInput: {
     borderWidth: 1,

@@ -88,11 +88,6 @@ export function StatusAndRecommendationCard({
     hasRecommendation &&
     (Boolean(napPayload?.explanation?.trim()) || Boolean(napPayload?.reasoning?.trim()));
 
-  const handleWhyPress = () => {
-    if (hasExplanation) setShowMore((prev) => !prev);
-    else onWhy();
-  };
-
   const windowStartDate = hasRecommendation
     ? roundDateToNearest5Minutes(new Date(napPayload!.startWindowBegin))
     : null;
@@ -146,7 +141,7 @@ export function StatusAndRecommendationCard({
         {/* Main status: one clear focal point */}
         {isAsleep ? (
           <View style={styles.heroAsleep}>
-            <Text style={styles.heroEmoji}>😴</Text>
+            <IconSymbol name="moon.zzz.fill" size={48} color={colors.text} style={styles.heroIcon} />
             <Text style={[styles.heroTitle, { color: colors.text }]}>Sleeping</Text>
           </View>
         ) : (
@@ -228,8 +223,11 @@ export function StatusAndRecommendationCard({
               <TouchableOpacity onPress={onSkip} hitSlop={12} activeOpacity={0.7}>
                 <Text style={[Typography.small, { color: colors.textTertiary }]}>Skip</Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={onWhy} hitSlop={12} activeOpacity={0.7}>
+                <Text style={[Typography.small, { color: colors.accent }]}>Ask Coach</Text>
+              </TouchableOpacity>
               {hasExpandableContent && (
-                <TouchableOpacity onPress={handleWhyPress} hitSlop={12} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => setShowMore((prev) => !prev)} hitSlop={12} activeOpacity={0.7}>
                   <Text style={[Typography.small, { color: colors.accent }]}>
                     {showMore ? 'Less' : 'See Why'}
                   </Text>
@@ -297,10 +295,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.lg,
   },
-  heroEmoji: {
-    fontSize: 48,
-    marginBottom: Spacing.sm,
-  },
+  heroIcon: { marginBottom: Spacing.sm },
   heroTitle: {
     fontSize: 24,
     fontWeight: '600',

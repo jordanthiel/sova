@@ -81,14 +81,14 @@ export function SessionListView({ sessions }: SessionListViewProps) {
             <View style={styles.dayHeaderRight}>
               {group.totalNapMin > 0 && (
                 <Badge
-                  label={`☀️ ${formatDuration(group.totalNapMin)}`}
+                  label={`Nap ${formatDuration(group.totalNapMin)}`}
                   backgroundColor={colors.napColorSoft}
                   color={colors.napColor}
                 />
               )}
               {group.totalNightMin > 0 && (
                 <Badge
-                  label={`🌙 ${formatDuration(group.totalNightMin)}`}
+                  label={`Night ${formatDuration(group.totalNightMin)}`}
                   backgroundColor={colors.nightColorSoft}
                   color={colors.nightColor}
                 />

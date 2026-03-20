@@ -8,10 +8,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { format, addDays } from 'date-fns';
-import { Spacing, Typography, Radius } from '@/constants/theme';
+import { Spacing, Typography, Radius, ChartTypography } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { SleepEvent } from '@/types/domain';
 
 const HOUR_HEIGHT = 40;
@@ -195,7 +196,7 @@ export function LogDayTimeline({
             {dayEvents.length === 0 && !isDrawing ? (
               <View style={styles.emptyOverlay} pointerEvents="none">
                 <EmptyState
-                  icon="📅"
+                  icon="calendar"
                   title="No sleep this day"
                   message="Tap + to log a nap or night sleep."
                 />
@@ -233,7 +234,8 @@ export function LogDayTimeline({
 
               const isNap = event.type === 'nap';
               const grad = isNap ? gradients.nap : gradients.night;
-              const showLabel = blockHeight > 24;
+              const showFullLabel = blockHeight >= 32;
+              const showCompactLabel = blockHeight >= 18;
 
               return (
                 <TouchableOpacity
@@ -248,14 +250,31 @@ export function LogDayTimeline({
                     end={{ x: 1, y: 0 }}
                     style={styles.sessionGradient}
                   >
-                    {showLabel && (
-                      <Text style={styles.sessionLabel} numberOfLines={1}>
-                        {isNap ? '☀️' : '🌙'} {format(st, 'h:mm a')}
+                    {showFullLabel && (
+                      <View style={styles.sessionLabelRow}>
+                        <IconSymbol name={isNap ? 'sun.max.fill' : 'moon.fill'} size={12} color="#fff" style={styles.sessionLabelIcon} />
+                        <Text style={styles.sessionLabel} numberOfLines={1}>
+                          {format(st, 'h:mm a')}
                         {event.end ? ` – ${format(et, 'h:mm a')}` : ' (ongoing)'}
                         {event.durationMinutes != null
                           ? ` · ${formatDuration(event.durationMinutes)}`
                           : ''}
-                      </Text>
+                        </Text>
+                      </View>
+                    )}
+                    {!showFullLabel && showCompactLabel && (
+                      <View style={styles.sessionLabelRow}>
+                        <IconSymbol
+                          name={isNap ? 'sun.max.fill' : 'moon.fill'}
+                          size={12}
+                          color="#fff"
+                          style={styles.sessionLabelIcon}
+                        />
+                        <Text style={styles.sessionLabel} numberOfLines={1}>
+                          {format(st, 'h:mm a')}
+                          {event.end ? ` – ${format(et, 'h:mm a')}` : ' (ongoing)'}
+                        </Text>
+                      </View>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -301,7 +320,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 4,
-    fontSize: 11,
+    ...ChartTypography.axisLabelSmall,
     textAlign: 'right',
   },
   eventArea: {
@@ -336,7 +355,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 6,
   },
+  sessionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sessionLabelIcon: { marginRight: 0 },
   sessionLabel: {
+    flex: 1,
     ...Typography.small,
     color: '#FFFFFF',
     fontWeight: '600',

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Spacing, Typography, Radius, Shadows } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { formatTimeUntil, formatDuration } from '@/utils/formatTime';
 import type { NextSleepRecommendation } from '@/hooks/useProactiveRecommendations';
@@ -22,11 +23,11 @@ interface ProactiveRecommendationProps {
   onRefresh: () => void;
 }
 
-const SLEEP_TYPE_EMOJI: Record<string, string> = {
-  short_nap: '⚡',
-  long_nap: '😴',
-  nap: '☀️',
-  bedtime: '🌙',
+const SLEEP_TYPE_ICON: Record<string, import('@/components/ui/icon-symbol').IconSymbolName> = {
+  short_nap: 'bolt.fill',
+  long_nap: 'moon.zzz.fill',
+  nap: 'sun.max.fill',
+  bedtime: 'moon.fill',
 };
 
 const SLEEP_TYPE_LABEL: Record<string, string> = {
@@ -86,7 +87,7 @@ export function ProactiveRecommendation({
   const isUrgent = recommendation.urgency === 'now';
   const isSoon = recommendation.urgency === 'soon';
   const isBedtime = recommendation.sleep_type === 'bedtime';
-  const emoji = SLEEP_TYPE_EMOJI[recommendation.sleep_type] || '💤';
+  const iconName = SLEEP_TYPE_ICON[recommendation.sleep_type] || 'moon.zzz.fill';
   const typeLabel = SLEEP_TYPE_LABEL[recommendation.sleep_type] || 'Sleep';
 
   const getGradient = () => {
@@ -123,7 +124,8 @@ export function ProactiveRecommendation({
             <View style={styles.timeRow}>
               <Text style={styles.time}>{recommendation.recommended_time}</Text>
               <View style={styles.typeBadge}>
-                <Text style={styles.typeBadgeText}>{emoji} {typeLabel}</Text>
+                <IconSymbol name={iconName} size={14} color="#0B1426" style={{ marginRight: 4 }} />
+                <Text style={styles.typeBadgeText}>{typeLabel}</Text>
               </View>
             </View>
 
@@ -166,7 +168,7 @@ export function ProactiveRecommendation({
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* Header */}
               <View style={styles.modalHeader}>
-                <Text style={styles.modalEmoji}>{emoji}</Text>
+                <IconSymbol name={iconName} size={36} color={colors.text} style={styles.modalIcon} />
                 <Text style={[Typography.h2, { color: colors.text }]}>
                   {recommendation.headline}
                 </Text>
@@ -268,6 +270,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
     borderRadius: Radius.full,
@@ -336,10 +340,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.lg,
   },
-  modalEmoji: {
-    fontSize: 36,
-    marginBottom: Spacing.sm,
-  },
+  modalIcon: { marginBottom: Spacing.sm },
   infoCard: {
     padding: Spacing.md,
     borderRadius: Radius.lg,

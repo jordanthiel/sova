@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Spacing, Typography, Radius } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
 import type { ConfidenceLevel } from '@/types/domain';
@@ -55,7 +56,7 @@ export function StatusCard({
 
       {isAsleep ? (
         <View style={styles.statusRow}>
-          <Text style={styles.sleepEmoji}>😴</Text>
+          <IconSymbol name="moon.zzz.fill" size={32} color={colors.text} style={styles.sleepIcon} />
           <Text style={[Typography.h2, { color: colors.text }]}>Sleeping</Text>
         </View>
       ) : (
@@ -141,10 +142,7 @@ const styles = StyleSheet.create({
   metricBlock: {
     gap: 2,
   },
-  sleepEmoji: {
-    fontSize: 32,
-    marginRight: Spacing.sm,
-  },
+  sleepIcon: { marginRight: Spacing.sm },
   progressBar: {
     height: 6,
     backgroundColor: 'rgba(255,255,255,0.06)',

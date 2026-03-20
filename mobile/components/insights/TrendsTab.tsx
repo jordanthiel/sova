@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { BarChart, LineChart } from 'react-native-gifted-charts';
 import { Card } from '@/components/ui/Card';
@@ -9,9 +9,8 @@ import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { useNightSleepScores } from '@/hooks/useNightSleepScores';
 import { formatDuration } from '@/utils/formatTime';
-import { addDays, format, subDays, isWithinInterval } from 'date-fns';
+import { addDays, format, subDays } from 'date-fns';
 import { getExtendedDayBounds, sessionOverlapsExtendedDay } from '@/utils/dateUtils';
-import { getNightSummaries } from '@/utils/nightSleepScore';
 import type { Database } from '@/lib/supabase';
 import type { Caregiver } from '@/types/domain';
 
@@ -26,6 +25,15 @@ const PERIODS = [
   { label: '90d', days: 90, bucket: 'week' as const },
   { label: '1y', days: 365, bucket: 'week' as const },
 ];
+
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+type DetailMetric = {
+  label: string;
+  value: string;
+  tint?: string;
+  backgroundColor?: string;
+};
 
 function getBuckets(days: number, bucket: 'day' | 'week') {
   const today = new Date();
@@ -71,6 +79,76 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+function formatClockMinutes(minutes: number | null): string {
+  if (minutes == null) return '—';
+  const date = new Date();
+  date.setHours(0, minutes, 0, 0);
+  return format(date, 'h:mm a');
+}
+
+function getNightScoreLabel(score: number | null): string {
+  if (score == null) return 'No score yet';
+  if (score >= 85) return 'Restorative night';
+  if (score >= 70) return 'Strong night';
+  if (score >= 55) return 'Mixed night';
+  return 'Rough night';
+}
+
+function ChartSelectionCard({
+  title,
+  subtitle,
+  accentColor,
+  metrics,
+  hint,
+}: {
+  title: string;
+  subtitle?: string;
+  accentColor: string;
+  metrics: DetailMetric[];
+  hint?: string;
+}) {
+  const colors = useThemeColors();
+
+  return (
+    <View style={[styles.selectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.selectionAccent, { backgroundColor: accentColor }]} />
+      <View style={styles.selectionBody}>
+        <View style={styles.selectionHeader}>
+          <View style={styles.selectionTextBlock}>
+            <Text style={[Typography.bodySemiBold, { color: colors.text }]}>{title}</Text>
+            {subtitle ? (
+              <Text style={[Typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+          {hint ? (
+            <View style={[styles.selectionHint, { backgroundColor: colors.surfaceElevated }]}>
+              <Text style={[Typography.small, { color: colors.textTertiary }]}>{hint}</Text>
+            </View>
+          ) : null}
+        </View>
+        <View style={styles.selectionMetrics}>
+          {metrics.map((metric) => (
+            <View
+              key={metric.label}
+              style={[
+                styles.selectionMetric,
+                { backgroundColor: metric.backgroundColor ?? colors.surfaceElevated },
+              ]}
+            >
+              <Text style={[Typography.small, { color: colors.textTertiary }]}>{metric.label}</Text>
+              <Text style={[Typography.bodySemiBold, { color: metric.tint ?? colors.text }]}>
+                {metric.value}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 interface TrendsTabProps {
   sessions: SleepSession[];
   ageMonths: number;
@@ -81,6 +159,11 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
   const colors = useThemeColors();
   const { currentBabyId } = useCurrentBaby();
   const [periodIndex, setPeriodIndex] = useState(2); // 30d default
+  const [selectedWeekdayIndex, setSelectedWeekdayIndex] = useState(0);
+  const [selectedRiseBedIndex, setSelectedRiseBedIndex] = useState(0);
+  const [selectedScoreIndex, setSelectedScoreIndex] = useState(0);
+  const [selectedCaregiverIndex, setSelectedCaregiverIndex] = useState(0);
+  const [selectedBucketIndex, setSelectedBucketIndex] = useState(0);
 
   const period = PERIODS[periodIndex];
   const buckets = useMemo(() => getBuckets(period.days, period.bucket), [period.days, period.bucket]);
@@ -106,7 +189,7 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
     [sessions]
   );
 
-  const { statsByBucket, averages, riseAndBed } = useMemo(() => {
+  const { statsByBucket, averages } = useMemo(() => {
     const statsByBucket: Record<
       string,
       { napTotal: number; nightTotal: number; dailyTotal: number; napCount: number; nights: SleepSession[]; naps: SleepSession[] }
@@ -155,51 +238,6 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
     const avgNightPerDay = divisorNight > 0 ? totalNight / divisorNight : 0;
     const avgDailyTotal = divisorDaily > 0 ? (totalNap + totalNight) / divisorDaily : 0;
 
-    // Rise: night sessions that *ended* in this bucket (wake-up time). Bedtime: night sessions that *started* in this bucket.
-    const nightsWithEnd = completedSessions.filter((s) => s.type === 'night' && s.end_time != null);
-    const nightSummariesByKey = new Map(
-      getNightSummaries(sessions, { maxNights: 90 }).map((s) => [s.dateKey, s])
-    );
-    const riseAndBed: { key: string; label: string; riseMinutes: number | null; bedMinutes: number | null; nightScore: number | null }[] = buckets.map(
-      (b) => {
-        let riseMinutes: number | null = null;
-        let bedMinutes: number | null = null;
-        const rec = statsByBucket[b.key];
-        if (rec.nights.length > 0) {
-          const sortedByStart = [...rec.nights].sort(
-            (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-          );
-          bedMinutes = new Date(sortedByStart[0].start_time).getHours() * 60 + new Date(sortedByStart[0].start_time).getMinutes();
-        }
-        const nightsEndingInBucket = nightsWithEnd.filter((n) => {
-          const end = new Date(n.end_time!);
-          return isWithinInterval(end, { start: b.start, end: b.end });
-        });
-        if (nightsEndingInBucket.length > 0) {
-          const latestEnd = nightsEndingInBucket.sort(
-            (a, b) => new Date(b.end_time!).getTime() - new Date(a.end_time!).getTime()
-          )[0];
-          riseMinutes = new Date(latestEnd.end_time!).getHours() * 60 + new Date(latestEnd.end_time!).getMinutes();
-        }
-        let nightScore: number | null = null;
-        if (period.bucket === 'day') {
-          const summary = nightSummariesByKey.get(b.key);
-          nightScore = nightScoresByDateKey[b.key] ?? null;
-        } else {
-          const weekDateKeys: string[] = [];
-          let d = new Date(b.start);
-          const end = new Date(b.end);
-          while (d <= end) {
-            weekDateKeys.push(format(d, 'yyyy-MM-dd'));
-            d = addDays(d, 1);
-          }
-          const scores = weekDateKeys.map((dk) => nightScoresByDateKey[dk]).filter((s): s is number => s != null);
-          if (scores.length > 0) nightScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-        }
-        return { key: b.key, label: b.label, riseMinutes, bedMinutes, nightScore };
-      }
-    );
-
     return {
       statsByBucket,
       averages: {
@@ -208,9 +246,8 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
         avgDailyTotal,
         daysInPeriod,
       },
-      riseAndBed,
     };
-  }, [completedSessions, buckets, period, nightScoresByDateKey]);
+  }, [completedSessions, buckets, period]);
 
   // Average total sleep by day of week (Mon–Sun) across the selected period. Uses 6am–6am extended days.
   const avgByWeekday = useMemo(() => {
@@ -236,7 +273,6 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
       dowTotals[dow].nap.push(nap);
       dowTotals[dow].night.push(night);
     }
-    const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     return [0, 1, 2, 3, 4, 5, 6].map((dow) => {
       const arr = dowTotals[dow];
       const n = arr.nap.length;
@@ -252,6 +288,71 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
       };
     });
   }, [completedSessions, period.days]);
+
+  const avgRiseBedByWeekday = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const periodStart = subDays(today, period.days - 1);
+    const weekdayTotals: {
+      rise: number[];
+      bed: number[];
+      score: number[];
+    }[] = Array.from({ length: 7 }, () => ({
+      rise: [],
+      bed: [],
+      score: [],
+    }));
+
+    const nightSessions = completedSessions.filter((s) => s.type === 'night' && s.end_time != null);
+
+    for (let i = 0; i < period.days; i++) {
+      const day = addDays(periodStart, i);
+      const dateKey = format(day, 'yyyy-MM-dd');
+      const { start, end } = getExtendedDayBounds(day);
+      const weekday = day.getDay();
+
+      const nightsInExtendedDay = nightSessions.filter((s) =>
+        sessionOverlapsExtendedDay(s.start_time, s.end_time!, start, end)
+      );
+      if (nightsInExtendedDay.length > 0) {
+        const earliestStart = [...nightsInExtendedDay].sort(
+          (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+        )[0];
+        const bedtime = new Date(earliestStart.start_time);
+        weekdayTotals[weekday].bed.push(bedtime.getHours() * 60 + bedtime.getMinutes());
+      }
+
+      const nightsEndingInExtendedDay = nightSessions.filter((s) => {
+        const nightEnd = new Date(s.end_time!);
+        return nightEnd >= start && nightEnd <= end;
+      });
+      if (nightsEndingInExtendedDay.length > 0) {
+        const latestEnd = [...nightsEndingInExtendedDay].sort(
+          (a, b) => new Date(b.end_time!).getTime() - new Date(a.end_time!).getTime()
+        )[0];
+        const rise = new Date(latestEnd.end_time!);
+        weekdayTotals[weekday].rise.push(rise.getHours() * 60 + rise.getMinutes());
+      }
+
+      const score = nightScoresByDateKey[dateKey];
+      if (score != null) {
+        weekdayTotals[weekday].score.push(score);
+      }
+    }
+
+    return WEEKDAY_LABELS.map((label, weekday) => {
+      const totals = weekdayTotals[weekday];
+      const avg = (values: number[]) =>
+        values.length > 0 ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
+
+      return {
+        label,
+        riseMinutes: avg(totals.rise),
+        bedMinutes: avg(totals.bed),
+        nightScore: avg(totals.score),
+      };
+    });
+  }, [completedSessions, nightScoresByDateKey, period.days]);
 
   const maxAvgByWeekday = Math.max(...avgByWeekday.map((w) => w.avgTotal), 1);
 
@@ -279,8 +380,34 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
   // For rise/bed chart: time range 4:00 (240 min) to 24:00 (1440 min) so we show 4 AM - midnight
   const timeMin = 4 * 60;
   const timeMax = 24 * 60;
-  const riseBedPoints = riseAndBed.filter((r) => r.riseMinutes != null || r.bedMinutes != null);
-  const scorePoints = riseAndBed.filter((r) => r.nightScore != null);
+  const riseBedPoints = avgRiseBedByWeekday.filter((r) => r.riseMinutes != null || r.bedMinutes != null);
+  const scorePoints = avgRiseBedByWeekday.filter((r) => r.nightScore != null);
+
+  useEffect(() => {
+    setSelectedWeekdayIndex((current) => Math.min(current, Math.max(avgByWeekday.length - 1, 0)));
+  }, [avgByWeekday.length]);
+
+  useEffect(() => {
+    setSelectedRiseBedIndex((current) => Math.min(current, Math.max(riseBedPoints.length - 1, 0)));
+  }, [riseBedPoints.length]);
+
+  useEffect(() => {
+    setSelectedScoreIndex((current) => Math.min(current, Math.max(scorePoints.length - 1, 0)));
+  }, [scorePoints.length]);
+
+  useEffect(() => {
+    setSelectedCaregiverIndex((current) => Math.min(current, Math.max(caregiverLoad.length - 1, 0)));
+  }, [caregiverLoad.length]);
+
+  useEffect(() => {
+    setSelectedBucketIndex((current) => Math.min(current, Math.max(buckets.length - 1, 0)));
+  }, [buckets.length]);
+
+  const selectedWeekday = avgByWeekday[selectedWeekdayIndex] ?? avgByWeekday[0] ?? null;
+  const selectedRiseBed = riseBedPoints[selectedRiseBedIndex] ?? riseBedPoints[0] ?? null;
+  const selectedScore = scorePoints[selectedScoreIndex] ?? scorePoints[0] ?? null;
+  const selectedCaregiver = caregiverLoad[selectedCaregiverIndex] ?? caregiverLoad[0] ?? null;
+  const selectedBucket = buckets[selectedBucketIndex] ?? buckets[0] ?? null;
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -346,8 +473,14 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
               if (w.avgNight > 0) stacks.push({ value: w.avgNight, color: colors.nightColor });
               if (w.avgNap > 0) stacks.push({ value: w.avgNap, color: colors.napColor });
               if (stacks.length === 0) stacks.push({ value: 0.01, color: colors.textTertiary });
-              return { stacks, label: w.label };
+              return {
+                stacks,
+                label: w.label,
+              };
             })}
+            onPress={(_item: unknown, index?: number) => {
+              if (typeof index === 'number') setSelectedWeekdayIndex(index);
+            }}
             width={SCREEN_WIDTH - Spacing.md * 4}
             barBorderRadius={chartConfig.barRadius}
             barBorderTopLeftRadius={chartConfig.barBorderTopLeftRadius}
@@ -360,25 +493,41 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
             hideRules={chartConfig.hideRules}
             isAnimated
             animationDuration={800}
-            showValuesAsTopLabel
-            topLabelTextStyle={{ ...ChartTypography.axisLabelSmall, color: colors.text }}
             {...getBarChartAxisStyles(colors)}
-            renderTooltip={(_item: unknown, index: number) => {
-              const w = avgByWeekday[index];
-              if (!w) return null;
-              return (
-                <Text style={[ChartTypography.tooltipValue, { color: colors.text }]}>
-                  {w.label}: {Math.round(w.avgTotal)} min
-                </Text>
-              );
-            }}
           />
         </View>
+        {selectedWeekday ? (
+          <ChartSelectionCard
+            title={`${selectedWeekday.label} average`}
+            subtitle="Tap any bar to compare another weekday"
+            accentColor={colors.napColor}
+            hint="Tap bars"
+            metrics={[
+              {
+                label: 'Total sleep',
+                value: formatDuration(Math.round(selectedWeekday.avgTotal)),
+                tint: colors.text,
+              },
+              {
+                label: 'Night sleep',
+                value: formatDuration(Math.round(selectedWeekday.avgNight)),
+                tint: colors.nightColor,
+                backgroundColor: colors.nightColorSoft,
+              },
+              {
+                label: 'Nap sleep',
+                value: formatDuration(Math.round(selectedWeekday.avgNap)),
+                tint: colors.napColor,
+                backgroundColor: colors.napColorSoft,
+              },
+            ]}
+          />
+        ) : null}
       </Card>
 
       {/* Rise & bedtime trend */}
       {riseBedPoints.length > 0 && (
-        <Card padding="md" style={styles.card}>
+        <Card padding="md" style={[styles.card, styles.overflowVisibleCard]}>
           <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.xs }]}>
             Rise & bedtime
           </Text>
@@ -396,17 +545,26 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
             <LineChart
               dataSet={[
                 {
-                  data: riseBedPoints.map((r) => ({ value: r.riseMinutes ?? timeMin, label: r.label })),
+                  data: riseBedPoints.map((r, index) => ({
+                    value: r.riseMinutes ?? timeMin,
+                    label: r.label,
+                    onPress: () => setSelectedRiseBedIndex(index),
+                  })),
                   color: colors.napColor,
                   dataPointsColor: colors.napColor,
                 },
                 {
-                  data: riseBedPoints.map((r) => ({ value: r.bedMinutes ?? timeMin, label: r.label })),
+                  data: riseBedPoints.map((r, index) => ({
+                    value: r.bedMinutes ?? timeMin,
+                    label: r.label,
+                    onPress: () => setSelectedRiseBedIndex(index),
+                  })),
                   color: colors.nightColor,
                   dataPointsColor: colors.nightColor,
                 },
               ]}
               width={SCREEN_WIDTH - Spacing.md * 4}
+              overflowTop={120}
               spacing={riseBedPoints.length > 1 ? (SCREEN_WIDTH - Spacing.md * 4 - 48) / (riseBedPoints.length - 1) : 60}
               initialSpacing={chartConfig.initialSpacing}
               endSpacing={chartConfig.endSpacing}
@@ -431,14 +589,72 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
                 pointerStripWidth: 1,
                 pointerColor: colors.textTertiary,
                 showPointerStrip: true,
-                pointerLabelComponent: (items: { value?: number; label?: string }[]) => (
-                  <Text style={[ChartTypography.tooltipValue, { color: colors.text }]}>
-                    {items?.map((i) => i?.value ?? '').filter((v) => v !== '').join(' · ') || '—'}
-                  </Text>
-                ),
+                autoAdjustPointerLabelPosition: true,
+                radius: 5,
+                pointerLabelWidth: 184,
+                pointerLabelHeight: 112,
+                pointerLabelComponent: (items: { value?: number; label?: string }[]) => {
+                  const riseMinutes = items?.[0]?.value ?? null;
+                  const bedMinutes = items?.[1]?.value ?? null;
+                  return (
+                    <View
+                      style={[
+                        styles.pointerCard,
+                        {
+                          backgroundColor: colors.surfaceSolid,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[ChartTypography.tooltipTitle, { color: colors.text }]}>
+                        {items?.[0]?.label ?? 'Selected day'}
+                      </Text>
+                      <View style={styles.pointerMetricRow}>
+                        <Text style={[Typography.small, { color: colors.textSecondary }]}>Rise</Text>
+                        <Text style={[Typography.bodySemiBold, { color: colors.napColor }]}>
+                          {formatClockMinutes(riseMinutes)}
+                        </Text>
+                      </View>
+                      <View style={styles.pointerMetricRow}>
+                        <Text style={[Typography.small, { color: colors.textSecondary }]}>Bedtime</Text>
+                        <Text style={[Typography.bodySemiBold, { color: colors.nightColor }]}>
+                          {formatClockMinutes(bedMinutes)}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                },
               }}
             />
           </View>
+          {selectedRiseBed ? (
+            <ChartSelectionCard
+              title={selectedRiseBed.label}
+              subtitle="Typical timing across the selected period"
+              accentColor={colors.nightColor}
+              hint="Tap points"
+              metrics={[
+                {
+                  label: 'Average rise',
+                  value: formatClockMinutes(selectedRiseBed.riseMinutes),
+                  tint: colors.napColor,
+                  backgroundColor: colors.napColorSoft,
+                },
+                {
+                  label: 'Average bedtime',
+                  value: formatClockMinutes(selectedRiseBed.bedMinutes),
+                  tint: colors.nightColor,
+                  backgroundColor: colors.nightColorSoft,
+                },
+                {
+                  label: 'Night score',
+                  value:
+                    selectedRiseBed.nightScore != null ? `${selectedRiseBed.nightScore}/100` : '—',
+                  tint: colors.text,
+                },
+              ]}
+            />
+          ) : null}
         </Card>
       )}
 
@@ -453,7 +669,7 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
           </Text>
           <View style={styles.chartWrapper}>
             <BarChart
-              data={[...riseAndBed].reverse().map((r) => {
+              data={scorePoints.map((r) => {
                 const score = r.nightScore ?? 0;
                 const frontColor =
                   score >= 80
@@ -467,13 +683,7 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
                   value: score > 0 ? score : 0.01,
                   label: r.label,
                   frontColor: score > 0 ? frontColor : colors.textTertiary,
-                  topLabelComponent: score > 0
-                    ? () => (
-                        <Text style={[ChartTypography.axisLabelSmall, { color: colors.text, fontWeight: '600' }]}>
-                          {score}
-                        </Text>
-                      )
-                    : undefined,
+                  onPress: () => setSelectedScoreIndex(scorePoints.findIndex((point) => point.label === r.label)),
                 };
               })}
               width={SCREEN_WIDTH - Spacing.md * 4}
@@ -482,28 +692,50 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
               barBorderTopRightRadius={chartConfig.barBorderTopRightRadius}
               maxValue={100}
               noOfSections={chartConfig.noOfSections}
-              spacing={Math.max(chartConfig.spacing, (SCREEN_WIDTH - Spacing.md * 4 - 48) / riseAndBed.length - 12)}
+              spacing={Math.max(chartConfig.spacing, (SCREEN_WIDTH - Spacing.md * 4 - 48) / scorePoints.length - 12)}
               initialSpacing={chartConfig.initialSpacing}
               endSpacing={chartConfig.endSpacing}
               hideRules={chartConfig.hideRules}
               isAnimated
               animationDuration={600}
               yAxisLabelWidth={28}
-              showValuesAsTopLabel
-              topLabelTextStyle={{ ...ChartTypography.axisLabelSmall, color: colors.text }}
               {...getBarChartAxisStyles(colors)}
-              renderTooltip={(_item: { value?: number; label?: string }, index: number) => {
-                const reversed = [...riseAndBed].reverse();
-                const r = reversed[index];
-                if (!r || r.nightScore == null) return null;
-                return (
-                  <Text style={[ChartTypography.tooltipValue, { color: colors.text }]}>
-                    {r.label}: {r.nightScore}
-                  </Text>
-                );
-              }}
             />
           </View>
+          {selectedScore ? (
+            <ChartSelectionCard
+              title={`${selectedScore.label} night`}
+              subtitle={getNightScoreLabel(selectedScore.nightScore)}
+              accentColor={colors.accent}
+              hint="Tap bars"
+              metrics={[
+                {
+                  label: 'Score',
+                  value: `${selectedScore.nightScore ?? 0}/100`,
+                  tint:
+                    (selectedScore.nightScore ?? 0) >= 80
+                      ? colors.success
+                      : (selectedScore.nightScore ?? 0) >= 60
+                        ? colors.accent
+                        : (selectedScore.nightScore ?? 0) >= 40
+                          ? colors.warning
+                          : colors.error,
+                },
+                {
+                  label: 'Rise',
+                  value: formatClockMinutes(selectedScore.riseMinutes),
+                  tint: colors.napColor,
+                  backgroundColor: colors.napColorSoft,
+                },
+                {
+                  label: 'Bedtime',
+                  value: formatClockMinutes(selectedScore.bedMinutes),
+                  tint: colors.nightColor,
+                  backgroundColor: colors.nightColorSoft,
+                },
+              ]}
+            />
+          ) : null}
         </Card>
       )}
 
@@ -528,6 +760,9 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
                   label: getInitials(x.caregiver.name),
                 };
               })}
+              onPress={(_item: unknown, index?: number) => {
+                if (typeof index === 'number') setSelectedCaregiverIndex(index);
+              }}
               width={SCREEN_WIDTH - Spacing.md * 4}
               barBorderRadius={chartConfig.barRadius}
               barBorderTopLeftRadius={chartConfig.barBorderTopLeftRadius}
@@ -540,20 +775,36 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
               hideRules={chartConfig.hideRules}
               isAnimated
               animationDuration={600}
-              showValuesAsTopLabel
-              topLabelTextStyle={{ ...ChartTypography.axisLabelSmall, color: colors.text }}
               {...getBarChartAxisStyles(colors)}
-              renderTooltip={(_item: unknown, index: number) => {
-                const x = caregiverLoad[index];
-                if (!x) return null;
-                return (
-                  <Text style={[ChartTypography.tooltipValue, { color: colors.text }]}>
-                    {x.caregiver.name}: {x.naps} naps · {x.nights} nights
-                  </Text>
-                );
-              }}
             />
           </View>
+          {selectedCaregiver ? (
+            <ChartSelectionCard
+              title={selectedCaregiver.caregiver.name}
+              subtitle="Sessions logged in the last 30 days"
+              accentColor={colors.nightColor}
+              hint="Tap bars"
+              metrics={[
+                {
+                  label: 'Total sessions',
+                  value: `${selectedCaregiver.naps + selectedCaregiver.nights}`,
+                  tint: colors.text,
+                },
+                {
+                  label: 'Daytime',
+                  value: `${selectedCaregiver.naps} naps`,
+                  tint: colors.napColor,
+                  backgroundColor: colors.napColorSoft,
+                },
+                {
+                  label: 'Nighttime',
+                  value: `${selectedCaregiver.nights} nights`,
+                  tint: colors.nightColor,
+                  backgroundColor: colors.nightColorSoft,
+                },
+              ]}
+            />
+          ) : null}
           <View style={styles.caregiverLegend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: colors.napColor }]} />
@@ -598,6 +849,7 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
                 value: statsByBucket[b.key].napCount,
                 label: b.label,
                 frontColor: colors.napColor,
+                onPress: () => setSelectedBucketIndex(buckets.findIndex((bucket) => bucket.key === b.key)),
               }))}
               width={SCREEN_WIDTH - Spacing.md * 4}
               barBorderRadius={chartConfig.barRadius}
@@ -611,21 +863,35 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
               hideRules={chartConfig.hideRules}
               isAnimated
               animationDuration={600}
-              showValuesAsTopLabel
-              topLabelTextStyle={{ ...ChartTypography.axisLabelSmall, color: colors.text }}
               {...getBarChartAxisStyles(colors)}
-              renderTooltip={(_item: { value?: number; label?: string }, index: number) => {
-                const b = buckets[index];
-                if (!b) return null;
-                const count = statsByBucket[b.key].napCount;
-                return (
-                  <Text style={[ChartTypography.tooltipValue, { color: colors.text }]}>
-                    {b.label}: {count}
-                  </Text>
-                );
-              }}
             />
           </View>
+          {selectedBucket ? (
+            <ChartSelectionCard
+              title={`Week of ${selectedBucket.label}`}
+              subtitle="Tap a bar to inspect another week"
+              accentColor={colors.napColor}
+              hint="Tap bars"
+              metrics={[
+                {
+                  label: 'Naps logged',
+                  value: `${statsByBucket[selectedBucket.key].napCount}`,
+                  tint: colors.napColor,
+                  backgroundColor: colors.napColorSoft,
+                },
+                {
+                  label: 'Nap total',
+                  value: formatDuration(Math.round(statsByBucket[selectedBucket.key].napTotal)),
+                  tint: colors.text,
+                },
+                {
+                  label: 'Daily avg',
+                  value: formatDuration(Math.round(statsByBucket[selectedBucket.key].napTotal / 7)),
+                  tint: colors.text,
+                },
+              ]}
+            />
+          ) : null}
         </Card>
       )}
 
@@ -648,6 +914,9 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   card: { marginBottom: Spacing.lg },
+  overflowVisibleCard: {
+    overflow: 'visible',
+  },
   statGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -663,6 +932,62 @@ const styles = StyleSheet.create({
     marginLeft: -Spacing.sm,
     paddingTop: Spacing.xs,
     paddingBottom: Spacing.md,
+    overflow: 'visible',
+  },
+  selectionCard: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    marginTop: Spacing.xs,
+  },
+  selectionAccent: {
+    width: 4,
+  },
+  selectionBody: {
+    flex: 1,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  selectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  selectionTextBlock: {
+    flex: 1,
+  },
+  selectionHint: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+  },
+  selectionMetrics: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  selectionMetric: {
+    flex: 1,
+    minWidth: '30%',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+    gap: 2,
+  },
+  pointerCard: {
+    width: 184,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    gap: Spacing.xs,
+  },
+  pointerMetricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
   },
   timeLegend: {
     flexDirection: 'row',

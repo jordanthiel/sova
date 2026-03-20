@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { View, ActivityIndicator, StyleSheet, Text, Image } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, Image, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { shouldShowOnboarding } from '@/app/onboarding';
@@ -57,7 +57,21 @@ export default function Index() {
               if (showOnboarding) {
                 router.replace('/onboarding');
               } else {
-                router.replace('/(tabs)');
+                let tabsPath = '/(tabs)';
+                try {
+                  const initialUrl = await Linking.getInitialURL();
+                  if (initialUrl) {
+                    const parsed = new URL(initialUrl);
+                    const action = parsed.searchParams.get('action');
+                    if (action === 'startNap' || action === 'endSession') {
+                      const run = parsed.searchParams.get('run') === '1';
+                      tabsPath = `/(tabs)?action=${encodeURIComponent(action)}&run=${run ? '1' : '0'}`;
+                    }
+                  }
+                } catch {
+                  // ignore
+                }
+                router.replace(tabsPath as any);
               }
             }
           } catch (dbError) {

@@ -276,17 +276,17 @@ export const Typography = {
 export const ChartTypography = {
   /** X/Y axis labels — readable, not cramped */
   axisLabel: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '500' as const,
-    letterSpacing: 0.2,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600' as const,
+    letterSpacing: 0.1,
   },
   /** Small axis (e.g. mini sparklines) */
   axisLabelSmall: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '500' as const,
-    letterSpacing: 0.15,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '600' as const,
+    letterSpacing: 0.1,
   },
   /** Tooltip title (e.g. day name) */
   tooltipTitle: {
@@ -296,16 +296,16 @@ export const ChartTypography = {
   },
   /** Tooltip value/secondary */
   tooltipValue: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '400' as const,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500' as const,
   },
   /** Legend label */
   legendLabel: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '500' as const,
-    letterSpacing: 0.15,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600' as const,
+    letterSpacing: 0.1,
   },
 } as const;
 
@@ -391,17 +391,24 @@ export const Fonts = Platform.select({
     serif: 'ui-serif',
     rounded: 'ui-rounded',
     mono: 'ui-monospace',
+    /** Use for Text that shows emoji so they render (avoids icon font inheritance). */
+    emoji: 'System',
   },
   default: {
     sans: 'normal',
     serif: 'serif',
     rounded: 'normal',
     mono: 'monospace',
+    emoji: undefined,
   },
   web: {
     sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', serif",
     rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+    emoji: "system-ui, 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif",
   },
 });
+
+/** Apply to any Text that displays emoji so they render correctly (system font, not icon font). */
+export const EmojiText = { fontFamily: Fonts?.emoji } as const;

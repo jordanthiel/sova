@@ -7,11 +7,21 @@ import { useThemeColors } from '@/hooks/use-theme-color';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useBabies } from '@/hooks/useBabies';
 import { track } from '@/services/analytics/track';
+import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
+
+function BabyRowShimmer() {
+  return (
+    <View style={styles.babyRowShimmer}>
+      <SkeletonLoader width={40} height={40} borderRadius={20} />
+      <SkeletonLoader width={120} height={18} style={{ marginLeft: Spacing.md }} />
+    </View>
+  );
+}
 
 export default function SelectBabyScreen() {
   const colors = useThemeColors();
   const { currentBabyId, setCurrentBabyId } = useCurrentBaby();
-  const { babies } = useBabies();
+  const { babies, loading } = useBabies();
 
   const handleSelect = (babyId: string) => {
     setCurrentBabyId(babyId);
@@ -23,6 +33,25 @@ export default function SelectBabyScreen() {
     router.back();
     router.push('/baby-setup');
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.closeBtn}>
+            <Text style={[styles.closeText, { color: colors.textSecondary }]}>×</Text>
+          </TouchableOpacity>
+          <Text style={[Typography.h3, { color: colors.text }]}>Switch baby</Text>
+          <View style={styles.closeBtn} />
+        </View>
+        <View style={styles.content}>
+          <BabyRowShimmer />
+          <BabyRowShimmer />
+          <BabyRowShimmer />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (babies.length === 0) {
     return (
@@ -127,6 +156,13 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   babyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.sm,
+  },
+  babyRowShimmer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.md,

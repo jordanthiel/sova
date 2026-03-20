@@ -27,7 +27,7 @@ export function useNightSleepScores(
     Object.entries(map).forEach(([k, row]) => {
       byScore[k] = row.score;
     });
-    setStored((prev) => ({ ...prev, ...byScore }));
+    setStored(byScore);
   }, [babyId, dateKeys.join(',')]);
 
   useEffect(() => {
@@ -107,7 +107,7 @@ export function useNightSleepScores(
     ).then(() => fetchScores()).catch(() => {});
   }, [babyId, completedSessions.length, fetchScores]);
 
-  // Merge: for each dateKey, use stored if present; otherwise compute from sessions for this key.
+  // Merge: for each dateKey, prefer computed from current sessions; fall back to stored.
   // Only compute scores for complete nights (past 6am on the night's end date).
   const summaries = getNightSummaries(
     completedSessions as { type: 'nap' | 'night'; start_time: string; end_time: string | null; duration_minutes: number | null }[],
@@ -122,7 +122,9 @@ export function useNightSleepScores(
 
   const result: Record<string, number> = {};
   dateKeys.forEach((dk) => {
-    const score = stored[dk] ?? computedByKey[dk];
+    // Prefer fresh computed values from current sessions to avoid stale DB rows
+    // briefly overriding UI after async fetch resolves.
+    const score = computedByKey[dk] ?? stored[dk];
     if (score != null) result[dk] = score;
   });
   return result;

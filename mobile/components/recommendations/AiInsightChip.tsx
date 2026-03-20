@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Spacing, Typography, Radius, Shadows } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useAiInsight } from '@/hooks/useAiInsight';
 
@@ -64,7 +65,7 @@ export function AiInsightChip({
         style={styles.gradient}
       >
         <View style={styles.row}>
-          <Text style={styles.sparkle}>✨</Text>
+          <IconSymbol name="sparkles" size={16} color={colors.text} style={styles.sparkle} />
           <View style={styles.content}>
             {loading ? (
               <View style={styles.loadingRow}>
@@ -113,10 +114,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.sm,
   },
-  sparkle: {
-    fontSize: 16,
-    marginTop: 1,
-  },
+  sparkle: { marginTop: 1 },
   content: {
     flex: 1,
   },

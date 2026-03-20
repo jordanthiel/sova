@@ -17,8 +17,8 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { Spacing, Typography, Radius } from '@/constants/theme';
-import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
@@ -82,7 +82,7 @@ export default function SignupScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.heroBadgeGradient}
               >
-                <Text style={styles.starEmoji}>✨</Text>
+                <IconSymbol name="sparkles" size={48} color="#0B1426" />
               </LinearGradient>
             </View>
             <Text style={[Typography.h1, { color: colors.text, textAlign: 'center' }]}>
@@ -188,9 +188,6 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  starEmoji: {
-    fontSize: 48,
   },
   formSection: {
     marginBottom: Spacing.lg,

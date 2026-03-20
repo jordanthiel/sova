@@ -13,24 +13,26 @@ import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
 import { useRealtimeCaregivers } from '@/hooks/useRealtimeCaregivers';
+import { loadNotificationConfigForBaby, saveNotificationConfigForBaby } from '@/lib/notificationSettings';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/services/analytics/track';
 import { importSleepSessions, pickAndReadCsv } from '@/services/importSleepCsv';
 import { babiesRepo } from '@/services/repositories/babiesRepo';
 import { caregiversRepo } from '@/services/repositories/caregiversRepo';
-import type {
-  Baby,
-  BabyPreferences,
-  NotificationConfig
+import {
+  DEFAULT_NOTIFICATION_CONFIG,
+  type Baby,
+  type BabyPreferences,
+  type NotificationConfig,
 } from '@/types/domain';
 import { parseSleepCsv } from '@/utils/sleepCsvImport';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Linking,
   RefreshControl,
   ScrollView,
   Share,
@@ -41,28 +43,31 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const NOTIF_KEY_PREFIX = 'notification_config_';
-
 export default function SettingsScreen() {
   const { babies, loading: babiesLoading, refetch: refetchBabies } = useBabies();
   const { currentBabyId, setCurrentBabyId, isHydrated } = useCurrentBaby();
   const [domainBaby, setDomainBaby] = useState<Baby | null>(null);
   const { caregivers, loading: caregiversLoading, refetch: refetchCaregivers } = useRealtimeCaregivers(currentBabyId);
-  const [notificationConfig, setNotificationConfig] = useState<NotificationConfig>({
-    napWindowSoon: true,
-    capNapReminder: true,
-    bedtimeReminder: true,
-    wakeWindowAlert: false,
-  });
+  const [notificationConfig, setNotificationConfig] = useState<NotificationConfig>(DEFAULT_NOTIFICATION_CONFIG);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importCode, setImportCode] = useState<string | null>(null);
   const [importCodeLoading, setImportCodeLoading] = useState(false);
   const [importCodeError, setImportCodeError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const colors = useThemeColors();
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id ?? null);
+      setCurrentUserEmail(data.user?.email ?? null);
+    });
+  }, []);
+
   const inboundDomain = process.env.EXPO_PUBLIC_SLEEP_IMPORT_INBOUND_DOMAIN ?? '';
+  const supportEmail = process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? '';
   const importEmailAddress = inboundDomain && importCode ? `import+${importCode}@${inboundDomain}` : null;
 
   useEffect(() => {
@@ -90,9 +95,11 @@ export default function SettingsScreen() {
       });
 
       try {
-        const raw = await AsyncStorage.getItem(`${NOTIF_KEY_PREFIX}${currentBabyId}`);
-        if (raw) setNotificationConfig(JSON.parse(raw));
-      } catch {}
+        const cfg = await loadNotificationConfigForBaby(currentBabyId);
+        setNotificationConfig(cfg);
+      } catch {
+        setNotificationConfig(DEFAULT_NOTIFICATION_CONFIG);
+      }
     } catch (err) {
       console.error('Error loading settings:', err);
     } finally {
@@ -183,12 +190,8 @@ export default function SettingsScreen() {
     patch: Partial<NotificationConfig>
   ) => {
     if (!currentBabyId) return;
-    const updated = { ...notificationConfig, ...patch };
+    const updated = await saveNotificationConfigForBaby(currentBabyId, patch);
     setNotificationConfig(updated);
-    await AsyncStorage.setItem(
-      `${NOTIF_KEY_PREFIX}${currentBabyId}`,
-      JSON.stringify(updated)
-    );
   };
 
   const handleInviteCaregiver = async (email: string) => {
@@ -200,6 +203,17 @@ export default function SettingsScreen() {
       Alert.alert('Invite Failed', err.message || 'Could not send invitation.');
     }
   };
+
+  const handleRemoveCaregiver = async (caregiverId: string) => {
+    if (!currentBabyId) return;
+    await caregiversRepo.remove(currentBabyId, caregiverId);
+    await refetchCaregivers();
+  };
+
+  const currentBaby = currentBabyId ? babies.find((b) => b.id === currentBabyId) : null;
+  const canRemoveCaregivers = Boolean(
+    currentUserId && currentBaby && currentBaby.created_by === currentUserId
+  );
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -213,6 +227,47 @@ export default function SettingsScreen() {
         },
       },
     ]);
+  };
+
+  const handleRequestAccountDeletion = async () => {
+    track('request_account_deletion_tap', { userId: currentUserId });
+    if (!supportEmail) {
+      Alert.alert(
+        'Support email not configured',
+        'Set EXPO_PUBLIC_SUPPORT_EMAIL to enable account deletion requests from Settings.'
+      );
+      return;
+    }
+
+    const subject = 'Account deletion request';
+    const bodyLines = [
+      'Hello,',
+      '',
+      'I would like to request deletion of my Sova account.',
+      '',
+      `Account email: ${currentUserEmail ?? 'Not available'}`,
+      `User ID: ${currentUserId ?? 'Not available'}`,
+      '',
+      'Please let me know if you need anything else to verify this request.',
+    ];
+    const mailto = `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join('\n'))}`;
+
+    try {
+      const supported = await Linking.canOpenURL(mailto);
+      if (!supported) {
+        Alert.alert(
+          'Mail app unavailable',
+          `Please email ${supportEmail} to request account deletion.`
+        );
+        return;
+      }
+      await Linking.openURL(mailto);
+    } catch {
+      Alert.alert(
+        'Could not open mail',
+        `Please email ${supportEmail} to request account deletion.`
+      );
+    }
   };
 
   const onRefresh = async () => {
@@ -345,6 +400,8 @@ export default function SettingsScreen() {
                 <CaregiversSection
                   caregivers={caregivers}
                   onInvite={handleInviteCaregiver}
+                  canRemoveCaregivers={canRemoveCaregivers}
+                  onRemove={canRemoveCaregivers ? handleRemoveCaregiver : undefined}
                 />
               )}
             </View>
@@ -379,7 +436,7 @@ export default function SettingsScreen() {
           </View>
         ) : babies.length === 0 ? (
           <EmptyState
-            icon="⚙️"
+            icon="gearshape.fill"
             title="No babies yet"
             message="Add a baby to configure settings."
             actionTitle="Add Baby"
@@ -462,6 +519,23 @@ export default function SettingsScreen() {
               + Add Another Baby
             </Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Card padding="md" style={styles.importCard}>
+            <Text style={[Typography.bodyMedium, { color: colors.text, marginBottom: Spacing.xs }]}>
+              Request account deletion
+            </Text>
+            <Text style={[Typography.small, { color: colors.textSecondary, marginBottom: Spacing.sm }]}>
+              Opens your mail app with a prefilled request to permanently delete your account.
+            </Text>
+            <Button
+              title="Request Account Deletion"
+              onPress={handleRequestAccountDeletion}
+              variant="secondary"
+              fullWidth
+            />
+          </Card>
         </View>
 
         <View style={styles.section}>

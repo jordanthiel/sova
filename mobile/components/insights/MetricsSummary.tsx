@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Spacing, Typography, Radius } from '@/constants/theme';
+import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
 
@@ -16,31 +17,11 @@ interface MetricsSummaryProps {
 export function MetricsSummary(props: MetricsSummaryProps) {
   const colors = useThemeColors();
 
-  const metrics = [
-    {
-      label: 'Morning WW',
-      value: props.avgMorningWakeWindow > 0 ? formatDuration(props.avgMorningWakeWindow) : '—',
-      emoji: '🌅',
-      gradientColors: ['rgba(255, 184, 77, 0.15)', 'rgba(255, 184, 77, 0.05)'] as const,
-    },
-    {
-      label: 'Midday WW',
-      value: props.avgMiddayWakeWindow > 0 ? formatDuration(props.avgMiddayWakeWindow) : '—',
-      emoji: '☀️',
-      gradientColors: ['rgba(78, 205, 196, 0.15)', 'rgba(78, 205, 196, 0.05)'] as const,
-    },
-    {
-      label: 'Evening WW',
-      value: props.avgEveningWakeWindow > 0 ? formatDuration(props.avgEveningWakeWindow) : '—',
-      emoji: '🌆',
-      gradientColors: ['rgba(129, 140, 248, 0.15)', 'rgba(129, 140, 248, 0.05)'] as const,
-    },
-    {
-      label: 'Night Sleep',
-      value: props.nightSleepTotal > 0 ? formatDuration(props.nightSleepTotal) : '—',
-      emoji: '🌙',
-      gradientColors: ['rgba(91, 163, 232, 0.15)', 'rgba(91, 163, 232, 0.05)'] as const,
-    },
+  const metrics: { label: string; value: string; icon: IconSymbolName; gradientColors: readonly [string, string] }[] = [
+    { label: 'Morning WW', value: props.avgMorningWakeWindow > 0 ? formatDuration(props.avgMorningWakeWindow) : '—', icon: 'sun.max.fill', gradientColors: ['rgba(255, 184, 77, 0.15)', 'rgba(255, 184, 77, 0.05)'] },
+    { label: 'Midday WW', value: props.avgMiddayWakeWindow > 0 ? formatDuration(props.avgMiddayWakeWindow) : '—', icon: 'sun.max.fill', gradientColors: ['rgba(78, 205, 196, 0.15)', 'rgba(78, 205, 196, 0.05)'] },
+    { label: 'Evening WW', value: props.avgEveningWakeWindow > 0 ? formatDuration(props.avgEveningWakeWindow) : '—', icon: 'clock.fill', gradientColors: ['rgba(129, 140, 248, 0.15)', 'rgba(129, 140, 248, 0.05)'] },
+    { label: 'Night Sleep', value: props.nightSleepTotal > 0 ? formatDuration(props.nightSleepTotal) : '—', icon: 'moon.fill', gradientColors: ['rgba(91, 163, 232, 0.15)', 'rgba(91, 163, 232, 0.05)'] },
   ];
 
   return (
@@ -57,7 +38,7 @@ export function MetricsSummary(props: MetricsSummaryProps) {
               end={{ x: 1, y: 1 }}
               style={styles.metricGradient}
             >
-              <Text style={styles.metricEmoji}>{m.emoji}</Text>
+              <IconSymbol name={m.icon} size={20} color={colors.text} style={styles.metricIcon} />
               <Text style={[Typography.h3, { color: colors.text }]}>{m.value}</Text>
               <Text style={[Typography.caption, { color: colors.textSecondary }]}>
                 {m.label}
@@ -115,10 +96,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: Radius.lg,
   },
-  metricEmoji: {
-    fontSize: 20,
-    marginBottom: Spacing.xs,
-  },
+  metricIcon: { marginBottom: Spacing.xs },
   napByNumber: {
     marginTop: Spacing.lg,
   },

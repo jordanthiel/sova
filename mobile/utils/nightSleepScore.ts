@@ -34,9 +34,9 @@ function effectiveDurationCappedAt(s: NightScoreSession, capEndMs: number): numb
   if (!s.end_time) return s.duration_minutes ?? 0;
   const startMs = new Date(s.start_time).getTime();
   const endMs = new Date(s.end_time).getTime();
+  if (startMs >= capEndMs) return 0;
   if (endMs <= capEndMs) return Math.round((endMs - startMs) / 60000);
-  const capped = Math.min(endMs, capEndMs);
-  return Math.round((capped - startMs) / 60000);
+  return Math.round((capEndMs - startMs) / 60000);
 }
 
 /** Include naps that connect to the run (within 2h) so evening/mislabeled segments count as one night. */
@@ -117,8 +117,10 @@ export function isNightComplete(summary: NightSummary, now?: Date): boolean {
 
 /**
  * Groups night sessions into runs (gap < 2h = same night), then assigns each run
- * to the extended day of the run's *last* segment end. This keeps one continuous
- * night (e.g. 6pm–6:20am) in one bucket even when the last segment ends after 6am.
+ * to the calendar date of the run's *first* segment start (shifted back 6h). This
+ * means a night beginning at 8pm on March 17 always gets dateKey 'March 17',
+ * regardless of whether the baby wakes at 5am or 8am the next morning, so
+ * isNightComplete (6am on dateKey+1 day) fires at the right time.
  * Includes any nap that connects to the run (within 2h) so evening naps or
  * mislabeled segments are counted as one night and wakeup count is correct.
  */
@@ -160,12 +162,17 @@ export function getNightSummaries(
   }
   if (run.length > 0) allRuns.push(expandRunWithConnectingNaps(run, naps));
 
-  // Assign each run to the extended day (6am–6am) when the night ended.
-  // Subtract 6 hours so anything before 6am belongs to the previous day.
+  // Assign each run to the calendar date when the night *started* (evening).
+  // Shift the first segment's start back 6h so that any night beginning before
+  // 6am (e.g. 1am, 3am, or even 5:59am) is bucketed into the previous calendar
+  // day — the day whose evening the baby fell asleep. This keeps the dateKey
+  // stable regardless of what time the baby wakes up in the morning, fixing the
+  // bug where a baby waking after 6am would get dateKey = today and not appear
+  // as a completed night until 6am the following day.
   const byDateKey = new Map<string, typeof allRuns>();
   for (const runSegs of allRuns) {
-    const lastEnd = new Date(runSegs[runSegs.length - 1].end_time!);
-    const shifted = new Date(lastEnd.getTime() - 6 * 60 * 60 * 1000);
+    const firstStart = new Date(runSegs[0].start_time);
+    const shifted = new Date(firstStart.getTime() - 6 * 60 * 60 * 1000);
     const dateKey = format(shifted, 'yyyy-MM-dd');
     if (!byDateKey.has(dateKey)) byDateKey.set(dateKey, []);
     byDateKey.get(dateKey)!.push(runSegs);

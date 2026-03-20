@@ -13,6 +13,7 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -132,7 +133,7 @@ export function SessionEditModal({ visible, session, caregivers, onClose, onSave
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.headerEmoji}>{isNap ? '☀️' : '🌙'}</Text>
+              <IconSymbol name={isNap ? 'sun.max.fill' : 'moon.fill'} size={40} color={colors.text} />
               <Text style={[Typography.h2, { color: colors.text }]}>
                 Edit {isNap ? 'Nap' : 'Night Sleep'}
               </Text>
@@ -282,9 +283,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.lg,
     gap: Spacing.sm,
-  },
-  headerEmoji: {
-    fontSize: 40,
   },
   timeRow: {
     flexDirection: 'row',

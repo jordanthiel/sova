@@ -1,9 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Spacing, Typography, Radius, Shadows } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useAiInsight } from '@/hooks/useAiInsight';
+import type { Database } from '@/lib/supabase';
+
+type SleepType = Database['public']['Tables']['sleep_sessions']['Row']['type'];
 
 interface ScheduleEvent {
   time: string;
@@ -21,52 +25,65 @@ interface ScheduleData {
   };
 }
 
+export interface AiScheduleActiveSession {
+  type: SleepType;
+  start_time: string;
+}
+
 interface AiScheduleCardProps {
   babyId: string | null;
   lastWakeTime?: string | null;
+  /** When set, schedule cache and API context reflect in-progress sleep (nap or night). */
+  activeSession?: AiScheduleActiveSession | null;
 }
 
-export function AiScheduleCard({ babyId, lastWakeTime }: AiScheduleCardProps) {
+export function AiScheduleCard({ babyId, lastWakeTime, activeSession }: AiScheduleCardProps) {
   const colors = useThemeColors();
   const gradients = useThemeGradients();
   const [expanded, setExpanded] = useState(false);
-  const didFetch = useRef(false);
-  const prevBabyId = useRef<string | null>(null);
+
+  const sleepStateKey = activeSession ? `${activeSession.type}_${activeSession.start_time}` : 'awake';
 
   const { data, loading, error, fetch: fetchSchedule, clearCache } = useAiInsight<ScheduleData>(
     'daily_schedule',
     babyId,
-    { cacheTtlMs: 30 * 60 * 1000 } // 30 min cache
+    {
+      cacheTtlMs: 30 * 60 * 1000,
+      cacheKeySuffix: sleepStateKey,
+    }
   );
 
   useEffect(() => {
     if (!babyId) return;
-    if (prevBabyId.current !== babyId) {
-      prevBabyId.current = babyId;
-      didFetch.current = false;
-    }
-    if (!didFetch.current) {
-      didFetch.current = true;
-      fetchSchedule({ today_wake_time: lastWakeTime || undefined });
-    }
-  }, [babyId, lastWakeTime]);
+    fetchSchedule({ today_wake_time: lastWakeTime || undefined });
+  }, [babyId, lastWakeTime, sleepStateKey, fetchSchedule]);
 
   const scheduleItems = data?.schedule?.schedule || [];
   const notes = data?.schedule?.notes;
   const suggestedBedtime = data?.schedule?.suggested_bedtime;
 
   const handleRefresh = () => {
-    clearCache().then(() => fetchSchedule({ today_wake_time: lastWakeTime || undefined }));
+    clearCache().then(() =>
+      fetchSchedule({ today_wake_time: lastWakeTime || undefined })
+    );
   };
+
+  const sessionStartedLabel =
+    activeSession &&
+    new Date(activeSession.start_time).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
 
   // Don't render until we have something
   if (!loading && !data && !error) return null;
 
-  const getEventIcon = (event: string) => {
-    if (event === 'nap_start') return '😴';
-    if (event === 'nap_end') return '☀️';
-    if (event === 'bedtime') return '🌙';
-    return '📅';
+  const getEventIconName = (event: string): import('@/components/ui/icon-symbol').IconSymbolName => {
+    if (event === 'nap_start') return 'moon.zzz.fill';
+    if (event === 'nap_end') return 'sun.max.fill';
+    if (event === 'bedtime') return 'moon.fill';
+    return 'calendar';
   };
 
   return (
@@ -79,14 +96,27 @@ export function AiScheduleCard({ babyId, lastWakeTime }: AiScheduleCardProps) {
           style={styles.headerGradient}
         >
           <View style={styles.headerRow}>
-            <Text style={styles.headerIcon}>📋</Text>
+            <IconSymbol name="list.clipboard" size={18} color="#FFFFFF" />
             <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle}>Today's AI Schedule</Text>
-              {suggestedBedtime && !expanded && (
-                <Text style={styles.headerSub}>Bedtime: {suggestedBedtime}</Text>
-              )}
+              {!expanded &&
+                (activeSession?.type === 'night' ? (
+                  <Text style={styles.headerSub}>
+                    In night sleep{sessionStartedLabel ? ` · since ${sessionStartedLabel}` : ''}
+                  </Text>
+                ) : activeSession?.type === 'nap' ? (
+                  <Text style={styles.headerSub}>
+                    Nap in progress{sessionStartedLabel ? ` · since ${sessionStartedLabel}` : ''}
+                  </Text>
+                ) : suggestedBedtime ? (
+                  <Text style={styles.headerSub}>Bedtime: {suggestedBedtime}</Text>
+                ) : null)}
             </View>
-            <Text style={styles.chevron}>{expanded ? '▲' : '▼'}</Text>
+            <IconSymbol
+              name={expanded ? 'chevron.up' : 'chevron.down'}
+              size={14}
+              color="rgba(255,255,255,0.7)"
+            />
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -117,7 +147,7 @@ export function AiScheduleCard({ babyId, lastWakeTime }: AiScheduleCardProps) {
                       i < scheduleItems.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.borderLight },
                     ]}
                   >
-                    <Text style={styles.eventIcon}>{getEventIcon(item.event)}</Text>
+                    <IconSymbol name={getEventIconName(item.event)} size={18} color={colors.text} />
                     <View style={{ flex: 1 }}>
                       <View style={styles.eventMainRow}>
                         <Text style={[Typography.bodySemiBold, { color: colors.text }]}>{item.time}</Text>
@@ -138,8 +168,9 @@ export function AiScheduleCard({ babyId, lastWakeTime }: AiScheduleCardProps) {
               )}
 
               {notes && (
-                <View style={[styles.noteBar, { backgroundColor: colors.accentSoft }]}>
-                  <Text style={[Typography.small, { color: colors.accent }]}>💡 {notes}</Text>
+                <View style={[styles.noteBar, { backgroundColor: colors.accentSoft, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }]}>
+                  <IconSymbol name="lightbulb.fill" size={14} color={colors.accent} />
+                  <Text style={[Typography.small, { color: colors.accent, flex: 1 }]}>{notes}</Text>
                 </View>
               )}
 
@@ -156,10 +187,12 @@ export function AiScheduleCard({ babyId, lastWakeTime }: AiScheduleCardProps) {
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginHorizontal: Spacing.md,
+    marginHorizontal: 0,
     marginVertical: Spacing.sm,
     borderRadius: Radius.lg,
     overflow: 'hidden',
+    alignSelf: 'stretch',
+    width: '100%',
   },
   headerGradient: {
     paddingVertical: Spacing.md,
@@ -170,9 +203,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  headerIcon: {
-    fontSize: 18,
-  },
   headerTitle: {
     ...Typography.bodySemiBold,
     color: '#FFFFFF',
@@ -182,10 +212,6 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: 'rgba(255,255,255,0.75)',
     marginTop: 1,
-  },
-  chevron: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.7)',
   },
   body: {
     padding: Spacing.md,
@@ -200,10 +226,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
-  },
-  eventIcon: {
-    fontSize: 16,
-    marginTop: 2,
   },
   eventMainRow: {
     flexDirection: 'row',

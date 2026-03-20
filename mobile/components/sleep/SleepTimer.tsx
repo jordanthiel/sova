@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Radius, Spacing, Typography, Fonts } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 
@@ -32,14 +33,13 @@ export function SleepTimer({ startTime, type }: SleepTimerProps) {
   const isNap = type === 'nap';
   const accentColor = isNap ? colors.napColor : colors.nightColor;
   const bgColor = isNap ? colors.napColorSoft : colors.nightColorSoft;
-  const emoji = isNap ? '☀️' : '🌙';
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
       {/* Decorative circle */}
       <View style={[styles.ring, { borderColor: accentColor }]}>
         <View style={[styles.innerRing, { borderColor: accentColor }]}>
-          <Text style={styles.emoji}>{emoji}</Text>
+          <IconSymbol name={isNap ? 'sun.max.fill' : 'moon.fill'} size={28} color={colors.text} />
         </View>
       </View>
 
@@ -83,9 +83,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     opacity: 0.6,
-  },
-  emoji: {
-    fontSize: 28,
   },
   label: {
     ...Typography.captionMedium,

@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, Dimensions, ScrollView, TouchableOpacity } from
 import { LinearGradient } from 'expo-linear-gradient';
 import { format, startOfDay, addDays, subDays, isSameDay } from 'date-fns';
 import { Card } from '@/components/ui/Card';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Spacing, Typography, Radius, Shadows, ChartTypography } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
@@ -143,11 +144,14 @@ export function DayTimeline({ sessions }: DayTimelineProps) {
                   style={styles.sessionGradient}
                 >
                   {showLabel && (
-                    <Text style={styles.sessionLabel} numberOfLines={1}>
-                      {isNap ? '☀️' : '🌙'} {format(st, 'h:mm a')}
+                    <View style={styles.sessionLabelRow}>
+                      <IconSymbol name={isNap ? 'sun.max.fill' : 'moon.fill'} size={12} color="#fff" style={styles.sessionLabelIcon} />
+                      <Text style={styles.sessionLabel} numberOfLines={1}>
+                        {format(st, 'h:mm a')}
                       {session.end_time ? ` – ${format(et, 'h:mm a')}` : ' (ongoing)'}
                       {session.duration_minutes ? ` · ${formatDuration(session.duration_minutes)}` : ''}
-                    </Text>
+                      </Text>
+                    </View>
                   )}
                 </LinearGradient>
               </View>
@@ -205,10 +209,10 @@ const styles = StyleSheet.create({
     height: 1,
   },
   hourLabel: {
-    width: 36,
-    ...ChartTypography.axisLabelSmall,
+    width: 40,
+    ...ChartTypography.axisLabel,
     textAlign: 'right',
-    marginRight: 8,
+    marginRight: 10,
   },
   hourLine: {
     flex: 1,
@@ -227,7 +231,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 8,
   },
+  sessionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sessionLabelIcon: { marginRight: 0 },
   sessionLabel: {
+    flex: 1,
     ...Typography.small,
     color: '#FFFFFF',
     fontWeight: '600',

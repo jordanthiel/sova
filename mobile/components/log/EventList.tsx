@@ -6,6 +6,8 @@ import { format } from 'date-fns';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import type { IconSymbolName } from '@/components/ui/icon-symbol';
 import { Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
@@ -20,9 +22,9 @@ interface EventListProps {
   selectedEventIds?: Set<string>;
 }
 
-const TYPE_CONFIG = {
-  nap: { emoji: '☀️', label: 'Nap', color: '#FFB84D', bg: 'rgba(255, 184, 77, 0.15)' },
-  night: { emoji: '🌙', label: 'Night Sleep', color: '#5BA3E8', bg: 'rgba(91, 163, 232, 0.15)' },
+const TYPE_CONFIG: Record<'nap' | 'night', { icon: IconSymbolName; label: string; color: string; bg: string }> = {
+  nap: { icon: 'sun.max.fill', label: 'Nap', color: '#FFB84D', bg: 'rgba(255, 184, 77, 0.15)' },
+  night: { icon: 'moon.fill', label: 'Night Sleep', color: '#5BA3E8', bg: 'rgba(91, 163, 232, 0.15)' },
 };
 
 function EventCard({
@@ -99,7 +101,7 @@ function EventCard({
             </View>
           )}
           <View style={[styles.icon, { backgroundColor: config.bg }]}>
-            <Text style={styles.emoji}>{config.emoji}</Text>
+            <IconSymbol name={config.icon} size={18} color={config.color} />
           </View>
           <View style={styles.info}>
             <View style={styles.infoHeader}>
@@ -172,7 +174,7 @@ export function EventList({
   if (events.length === 0) {
     return (
       <EmptyState
-        icon="📋"
+        icon="list.clipboard"
         title="No events this day"
         message="Tap the + button to log a sleep event."
       />
@@ -240,9 +242,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  emoji: {
-    fontSize: 18,
   },
   info: {
     flex: 1,

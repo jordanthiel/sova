@@ -19,9 +19,9 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { supabase } from '@/lib/supabase';
 import { Spacing, Typography, Radius } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { format } from 'date-fns';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function BabySetupScreen() {
   const { from } = useLocalSearchParams<{ from?: string }>();
@@ -114,7 +114,7 @@ export default function BabySetupScreen() {
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
         <Animated.View entering={FadeInUp.duration(600)} style={styles.successContainer}>
-          <Text style={styles.celebrationEmoji}>🎉</Text>
+          <IconSymbol name="party.popper" size={80} color={colors.text} style={styles.celebrationIcon} />
           <Text style={[Typography.h1, { color: colors.text, textAlign: 'center' }]}>
             Welcome, {babyName}!
           </Text>
@@ -156,7 +156,7 @@ export default function BabySetupScreen() {
         >
           {/* Header */}
           <Animated.View entering={FadeInDown.duration(600)} style={styles.headerSection}>
-            <Text style={styles.babyEmoji}>👶</Text>
+            <IconSymbol name="figure.child" size={64} color={colors.text} style={styles.babyIcon} />
             <Text style={[Typography.h1, { color: colors.text, textAlign: 'center' }]}>
               Add Your Baby
             </Text>
@@ -177,7 +177,7 @@ export default function BabySetupScreen() {
               value={babyName}
               onChangeText={setBabyName}
               autoCapitalize="words"
-              icon={<Text style={{ fontSize: 18 }}>👶</Text>}
+              icon={<IconSymbol name="figure.child" size={18} color={colors.textTertiary} />}
             />
 
             {/* Date picker */}
@@ -192,7 +192,7 @@ export default function BabySetupScreen() {
                   onPress={() => setShowDatePicker(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={{ fontSize: 18 }}>📅</Text>
+                  <IconSymbol name="calendar" size={18} color={dateSelected ? colors.text : colors.textTertiary} />
                   <Text style={[Typography.body, { color: dateSelected ? colors.text : colors.textTertiary }]}>
                     {dateSelected ? format(birthDate, 'MMMM d, yyyy') : 'Select birth date'}
                   </Text>
@@ -264,10 +264,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xxl,
   },
-  babyEmoji: {
-    fontSize: 64,
-    marginBottom: Spacing.md,
-  },
+  babyIcon: { marginBottom: Spacing.md },
   formSection: {
     marginBottom: Spacing.lg,
   },
@@ -291,8 +288,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
   },
-  celebrationEmoji: {
-    fontSize: 80,
-    marginBottom: Spacing.lg,
-  },
+  celebrationIcon: { marginBottom: Spacing.lg },
 });

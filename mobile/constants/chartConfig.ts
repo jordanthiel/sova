@@ -20,10 +20,15 @@ export const chartConfig = {
   hideRules: true,
 } as const;
 
-export function getBarChartAxisStyles(colors: { textTertiary: string; borderLight: string }) {
+export function getBarChartAxisStyles(colors: {
+  textSecondary?: string;
+  textTertiary: string;
+  borderLight: string;
+}) {
+  const labelColor = colors.textSecondary ?? colors.textTertiary;
   return {
-    xAxisLabelTextStyle: { ...ChartTypography.axisLabel, color: colors.textTertiary },
-    yAxisTextStyle: { ...ChartTypography.axisLabel, color: colors.textTertiary },
+    xAxisLabelTextStyle: { ...ChartTypography.axisLabelSmall, color: labelColor, marginTop: 6 },
+    yAxisTextStyle: { ...ChartTypography.axisLabelSmall, color: labelColor },
     xAxisColor: colors.borderLight,
     yAxisColor: colors.borderLight,
   };

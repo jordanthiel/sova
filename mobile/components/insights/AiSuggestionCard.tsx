@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from '@/components/ui/Card';
 import { Spacing, Typography, Radius } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import type { AISuggestion } from '@/types/domain';
 
@@ -16,7 +17,7 @@ export function AiSuggestionCard({ suggestion, onApply }: AiSuggestionCardProps)
   return (
     <Card style={styles.card} padding="md">
       <View style={styles.header}>
-        <Text style={{ fontSize: 18 }}>✨</Text>
+        <IconSymbol name="sparkles" size={18} color={colors.text} />
         <Text style={[Typography.bodySemiBold, { color: colors.text, flex: 1 }]}>
           {suggestion.title}
         </Text>

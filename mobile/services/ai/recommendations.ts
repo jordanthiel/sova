@@ -5,7 +5,14 @@ import type {
   NapRecommendationPayload,
   RestOfDayScheduleEvent,
 } from '@/types/domain';
-import { getEffectiveWakeWindowMinutes, calculateAgeDays, getWakeWindowForAge } from '@/utils/wakeWindowCalculator';
+import {
+  getEffectiveWakeWindowMinutes,
+  calculateAgeDays,
+  getWakeWindowForAge,
+  getAdaptiveWakeWindowMinutes,
+  getObservedDailyNapCount,
+  getRecommendedNapCountForAge,
+} from '@/utils/wakeWindowCalculator';
 import { formatDuration, roundToNearest5, roundDateToNearest5Minutes } from '@/utils/formatTime';
 import { format, addMinutes, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns';
 import { supabase } from '@/lib/supabase';
@@ -267,7 +274,8 @@ async function fetchRemoteRecommendation(
     expectedBedtimeDate,
     todayNaps.length,
     ageDays,
-    now
+    now,
+    events
   );
 
   // First nap of the day: if the schedule says nap 1 at a specific time (e.g. 7:20), use that
@@ -339,11 +347,12 @@ function validateAndFixSchedule(
   bedtime: Date,
   napsCompletedToday: number,
   ageDays: number,
-  now: Date
+  now: Date,
+  events: SleepEvent[] = []
 ): RestOfDayScheduleEvent[] {
   if (rawSchedule.length === 0) {
     // No schedule from LLM — build locally
-    return buildLocalSchedule(recTime, capMinutes, wakeWindowMin, prefs, bedtime, napsCompletedToday, ageDays, now);
+    return buildLocalSchedule(recTime, capMinutes, wakeWindowMin, prefs, bedtime, napsCompletedToday, ageDays, now, events);
   }
 
   // Parse all schedule times and check gaps
@@ -380,7 +389,7 @@ function validateAndFixSchedule(
   if (isValid) return rawSchedule;
 
   // Rebuild locally
-  return buildLocalSchedule(recTime, capMinutes, wakeWindowMin, prefs, bedtime, napsCompletedToday, ageDays, now);
+  return buildLocalSchedule(recTime, capMinutes, wakeWindowMin, prefs, bedtime, napsCompletedToday, ageDays, now, events);
 }
 
 // ─── Local (heuristic) recommendation ───────────────────────────
@@ -417,9 +426,19 @@ export function getLocalNapRecommendation(
 
   const minutesUntilBedtime = (bedtimeEstimate.getTime() - now.getTime()) / 60000;
 
-  // Wake windows
-  const standardWakeWindow = getEffectiveWakeWindowMinutes(ageDays, prefs, false);
-  const lastWakeWindow = getEffectiveWakeWindowMinutes(ageDays, prefs, true);
+  // Today's nap stats (computed early — needed for nap position)
+  const todayNaps = events.filter(
+    (e) => e.type === 'nap' && e.end != null && new Date(e.start).toDateString() === now.toDateString()
+  );
+  const totalNapMinutes = todayNaps.reduce((sum, e) => sum + (e.durationMinutes || 0), 0);
+
+  // Nap position: which nap number would the next nap be?
+  const napPosition = todayNaps.length + 1;
+
+  // Adaptive wake windows based on this baby's observed history for this nap position.
+  // Falls back to age-based when fewer than 3 historical data points exist.
+  const standardWakeWindow = getAdaptiveWakeWindowMinutes(events, ageDays, napPosition, prefs, false);
+  const lastWakeWindow = getAdaptiveWakeWindowMinutes(events, ageDays, napPosition, prefs, true);
 
   const lastWakeTime = endedEvents.length > 0
     ? new Date(endedEvents[0].end!)
@@ -427,20 +446,29 @@ export function getLocalNapRecommendation(
 
   const awakeMinutes = Math.round((now.getTime() - lastWakeTime.getTime()) / 60000);
 
-  // Today's nap stats
-  const todayNaps = events.filter(
-    (e) => e.type === 'nap' && e.end != null && new Date(e.start).toDateString() === now.toDateString()
-  );
-  const totalNapMinutes = todayNaps.reduce((sum, e) => sum + (e.durationMinutes || 0), 0);
   let capMinutes = computeNapCap(ageDays, totalNapMinutes);
   capMinutes = roundToNearest5(capMinutes);
 
+  // Determine target nap count for today, adapting to observed reality.
+  // If baby has been consistently taking fewer naps than age-typical, use observed count.
+  const { typical: typicalNapCount } = getRecommendedNapCountForAge(ageDays);
+  const observedNapCount = getObservedDailyNapCount(events);
+  const targetNapCount =
+    observedNapCount != null && observedNapCount < typicalNapCount
+      ? observedNapCount
+      : typicalNapCount;
+
+  // If baby has already hit the target nap count, treat this as a bedtime scenario
+  const napBudgetExhausted = todayNaps.length >= targetNapCount;
+
   // Decide nap vs bedtime:
-  // Bedtime if not enough time for a full nap + last wake window
+  // Bedtime if not enough time for a full nap + last wake window, or nap budget is exhausted
   const minNapDuration = 30;
   const timeNeededForNapPlusBedtime = minNapDuration + lastWakeWindow;
   const isLastWakeWindowBeforeBed = now.getHours() >= LAST_WINDOW_AFTER_HOUR;
-  const isBedtimeScenario = minutesUntilBedtime <= timeNeededForNapPlusBedtime ||
+  const isBedtimeScenario =
+    napBudgetExhausted ||
+    minutesUntilBedtime <= timeNeededForNapPlusBedtime ||
     (isLastWakeWindowBeforeBed && minutesUntilBedtime <= lastWakeWindow * 1.3);
 
   const wakeWindowMin = isBedtimeScenario ? lastWakeWindow : standardWakeWindow;
@@ -459,16 +487,19 @@ export function getLocalNapRecommendation(
   const windowLabel =
     isBedtimeScenario && prefs.lastWakeWindowMinutes != null
       ? `your ${formatDuration(wakeWindowMin)} last wake window`
-      : `a ${formatDuration(wakeWindowMin)} wake window for this age`;
+      : `a ${formatDuration(wakeWindowMin)} wake window`;
 
   let explanation: string;
   let reasoning: string;
 
   if (isBedtimeScenario) {
+    const napBudgetReason = napBudgetExhausted
+      ? `Today's ${todayNaps.length} nap(s) match the target of ${targetNapCount} for the day.`
+      : todayNaps.length > 0
+        ? `Today's ${todayNaps.length} nap(s) total ${formatDuration(totalNapMinutes)}. Not enough time for another nap before bedtime.`
+        : `No naps logged today. Based on the current time, bedtime is the next recommended sleep.`;
     explanation = `Based on ${windowLabel}, bedtime is recommended around ${format(windowStart, 'h:mm a')}. Target bedtime: ${format(bedtimeEstimate, 'h:mm a')}.`;
-    reasoning = todayNaps.length > 0
-      ? `Today's ${todayNaps.length} nap(s) total ${formatDuration(totalNapMinutes)}. Not enough time for another nap before bedtime.`
-      : `No naps logged today. Based on the current time, bedtime is the next recommended sleep.`;
+    reasoning = napBudgetReason;
   } else {
     explanation =
       awakeMinutes >= wakeWindowMin
@@ -483,7 +514,8 @@ export function getLocalNapRecommendation(
   const scheduleStart = isBedtimeScenario ? null : windowStart;
   const scheduleCap = isBedtimeScenario ? null : capMinutes;
   const restOfDaySchedule = buildLocalSchedule(
-    scheduleStart, scheduleCap, wakeWindowMin, prefs, bedtimeEstimate, todayNaps.length, ageDays, now
+    scheduleStart, scheduleCap, wakeWindowMin, prefs, bedtimeEstimate,
+    todayNaps.length, ageDays, now, events, targetNapCount
   );
 
   // For bedtime scenario, the "window" is the bedtime itself
@@ -519,20 +551,27 @@ export function getLocalNapRecommendation(
 // ─── Schedule builder ───────────────────────────────────────────
 
 /**
- * Build a rest-of-day schedule with consistent wake windows between events.
+ * Build a rest-of-day schedule with adaptive wake windows per nap position.
+ * Uses this baby's observed historical wake windows (blended with age baseline) for each gap,
+ * so the schedule adapts to the baby's actual patterns rather than a single age-average WW.
+ *
+ * @param maxTotalNaps - Cap on total naps for the day (from observed daily nap count or age-typical).
+ *                       Prevents over-scheduling when baby has already transitioned to fewer naps.
  */
 function buildLocalSchedule(
   nextNapStart: Date | null,
   napCapMinutes: number | null,
-  wakeWindowMin: number,
+  firstNapWakeWindow: number,
   prefs: Baby['preferences'],
   bedtime: Date,
   napsCompletedToday: number,
   ageDays: number,
-  now: Date
+  now: Date,
+  events: SleepEvent[] = [],
+  maxTotalNaps = 6
 ): RestOfDayScheduleEvent[] {
   const schedule: RestOfDayScheduleEvent[] = [];
-  const lastWakeWindow = getEffectiveWakeWindowMinutes(ageDays, prefs, true);
+  const lastWakeWindow = getAdaptiveWakeWindowMinutes(events, ageDays, maxTotalNaps, prefs, true);
 
   // If bedtime scenario (no more naps), just show bedtime
   if (!nextNapStart || !napCapMinutes) {
@@ -546,17 +585,28 @@ function buildLocalSchedule(
 
   let napNum = napsCompletedToday + 1;
   let currentNapStart = nextNapStart;
+  // WW before the first scheduled nap is already decided (passed in)
+  let currentWakeWindow = firstNapWakeWindow;
   const minNapDuration = 30;
 
-  // Safety: max 6 naps to prevent infinite loop
-  for (let i = 0; i < 6; i++) {
+  // Safety: max 6 naps to prevent infinite loop; also respect the daily nap target
+  const maxNapsToSchedule = Math.max(0, maxTotalNaps - napsCompletedToday);
+
+  for (let i = 0; i < Math.min(6, maxNapsToSchedule); i++) {
     if (currentNapStart.getTime() >= bedtime.getTime()) break;
 
     const napEnd = addMinutes(currentNapStart, napCapMinutes);
     const timeAfterNapToBed = (bedtime.getTime() - napEnd.getTime()) / 60000;
 
-    // Can we fit another nap after this one? Need: wake window + min nap + last wake window before bed
-    const hasTimeForAnotherNap = timeAfterNapToBed > (wakeWindowMin + minNapDuration + lastWakeWindow);
+    // WW from this nap to the next is adaptive for position (napsCompletedToday + i + 1)
+    const napPosition = napsCompletedToday + i + 1;
+    const nextWakeWindow = getAdaptiveWakeWindowMinutes(events, ageDays, napPosition, prefs, false);
+
+    // Can we fit another nap after this one?
+    // Need: inter-nap WW + min nap duration + last WW before bedtime
+    const hasTimeForAnotherNap =
+      i + 1 < maxNapsToSchedule &&
+      timeAfterNapToBed > (nextWakeWindow + minNapDuration + lastWakeWindow);
 
     schedule.push({
       time: format(roundDateToNearest5Minutes(currentNapStart), 'h:mm a'),
@@ -574,8 +624,8 @@ function buildLocalSchedule(
 
     if (!hasTimeForAnotherNap) break;
 
-    // Next nap starts after a full wake window
-    currentNapStart = addMinutes(napEnd, wakeWindowMin);
+    currentWakeWindow = nextWakeWindow;
+    currentNapStart = addMinutes(napEnd, currentWakeWindow);
   }
 
   // Always end with bedtime

@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Typography, Radius } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ONBOARDING_COMPLETE_KEY = 'onboarding_complete';
@@ -26,37 +27,39 @@ interface OnboardingPage {
   accent: string;
 }
 
-const PAGES: OnboardingPage[] = [
+type IconName = import('@/components/ui/icon-symbol').IconSymbolName;
+
+const PAGES: (Omit<OnboardingPage, 'emoji'> & { icon: IconName })[] = [
   {
-    emoji: '🏠',
+    icon: 'house.fill',
     title: 'Today Tab',
     description:
       'See your baby\'s current sleep status at a glance. Get AI-powered nap recommendations, one-tap logging, and a live wake window tracker.',
     accent: '#4ECDC4',
   },
   {
-    emoji: '📋',
+    icon: 'list.clipboard',
     title: 'Log Tab',
     description:
       'Browse sleep history day by day. Log naps, night sleep, feeds, diapers, and medications. Tap the + button anytime.',
     accent: '#FFB84D',
   },
   {
-    emoji: '💬',
+    icon: 'message.fill',
     title: 'AI Coach',
     description:
       'Chat with your personal sleep coach. Ask about nap timing, bedtime, wake windows, or nap transitions — and get personalized answers.',
     accent: '#5BA3E8',
   },
   {
-    emoji: '✨',
+    icon: 'sparkles',
     title: 'Insights',
     description:
       'AI surfaces sleep patterns, consistency metrics, and actionable suggestions. Apply suggestions directly to improve your baby\'s routine.',
     accent: '#818CF8',
   },
   {
-    emoji: '⚙️',
+    icon: 'gearshape.fill',
     title: 'Settings',
     description:
       'Manage your baby\'s profile, invite caregivers, customize AI preferences, and set up notification reminders.',
@@ -130,7 +133,7 @@ export default function OnboardingScreen() {
                 { backgroundColor: `${p.accent}20`, borderColor: `${p.accent}40` },
               ]}
             >
-              <Text style={styles.emoji}>{p.emoji}</Text>
+              <IconSymbol name={p.icon} size={56} color={p.accent} />
             </View>
             <Text style={[Typography.h1, styles.title]}>{p.title}</Text>
             <Text style={[Typography.body, styles.description]}>
@@ -207,9 +210,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.xl,
-  },
-  emoji: {
-    fontSize: 56,
   },
   title: {
     color: '#E8EDF2',

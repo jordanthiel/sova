@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { Card } from '@/components/ui/Card';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { track } from '@/services/analytics/track';
@@ -160,9 +161,12 @@ export function AiPreferencesSection({
           })}
         </View>
         {transitionInsight ? (
-          <Text style={[Typography.small, { color: colors.accent, marginTop: Spacing.sm }]}>
-            💡 {transitionInsight}
-          </Text>
+          <View style={styles.insightRow}>
+            <IconSymbol name="lightbulb.fill" size={14} color={colors.accent} style={styles.insightIcon} />
+            <Text style={[Typography.small, { color: colors.accent, flex: 1 }]}>
+              {transitionInsight}
+            </Text>
+          </View>
         ) : null}
       </Card>
 
@@ -330,4 +334,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
   },
+  insightRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  insightIcon: { marginTop: 2 },
 });

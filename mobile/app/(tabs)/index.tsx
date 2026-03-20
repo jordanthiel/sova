@@ -7,6 +7,7 @@ import { NightSleepScoreCard } from '@/components/today/NightSleepScoreCard';
 import { StatusAndRecommendationCard } from '@/components/today/StatusAndRecommendationCard';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { Spacing, Typography } from '@/constants/theme';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
@@ -18,6 +19,7 @@ import { useNightSleepScores } from '@/hooks/useNightSleepScores';
 import { useRealtimeCaregivers } from '@/hooks/useRealtimeCaregivers';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
 import { useSleepData } from '@/hooks/useSleepData';
+import { loadNotificationConfigForBaby } from '@/lib/notificationSettings';
 import type { Database } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 import { getLocalNapRecommendation, getNextNapRecommendation, getSuggestedNapCap, isNighttimeWake, shouldCapNap } from '@/services/ai/recommendations';
@@ -42,7 +44,6 @@ import type {
   SleepEvent,
 } from '@/types/domain';
 import { DEFAULT_NOTIFICATION_CONFIG } from '@/types/domain';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getExtendedDayBounds, getExtendedDayKey, sessionOverlapsExtendedDay } from '@/utils/dateUtils';
 import { formatDuration } from '@/utils/formatTime';
 import { getNightSummaries, isNightComplete } from '@/utils/nightSleepScore';
@@ -50,7 +51,7 @@ import { calculateAgeDays, getEffectiveWakeWindowMinutes } from '@/utils/wakeWin
 import { addMinutes, format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useGlobalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -76,15 +77,13 @@ const DEFAULT_PREFS: BabyPreferences = {
   lastWakeWindowMinutes: null,
 };
 
-const NOTIF_CONFIG_KEY_PREFIX = 'notification_config_';
-
-function getGreeting(): { text: string; icon: string } {
+function getGreeting(): { text: string; icon: 'moon.fill' | 'sun.max.fill' } {
   const hour = new Date().getHours();
-  if (hour < 6) return { text: 'Good Night', icon: '🌙' };
-  if (hour < 12) return { text: 'Good Morning', icon: '☀️' };
-  if (hour < 17) return { text: 'Good Afternoon', icon: '🌤' };
-  if (hour < 21) return { text: 'Good Evening', icon: '🌅' };
-  return { text: 'Good Night', icon: '🌙' };
+  if (hour < 6) return { text: 'Good Night', icon: 'moon.fill' };
+  if (hour < 12) return { text: 'Good Morning', icon: 'sun.max.fill' };
+  if (hour < 17) return { text: 'Good Afternoon', icon: 'sun.max.fill' };
+  if (hour < 21) return { text: 'Good Evening', icon: 'sun.max.fill' };
+  return { text: 'Good Night', icon: 'moon.fill' };
 }
 
 function sessionToSleepEvent(s: SleepSession): SleepEvent {
@@ -126,14 +125,11 @@ export default function TodayScreen() {
     excludedDaysRepo.getExcludedDateKeys(currentBabyId).then((keys) => setExcludedDateKeys(new Set(keys)));
   }, [currentBabyId]);
 
-  // Load notification preferences from AsyncStorage when baby changes or when screen is focused (e.g. after editing in Settings)
+  // Load notification preferences (Supabase + AsyncStorage cache; see `notificationSettings`)
   const loadNotificationConfig = useCallback(() => {
     if (!currentBabyId) return;
-    AsyncStorage.getItem(`${NOTIF_CONFIG_KEY_PREFIX}${currentBabyId}`)
-      .then((raw) => {
-        if (raw) setNotificationConfig(JSON.parse(raw));
-        else setNotificationConfig(DEFAULT_NOTIFICATION_CONFIG);
-      })
+    loadNotificationConfigForBaby(currentBabyId)
+      .then(setNotificationConfig)
       .catch(() => setNotificationConfig(DEFAULT_NOTIFICATION_CONFIG));
   }, [currentBabyId]);
 
@@ -144,7 +140,10 @@ export default function TodayScreen() {
   useFocusEffect(
     useCallback(() => {
       loadNotificationConfig();
-    }, [loadNotificationConfig])
+      if (currentBabyId) {
+        babiesRepo.getPreferences(currentBabyId).then(setPreferences);
+      }
+    }, [loadNotificationConfig, currentBabyId])
   );
   const greeting = getGreeting();
 
@@ -152,7 +151,6 @@ export default function TodayScreen() {
 
   const { start: todayStart, end: todayEnd } = getExtendedDayBounds(new Date());
   const todaySessions = allSessions.filter((s) => {
-    if (s.end_time === null) return false;
     return sessionOverlapsExtendedDay(s.start_time, s.end_time, todayStart, todayEnd);
   });
 
@@ -227,8 +225,9 @@ export default function TodayScreen() {
 
   const hasAnyEndedSessions = allSessions.some((s) => s.end_time != null);
   const MAX_AWAKE_MINUTES = 16 * 60; // don't show "awake since" if > 16h (stale)
-  const showStatusCard =
-    !!activeSession || (hasAnyEndedSessions && awakeMinutes <= MAX_AWAKE_MINUTES);
+  // When we have an active session, we intentionally show only the live timer card.
+  // (Previously we also rendered the "Sleeping" hero above it for nap sessions.)
+  const showStatusCard = !activeSession && hasAnyEndedSessions && awakeMinutes <= MAX_AWAKE_MINUTES;
 
   const domainBaby: Baby | null = useMemo(
     () =>
@@ -494,8 +493,18 @@ export default function TodayScreen() {
     isBedtime: isBedtimeRec,
   });
 
-  // Deep link from Live Activity action button (Start / Stop)
-  const handlersRef = useRef<{ start: () => void; end: () => void } | null>(null);
+  // Deep link from Live Activity action button (Start / Stop / View)
+  const handlersRef = useRef<{ start: () => void; end: () => void; view: () => void } | null>(null);
+  const pendingLiveActivityActionRef = useRef<string | null>(null);
+
+  // When app cold-starts from a live activity tap, activeSession may not be loaded yet.
+  // Process the pending viewSession action once data is available.
+  useEffect(() => {
+    if (pendingLiveActivityActionRef.current === 'viewSession' && activeSession && currentBabyId) {
+      pendingLiveActivityActionRef.current = null;
+      router.push({ pathname: '/log-sleep', params: { babyId: currentBabyId, sessionId: activeSession.id } });
+    }
+  }, [activeSession, currentBabyId]);
 
   // Schedule or cancel nap window / bedtime / wake window reminders. Always cancel first to avoid double notifications (e.g. nap + bedtime).
   useEffect(() => {
@@ -523,7 +532,12 @@ export default function TodayScreen() {
           await scheduleBedtimeReminder(napPayload.startWindowBegin, currentBabyId);
         }
       }
-      if (config.wakeWindowAlert && lastWakeTime != null && typeof displayWakeWindow === 'number') {
+      if (
+        config.wakeWindowAlert &&
+        !isBedtime &&
+        lastWakeTime != null &&
+        typeof displayWakeWindow === 'number'
+      ) {
         const windowEnd = addMinutes(lastWakeTime, displayWakeWindow);
         if (windowEnd.getTime() > Date.now()) {
           await scheduleWakeWindowAlert(windowEnd.toISOString(), currentBabyId);
@@ -581,6 +595,9 @@ export default function TodayScreen() {
       }
 
       await refetchSessions?.();
+      supabase.functions
+        .invoke('notify-live-activity-refresh', { body: { babyId: currentBabyId, excludeUserId: user.id } })
+        .catch(() => {});
     } catch (err: any) {
       const isNetworkError =
         err?.message?.includes('network') ||
@@ -621,6 +638,14 @@ export default function TodayScreen() {
 
       if (error) throw error;
       await refetchSessions?.();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (currentBabyId && user) {
+        supabase.functions
+          .invoke('notify-live-activity-refresh', {
+            body: { babyId: currentBabyId, excludeUserId: user.id },
+          })
+          .catch(() => {});
+      }
     } catch (err: any) {
       const isNetworkError =
         err?.message?.includes('network') ||
@@ -662,9 +687,24 @@ export default function TodayScreen() {
 
   const handleWhy = () => {
     track('open_coach_from_why', { babyId: currentBabyId });
+    const recommendationSummary =
+      napPayload == null
+        ? 'Why this recommendation?'
+        : [
+            isBedtimeRec
+              ? `You suggested bedtime between ${format(new Date(napPayload.startWindowBegin), 'h:mm a')} and ${format(new Date(napPayload.startWindowEnd), 'h:mm a')}.`
+              : `You suggested next nap between ${format(new Date(napPayload.startWindowBegin), 'h:mm a')} and ${format(new Date(napPayload.startWindowEnd), 'h:mm a')}.`,
+            !isBedtimeRec
+              ? `Current cap is ${napPayload.shouldCapNap === false ? 'no cap' : `${napPayload.recommendedCapMinutes} minutes`}.`
+              : '',
+            'Can we adjust this if I prefer something different?'
+          ]
+            .filter(Boolean)
+            .join(' ')
+        ;
     router.push({
       pathname: '/(tabs)/coach',
-      params: { initialMessage: 'Why this nap time?' },
+      params: { initialMessage: recommendationSummary },
     });
   };
 
@@ -697,15 +737,50 @@ export default function TodayScreen() {
     ]);
   };
 
-  handlersRef.current = { start: handleStartNap, end: handleEndNap };
+  handlersRef.current = {
+    start: handleStartNap,
+    end: handleEndNap,
+    view: () => {
+      if (activeSession && currentBabyId) {
+        router.push({ pathname: '/log-sleep', params: { babyId: currentBabyId, sessionId: activeSession.id } });
+      } else {
+        pendingLiveActivityActionRef.current = 'viewSession';
+      }
+    },
+  };
+
+  const searchParams = useGlobalSearchParams<{ action?: string; run?: string }>();
+  const liveActionFromParamsRef = useRef(false);
+
+  // Run Live Activity action when we landed here via deep link with params (e.g. cold start from root index)
+  useEffect(() => {
+    const action = searchParams.action;
+    if (action !== 'startNap' && action !== 'endSession' && action !== 'viewSession') return;
+    if (liveActionFromParamsRef.current) return;
+    liveActionFromParamsRef.current = true;
+    router.replace('/(tabs)' as any);
+    setTimeout(() => {
+      if (action === 'startNap') handlersRef.current?.start();
+      else if (action === 'endSession') handlersRef.current?.end();
+      else if (action === 'viewSession') handlersRef.current?.view();
+    }, 400);
+  }, [searchParams.action]);
 
   useEffect(() => {
     const handleLiveActivityAction = (url: string) => {
       try {
         const parsed = new URL(url);
         const action = parsed.searchParams.get('action');
-        if (action === 'startNap') handlersRef.current?.start();
-        else if (action === 'endSession') handlersRef.current?.end();
+        const isLiveActivity = action === 'startNap' || action === 'endSession' || action === 'viewSession';
+
+        if (isLiveActivity) {
+          router.replace('/(tabs)' as any);
+          setTimeout(() => {
+            if (action === 'startNap') handlersRef.current?.start();
+            else if (action === 'endSession') handlersRef.current?.end();
+            else if (action === 'viewSession') handlersRef.current?.view();
+          }, 400);
+        }
       } catch {
         // ignore
       }
@@ -735,7 +810,7 @@ export default function TodayScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
-        <EmptyState icon="👶" title="Welcome to Sova" message="Add your little one to start tracking their sleep and get personalized recommendations." actionTitle="Add Baby" onAction={() => router.push('/baby-setup')} />
+        <EmptyState icon="figure.child" title="Welcome to Sova" message="Add your little one to start tracking their sleep and get personalized recommendations." actionTitle="Add Baby" onAction={() => router.push('/baby-setup')} />
       </SafeAreaView>
     );
   }
@@ -816,7 +891,7 @@ export default function TodayScreen() {
         {!activeSession && !hasAnyEndedSessions && (
           <Card style={styles.recommendationEmptyCard} padding="lg">
             <EmptyState
-              icon="😴"
+              icon="moon.zzz.fill"
               title="No sleep data yet"
               message="Log your first sleep session to get personalized nap and bedtime recommendations."
               actionTitle="Log first sleep session"
@@ -851,17 +926,20 @@ export default function TodayScreen() {
             {`Today's Summary`}
           </Text>
           <View style={styles.summaryStats}>
-            <Text style={[styles.summaryStat, { color: colors.text }]}>
-              <Text style={styles.summaryEmoji}>☀️</Text> {napCount} {napCount === 1 ? 'Nap' : 'Naps'}
-            </Text>
+            <View style={styles.summaryStatRow}>
+              <IconSymbol name="sun.max.fill" size={14} color={colors.text} />
+              <Text style={[styles.summaryStat, { color: colors.text }]}> {napCount} {napCount === 1 ? 'Nap' : 'Naps'}</Text>
+            </View>
             <Text style={[Typography.caption, { color: colors.textTertiary }]}> · </Text>
-            <Text style={[styles.summaryStat, { color: colors.text }]} numberOfLines={1}>
-              <Text style={styles.summaryEmoji}>⏱</Text> {formatDuration(totalNapMinutes)} total
-            </Text>
+            <View style={styles.summaryStatRow}>
+              <IconSymbol name="clock.fill" size={14} color={colors.text} />
+              <Text style={[styles.summaryStat, { color: colors.text }]} numberOfLines={1}> {formatDuration(totalNapMinutes)} total</Text>
+            </View>
             <Text style={[Typography.caption, { color: colors.textTertiary }]}> · </Text>
-            <Text style={[styles.summaryStat, { color: colors.text }]}>
-              <Text style={styles.summaryEmoji}>🌙</Text> {nightCount} Night
-            </Text>
+            <View style={styles.summaryStatRow}>
+              <IconSymbol name="moon.fill" size={14} color={colors.text} />
+              <Text style={[styles.summaryStat, { color: colors.text }]}> {nightCount} Night</Text>
+            </View>
           </View>
         </View>
 
@@ -873,7 +951,7 @@ export default function TodayScreen() {
           {todaySessions.length === 0 ? (
             <Card padding="lg">
               <View style={styles.emptySessions}>
-                <Text style={styles.emptyEmoji}>😴</Text>
+                <IconSymbol name="moon.zzz.fill" size={40} color={colors.textSecondary} style={styles.emptyIcon} />
                 <Text style={[Typography.bodyMedium, { color: colors.textSecondary, textAlign: 'center' }]}>
                   No sleep sessions logged yet today
                 </Text>
@@ -952,15 +1030,16 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
     fontSize: 14,
   },
-  summaryEmoji: {
-    fontSize: 14,
+  summaryStatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   emptySessions: {
     alignItems: 'center',
     paddingVertical: Spacing.md,
   },
-  emptyEmoji: {
-    fontSize: 40,
+  emptyIcon: {
     marginBottom: Spacing.sm,
   },
 });

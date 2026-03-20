@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { Radius, Spacing, Typography } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
@@ -56,6 +57,14 @@ export function InsightsTab() {
   const MAX_AWAKE_MINUTES = 16 * 60;
   const lastWakeTime =
     rawLastWakeTime && awakeMinutes <= MAX_AWAKE_MINUTES ? rawLastWakeTime : null;
+
+  const openSleepSessions = allSessions.filter((s) => s.end_time === null);
+  const activeSleepSession =
+    openSleepSessions.length === 0
+      ? null
+      : openSleepSessions.reduce((a, b) =>
+          new Date(b.start_time).getTime() > new Date(a.start_time).getTime() ? b : a
+        );
 
   useEffect(() => {
     if (currentBabyId) loadPastRecommendations();
@@ -121,7 +130,7 @@ export function InsightsTab() {
     return (
       <View style={styles.loadingContainer}>
         <EmptyState
-          icon="✨"
+          icon="sparkles"
           title="Select a baby"
           message="Choose a baby to view insights and recommendations."
         />
@@ -133,7 +142,7 @@ export function InsightsTab() {
     return (
       <View style={styles.loadingContainer}>
         <EmptyState
-          icon="✨"
+          icon="sparkles"
           title="Select a baby"
           message="Choose a baby to view insights and recommendations."
         />
@@ -162,7 +171,15 @@ export function InsightsTab() {
 
       {/* Today's schedule & forecast */}
       <View style={styles.section}>
-        <AiScheduleCard babyId={currentBabyId} lastWakeTime={lastWakeTime} />
+        <AiScheduleCard
+          babyId={currentBabyId}
+          lastWakeTime={lastWakeTime}
+          activeSession={
+            activeSleepSession
+              ? { type: activeSleepSession.type, start_time: activeSleepSession.start_time }
+              : null
+          }
+        />
         <AiForecastCard babyId={currentBabyId} />
       </View>
 
@@ -175,7 +192,7 @@ export function InsightsTab() {
             end={{ x: 1, y: 1 }}
             style={styles.ctaGradient}
           >
-            <Text style={{ fontSize: 32, alignSelf: 'center', marginBottom: Spacing.sm }}>📋</Text>
+            <IconSymbol name="list.clipboard" size={32} color={colors.text} style={{ alignSelf: 'center', marginBottom: Spacing.sm }} />
             <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.xs, textAlign: 'center' }]}>
               Full Sleep Analysis
             </Text>
@@ -214,6 +231,7 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
+    alignItems: 'stretch',
   },
   babyInfoRow: {
     flexDirection: 'row',

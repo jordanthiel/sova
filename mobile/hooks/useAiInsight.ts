@@ -7,6 +7,8 @@ type Mode = 'next_sleep' | 'nap_evaluation' | 'micro_insight' | 'daily_schedule'
 interface UseAiInsightOptions {
   /** Cache TTL in milliseconds. Default: 10 minutes */
   cacheTtlMs?: number;
+  /** Appended to storage key so different states (e.g. active sleep) don't share cache */
+  cacheKeySuffix?: string;
 }
 
 interface AiInsightResult<T = Record<string, unknown>> {
@@ -24,19 +26,20 @@ export function useAiInsight<T = Record<string, unknown>>(
   babyId: string | null,
   options: UseAiInsightOptions = {}
 ): AiInsightResult<T> {
-  const { cacheTtlMs = 10 * 60 * 1000 } = options;
+  const { cacheTtlMs = 10 * 60 * 1000, cacheKeySuffix = '' } = options;
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inflightRef = useRef(false);
 
-  const cacheKey = `${CACHE_PREFIX}${mode}_${babyId}`;
+  const suffixPart = cacheKeySuffix ? `_${cacheKeySuffix.replace(/[^a-zA-Z0-9._-]/g, '_')}` : '';
+  const cacheKey = `${CACHE_PREFIX}${mode}_${babyId}${suffixPart}`;
 
   // Clear state when baby (or mode) changes so we don't show previous baby's data
   useEffect(() => {
     setData(null);
     setError(null);
-  }, [babyId, mode]);
+  }, [babyId, mode, suffixPart]);
 
   const clearCache = useCallback(async () => {
     try {
@@ -107,7 +110,7 @@ export function useAiInsight<T = Record<string, unknown>>(
         inflightRef.current = false;
       }
     },
-    [babyId, mode, cacheKey, cacheTtlMs]
+    [babyId, mode, cacheKey, cacheTtlMs, suffixPart]
   );
 
   return { data, loading, error, fetch: fetchInsight, clearCache };

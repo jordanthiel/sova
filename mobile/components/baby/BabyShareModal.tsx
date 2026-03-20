@@ -4,8 +4,8 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { caregiversRepo } from '@/services/repositories/caregiversRepo';
 import { Spacing, Typography, Radius, Shadows } from '@/constants/theme';
-import { useThemeColors } from '@/hooks/use-theme-color';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useThemeColors } from '@/hooks/use-theme-color';
 
 interface BabyShareModalProps {
   visible: boolean;
@@ -46,7 +46,7 @@ export function BabyShareModal({ visible, babyId, onClose, onSuccess }: BabyShar
         style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}
       >
         <View style={[styles.modalContent, { backgroundColor: '#132140', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)' }, Shadows.lg]}>
-          <Text style={styles.emoji}>📧</Text>
+          <IconSymbol name="envelope.fill" size={40} color={colors.text} style={styles.emojiIcon} />
           <Text style={[Typography.h2, { color: colors.text, marginBottom: Spacing.xs }]}>
             Invite Parent
           </Text>
@@ -92,10 +92,7 @@ const styles = StyleSheet.create({
     width: '90%',
     maxWidth: 400,
   },
-  emoji: {
-    fontSize: 40,
-    marginBottom: Spacing.sm,
-  },
+  emojiIcon: { marginBottom: Spacing.sm },
   buttonRow: {
     flexDirection: 'row',
     gap: Spacing.sm,

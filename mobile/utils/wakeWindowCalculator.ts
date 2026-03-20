@@ -1,4 +1,4 @@
-import type { BabyPreferences } from '@/types/domain';
+import type { BabyPreferences, SleepEvent } from '@/types/domain';
 
 /**
  * Calculate recommended wake window based on baby's age
@@ -92,5 +92,103 @@ export function getEffectiveWakeWindowMinutes(
     return preferences.lastWakeWindowMinutes;
   }
   return getWakeWindowForAge(ageDays);
+}
+
+/** Median of a numeric array. Returns null if empty. */
+export function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/**
+ * Extract observed wake windows (in minutes) after a specific nap-of-day position.
+ * napPosition is 1-based: position 1 = gap between nap 1 end and nap 2 start.
+ * Only looks at days where a next nap actually occurred after that position.
+ */
+export function getObservedWakeWindowsForPosition(
+  events: SleepEvent[],
+  napPosition: number,
+  limitDays = 21
+): number[] {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - limitDays);
+
+  // Group completed naps by calendar day
+  const byDay: Record<string, SleepEvent[]> = {};
+  for (const e of events) {
+    if (e.type !== 'nap' || !e.end) continue;
+    const startDate = new Date(e.start);
+    if (startDate < cutoff) continue;
+    const day = startDate.toDateString();
+    (byDay[day] ??= []).push(e);
+  }
+
+  const windows: number[] = [];
+  for (const dayNaps of Object.values(byDay)) {
+    dayNaps.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+    const idx = napPosition - 1; // 0-based: nap at this index, wake window to nap at idx+1
+    if (idx >= dayNaps.length - 1) continue; // no next nap existed that day
+    const ww = Math.round(
+      (new Date(dayNaps[idx + 1].start).getTime() - new Date(dayNaps[idx].end!).getTime()) / 60000
+    );
+    if (ww >= 20 && ww <= 360) windows.push(ww);
+  }
+
+  return windows;
+}
+
+/**
+ * Adaptive wake window: blends this baby's observed historical WW for the given nap position
+ * (60% observed median, 40% age baseline), bounded to 65–140% of age baseline.
+ * Falls back to the age baseline when fewer than 3 historical data points exist.
+ */
+export function getAdaptiveWakeWindowMinutes(
+  events: SleepEvent[],
+  ageDays: number,
+  napPosition: number,
+  prefs: BabyPreferences | null | undefined,
+  isLastBeforeBed: boolean
+): number {
+  const baseline = getEffectiveWakeWindowMinutes(ageDays, prefs, isLastBeforeBed);
+  // If there's an explicit user preference for the last window, always trust it
+  if (isLastBeforeBed && prefs?.lastWakeWindowMinutes != null) return baseline;
+
+  const observed = getObservedWakeWindowsForPosition(events, napPosition, 21);
+  if (observed.length < 3) return baseline;
+
+  const med = median(observed)!;
+  // 60% observed, 40% age-based — adapts to the baby while staying age-appropriate
+  const blended = med * 0.6 + baseline * 0.4;
+  return Math.round(Math.max(baseline * 0.65, Math.min(baseline * 1.4, blended)));
+}
+
+/**
+ * Returns the observed median nap count per day from recent history.
+ * Excludes today (incomplete data). Returns null when fewer than 5 complete days are available.
+ * Useful for detecting when a baby has consistently dropped a nap before the age-typical transition.
+ */
+export function getObservedDailyNapCount(
+  events: SleepEvent[],
+  limitDays = 14
+): number | null {
+  const today = new Date().toDateString();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - limitDays);
+
+  const byDay: Record<string, number> = {};
+  for (const e of events) {
+    if (e.type !== 'nap' || !e.end) continue;
+    const startDate = new Date(e.start);
+    if (startDate < cutoff) continue;
+    const day = startDate.toDateString();
+    if (day === today) continue; // today is incomplete
+    byDay[day] = (byDay[day] ?? 0) + 1;
+  }
+
+  const counts = Object.values(byDay);
+  if (counts.length < 5) return null;
+  return Math.round(median(counts) ?? 0);
 }
 

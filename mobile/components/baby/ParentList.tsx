@@ -68,7 +68,7 @@ export function ParentList({ babyId, onInvitePress }: ParentListProps) {
       </View>
 
       {parents.length === 0 ? (
-        <EmptyState icon="👪" title="No parents" message="Invite someone to share access to this baby's data." />
+        <EmptyState icon="people.fill" title="No parents" message="Invite someone to share access to this baby's data." />
       ) : (
         parents.map((parent, index) => (
           <View key={parent.id}>

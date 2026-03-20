@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { getPendingInvitations, acceptInvitation, type PendingInvitation } from '@/utils/babyInvitations';
 import { Spacing, Typography, Radius } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { shouldShowOnboarding } from '@/app/onboarding';
 
@@ -114,7 +115,7 @@ export default function InvitesChoiceScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View entering={FadeInDown.duration(600)} style={styles.headerSection}>
-          <Text style={styles.heroEmoji}>✉️</Text>
+          <IconSymbol name="envelope.fill" size={56} color={colors.text} style={styles.heroIcon} />
           <Text style={[Typography.h1, { color: colors.text, textAlign: 'center' }]}>
             You're invited
           </Text>
@@ -208,10 +209,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xxl,
   },
-  heroEmoji: {
-    fontSize: 56,
-    marginBottom: Spacing.md,
-  },
+  heroIcon: { marginBottom: Spacing.md },
   invitesSection: {
     marginBottom: Spacing.lg,
   },

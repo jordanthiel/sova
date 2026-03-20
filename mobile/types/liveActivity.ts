@@ -11,6 +11,8 @@ export interface NapLiveActivityStateAwake {
   windowEndIso: string;
   isBedtime: boolean;
   babyName?: string;
+  /** When set, detail line shows "Cap by {time}" instead of the window. */
+  capAtIso?: string | null;
 }
 
 export interface NapLiveActivityStateSleeping {

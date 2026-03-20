@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { SleepScoreRing } from '@/components/ui/SleepScoreRing';
+import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors } from '@/hooks/use-theme-color';
@@ -358,25 +359,60 @@ export default function LogScreen() {
     return d.getTime();
   })();
 
-  // In daily view, scope stats to the selected day (6am–6am); otherwise use all loaded events.
+  // In daily view, use realtime sessions as the single source of truth for stat totals.
+  // This avoids brief mismatches caused by async eventsRepo fetch updates.
+  const dailyStatsEvents = useMemo(() => {
+    if (viewMode !== 'daily') return [] as SleepEvent[];
+    return (allSessions ?? [])
+      .map((s) => ({
+        id: s.id,
+        babyId: s.baby_id,
+        type: s.type as 'nap' | 'night',
+        start: s.start_time,
+        end: s.end_time,
+        createdBy: s.logged_by,
+        note: s.notes,
+        durationMinutes: s.duration_minutes,
+      }))
+      .filter((e) => {
+        const st = new Date(e.start).getTime();
+        const et = e.end ? new Date(e.end).getTime() : Date.now();
+        return st < dayEnd6am && et > dayStart6am;
+      });
+  }, [viewMode, allSessions, dayStart6am, dayEnd6am]);
+
+  // In daily view, use dailyStatsEvents; otherwise use loaded events.
   const eventsForStats =
     viewMode === 'daily'
-      ? events.filter((e) => {
-          const st = new Date(e.start).getTime();
-          const et = e.end ? new Date(e.end).getTime() : Date.now();
-          return st < dayEnd6am && et > dayStart6am;
-        })
+      ? dailyStatsEvents
       : events;
+
+  // For daily stats, count only the minutes that overlap the selected 6am–6am window.
+  const overlapMinutesInSelectedDay = (e: SleepEvent): number => {
+    if (!e.end) return 0;
+    const st = new Date(e.start).getTime();
+    const et = new Date(e.end).getTime();
+    const overlapStart = Math.max(st, dayStart6am);
+    const overlapEnd = Math.min(et, dayEnd6am);
+    if (overlapEnd <= overlapStart) return 0;
+    return Math.round((overlapEnd - overlapStart) / 60000);
+  };
 
   const completedEvents = eventsForStats.filter((e) => e.end != null);
   const totalSleepMin = completedEvents.reduce(
-    (sum, e) => sum + (e.durationMinutes || 0),
+    (sum, e) => sum + (viewMode === 'daily' ? overlapMinutesInSelectedDay(e) : (e.durationMinutes || 0)),
     0
   );
   const napEvents = completedEvents.filter((e) => e.type === 'nap');
   const nightEvents = completedEvents.filter((e) => e.type === 'night');
-  const totalDaytimeSleepMin = napEvents.reduce((sum, e) => sum + (e.durationMinutes || 0), 0);
-  const totalNightSleepMin = nightEvents.reduce((sum, e) => sum + (e.durationMinutes || 0), 0);
+  const totalDaytimeSleepMin = napEvents.reduce(
+    (sum, e) => sum + (viewMode === 'daily' ? overlapMinutesInSelectedDay(e) : (e.durationMinutes || 0)),
+    0
+  );
+  const totalNightSleepMin = nightEvents.reduce(
+    (sum, e) => sum + (viewMode === 'daily' ? overlapMinutesInSelectedDay(e) : (e.durationMinutes || 0)),
+    0
+  );
   const hasAnomalies = napEvents.some((e) => (e.durationMinutes || 0) > 150);
 
   // Group events by day for list view (day headers)
@@ -504,7 +540,7 @@ export default function LogScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
-        <EmptyState icon="📋" title="No babies yet" message="Add a baby to start logging sleep events." actionTitle="Add Baby" onAction={() => router.push('/baby-setup')} />
+        <EmptyState icon="list.clipboard" title="No babies yet" message="Add a baby to start logging sleep events." actionTitle="Add Baby" onAction={() => router.push('/baby-setup')} />
       </SafeAreaView>
     );
   }
@@ -550,7 +586,7 @@ export default function LogScreen() {
             end={{ x: 1, y: 0 }}
             style={styles.anomalyGradient}
           >
-            <Text style={{ fontSize: 16 }}>⚠️</Text>
+            <IconSymbol name="exclamationmark.triangle.fill" size={16} color={colors.warning} />
             <Text style={[Typography.caption, { color: colors.warning, flex: 1 }]}>
               Unusually long nap detected. This may affect bedtime.
             </Text>
@@ -568,10 +604,10 @@ export default function LogScreen() {
             Other Events
           </Text>
           {displayCareEvents.map((ce) => {
-            const emojiMap: Record<string, string> = { feed: '🍼', diaper: '👶', medication: '💊', note: '📝', night_wake: '🌗' };
+            const iconMap: Record<string, IconSymbolName> = { feed: 'figure.child', diaper: 'figure.child', medication: 'pills.fill', note: 'note.text', night_wake: 'bed.double.fill' };
             return (
               <View key={ce.id} style={styles.careItem}>
-                <Text style={{ fontSize: 16 }}>{emojiMap[ce.type] || '📌'}</Text>
+                <IconSymbol name={iconMap[ce.type] || 'pin'} size={16} color={colors.text} />
                 <View style={{ flex: 1 }}>
                   <Text style={[Typography.captionMedium, { color: colors.text }]}>
                     {ce.type.charAt(0).toUpperCase() + ce.type.slice(1)}
@@ -675,7 +711,7 @@ export default function LogScreen() {
                 <SkeletonCard />
               </View>
             ) : (
-              <EmptyState icon="📋" title="No events" message="Logs from the last 14 days will appear here." />
+              <EmptyState icon="list.clipboard" title="No events" message="Logs from the last 14 days will appear here." />
             )
           }
           ListFooterComponent={careEventsFooter}
@@ -767,7 +803,7 @@ export default function LogScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.anomalyGradient}
             >
-              <Text style={{ fontSize: 16 }}>⚠️</Text>
+              <IconSymbol name="exclamationmark.triangle.fill" size={16} color={colors.warning} />
               <Text style={[Typography.caption, { color: colors.warning, flex: 1 }]}>
                 Unusually long nap detected. This may affect bedtime.
               </Text>
@@ -875,10 +911,10 @@ export default function LogScreen() {
               Other Events
             </Text>
             {displayCareEvents.map((ce) => {
-              const emojiMap: Record<string, string> = { feed: '🍼', diaper: '👶', medication: '💊', note: '📝', night_wake: '🌗' };
+              const iconMap: Record<string, IconSymbolName> = { feed: 'figure.child', diaper: 'figure.child', medication: 'pills.fill', note: 'note.text', night_wake: 'bed.double.fill' };
               return (
                 <View key={ce.id} style={styles.careItem}>
-                  <Text style={{ fontSize: 16 }}>{emojiMap[ce.type] || '📌'}</Text>
+                  <IconSymbol name={iconMap[ce.type] || 'pin'} size={16} color={colors.text} />
                   <View style={{ flex: 1 }}>
                     <Text style={[Typography.captionMedium, { color: colors.text }]}>
                       {ce.type.charAt(0).toUpperCase() + ce.type.slice(1)}

@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { getSleepSettings, getAutoSleepType, isNightTime } from '@/lib/sleepSettings';
 import type { SleepSettings } from '@/lib/sleepSettings';
 import { Spacing, Typography, Radius, Fonts } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
 import { format, differenceInMinutes } from 'date-fns';
@@ -54,7 +55,10 @@ function formatDateTimeCompact(date: Date): string {
 
 type Mode = 'idle' | 'live' | 'stopped';
 
-const CIRCLE = 130;
+/** Main timer action button (play / stop / resume) inner diameter */
+const CIRCLE = 168;
+const CIRCLE_ICON_SIZE = 44;
+const CIRCLE_ICON_COLOR = '#FFFFFF';
 
 export default function LogSleepScreen() {
   const params = useLocalSearchParams<{
@@ -466,12 +470,12 @@ export default function LogSleepScreen() {
               >
                 {active ? (
                   <LinearGradient colors={[...g]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.pillActive}>
-                    <Text style={styles.pillIcon}>{t === 'nap' ? '☀️' : '🌙'}</Text>
+                    <IconSymbol name={t === 'nap' ? 'sun.max.fill' : 'moon.fill'} size={14} color={colors.text} />
                     <Text style={styles.pillTextActive}>{t === 'nap' ? 'Nap' : 'Night'}</Text>
                   </LinearGradient>
                 ) : (
                   <View style={styles.pillInactive}>
-                    <Text style={styles.pillIcon}>{t === 'nap' ? '☀️' : '🌙'}</Text>
+                    <IconSymbol name={t === 'nap' ? 'sun.max.fill' : 'moon.fill'} size={14} color={colors.text} />
                     <Text style={[styles.pillTextInactive, { color: colors.textSecondary }]}>
                       {t === 'nap' ? 'Nap' : 'Night'}
                     </Text>
@@ -609,7 +613,7 @@ export default function LogSleepScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.circleGradient}
               >
-                <Text style={styles.circleIcon}>▶</Text>
+                <IconSymbol name="play.fill" size={CIRCLE_ICON_SIZE} color={CIRCLE_ICON_COLOR} />
                 <Text style={styles.circleLabel}>START</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -625,7 +629,7 @@ export default function LogSleepScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.circleGradient}
               >
-                <Text style={styles.circleIcon}>⏹</Text>
+                <IconSymbol name="stop.fill" size={CIRCLE_ICON_SIZE} color={CIRCLE_ICON_COLOR} />
                 <Text style={styles.circleLabel}>STOP</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -641,7 +645,7 @@ export default function LogSleepScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.circleGradient}
               >
-                <Text style={styles.circleIcon}>▶</Text>
+                <IconSymbol name="play.fill" size={CIRCLE_ICON_SIZE} color={CIRCLE_ICON_COLOR} />
                 <Text style={styles.circleLabel}>RESUME</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -752,7 +756,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: Radius.sm,
   },
-  pillIcon: { fontSize: 14 },
   pillTextActive: { fontSize: 13, fontWeight: '500', color: '#FFF' },
   pillTextInactive: { fontSize: 13, fontWeight: '500' },
 
@@ -866,6 +869,7 @@ const styles = StyleSheet.create({
     borderRadius: CIRCLE / 2,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
   },
   circleIcon: {
     fontSize: 22,

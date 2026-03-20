@@ -15,7 +15,8 @@ import * as LiveActivity from 'expo-live-activity';
 import { format } from 'date-fns';
 import type { LiveActivityConfig, LiveActivityState } from 'expo-live-activity';
 import type { NapLiveActivityState } from '@/types/liveActivity';
-import { formatDuration } from '@/utils/formatTime';
+import { formatDurationWithSeconds } from '@/utils/formatTime';
+import { supabase } from '@/lib/supabase';
 
 const NAP_ACTIVITY_ID_KEY = '@sova/nap_live_activity_id';
 
@@ -43,33 +44,48 @@ async function setStoredActivityId(id: string | null): Promise<void> {
 }
 
 function getDeepLinkUrl(state: NapLiveActivityState): string {
-  if (state.mode === 'awake') return '/(tabs)/?action=startNap';
-  return '/(tabs)/?action=endSession';
+  if (state.mode === 'awake') return 'sova://(tabs)/?action=startNap';
+  return 'sova://(tabs)/?action=viewSession';
 }
 
-/** App icon asset name in the Live Activity widget bundle (see assets/liveActivity/.gitkeep). */
+/** App icon for Dynamic Island only; lock screen shows name as text (no logo). */
 const APP_ICON_IMAGE_NAME = 'sova_icon';
+
+/** Delimiter for lock screen layout: babyName|||Sova|||detailLine (parsed in LiveActivityView.swift). */
+const SUBTITLE_DELIMITER = '|||';
+
+/** Parse ISO string as UTC so elapsed time is correct (no local-time shift). Supabase returns Z; some sources omit it. */
+function parseUtcIso(iso: string): Date {
+  if (/[Zz]$|[+-]\d{2}:?\d{2}$/.test(iso)) return new Date(iso);
+  return new Date(iso + 'Z');
+}
 
 /**
  * Build state for the native Live Activity (ActivityKit).
- * Passes timeLabel for next start time (not countdown), app icon for left side, and standard title/subtitle/progressBar.
+ * Lock screen layout: baby name top left, "Sova" top right; then main status (bold) and detail (smaller).
+ * Subtitle format: "babyName|||Sova|||detailLine" for Sova layout.
  */
 export function buildLiveActivityState(
   state: NapLiveActivityState,
   now: Date = new Date()
 ): LiveActivityState {
   const baseContent = {
-    imageName: APP_ICON_IMAGE_NAME,
     dynamicIslandImageName: APP_ICON_IMAGE_NAME,
   };
+
+  const babyName = state.babyName ?? 'Baby';
+  const productName = 'Sova';
 
   if (state.mode === 'awake') {
     const windowStart = new Date(state.windowStartIso);
     const windowEnd = new Date(state.windowEndIso);
     const nextTimeStr = format(windowStart, 'h:mm a');
     const title = state.isBedtime ? `Bedtime ${nextTimeStr}` : `Next nap ${nextTimeStr}`;
-    const windowStr = `${format(windowStart, 'h:mm a')} – ${format(windowEnd, 'h:mm a')}`;
-    const subtitle = state.babyName ? `${state.babyName} · ${windowStr}` : windowStr;
+    const detailLine =
+      !state.isBedtime && state.capAtIso
+        ? `Cap by ${format(parseUtcIso(state.capAtIso), 'h:mm a')}`
+        : `${format(windowStart, 'h:mm a')} – ${format(windowEnd, 'h:mm a')}`;
+    const subtitle = [babyName, productName, detailLine].join(SUBTITLE_DELIMITER);
     return {
       ...baseContent,
       title,
@@ -79,24 +95,22 @@ export function buildLiveActivityState(
     } as LiveActivityState;
   }
 
-  const sessionStart = new Date(state.sessionStartIso);
-  const elapsedMinutes = Math.round((now.getTime() - sessionStart.getTime()) / 60000);
-  const elapsedStr = formatDuration(elapsedMinutes);
-  const title = state.sessionType === 'night' ? 'Night sleep' : 'Nap';
-  let subtitle: string;
+  const sessionStart = parseUtcIso(state.sessionStartIso);
+  const elapsedSeconds = Math.floor((now.getTime() - sessionStart.getTime()) / 1000);
+  const elapsedStr = formatDurationWithSeconds(Math.max(0, elapsedSeconds));
+  const title = elapsedStr;
+  let detailLine: string;
   if (state.capAtIso) {
-    const capAt = format(new Date(state.capAtIso), 'h:mm a');
-    subtitle = state.babyName
-      ? `${state.babyName} · Cap by ${capAt}`
-      : `Cap by ${capAt} · ${elapsedStr}`;
+    detailLine = `Cap by ${format(parseUtcIso(state.capAtIso), 'h:mm a')}`;
   } else {
-    subtitle = state.babyName ? `${state.babyName} · ${elapsedStr}` : elapsedStr;
+    detailLine = state.sessionType === 'night' ? 'Night sleep' : 'Nap';
   }
+  const sessionStartMs = sessionStart.getTime();
+  const subtitle = [babyName, productName, detailLine, String(sessionStartMs)].join(SUBTITLE_DELIMITER);
   return {
     ...baseContent,
     title,
     subtitle,
-    progressBar: { progress: 0 },
   } as LiveActivityState;
 }
 
@@ -192,4 +206,54 @@ export async function getNapLiveActivityId(): Promise<string | null> {
  */
 export function setNapLiveActivityIdForTesting(id: string | null): void {
   setStoredActivityId(id);
+}
+
+/**
+ * Fetch current nap/sleep state for a baby from the server and update the Live Activity.
+ * Call this when a push indicates another user started/ended a session (e.g. type: 'live_activity_refresh', babyId).
+ * Works when the app is in background so User A's Live Activity can update when User B starts the nap.
+ */
+export async function refreshNapLiveActivityFromServer(babyId: string): Promise<void> {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - 1);
+
+    const { data: sessions, error: sessionsError } = await supabase
+      .from('sleep_sessions')
+      .select('id, start_time, end_time, type')
+      .eq('baby_id', babyId)
+      .gte('start_time', since.toISOString())
+      .order('start_time', { ascending: false })
+      .limit(50);
+
+    if (sessionsError) {
+      if (__DEV__) console.warn('[liveActivity] refresh sessions error:', sessionsError.message);
+      return;
+    }
+
+    const activeSession = (sessions ?? []).find((s) => s.end_time === null) ?? null;
+
+    const { data: baby } = await supabase.from('babies').select('name').eq('id', babyId).single();
+    const babyName = (baby as { name?: string } | null)?.name ?? undefined;
+
+    if (activeSession) {
+      const state: NapLiveActivityState = {
+        mode: 'sleeping',
+        sessionStartIso: activeSession.start_time,
+        sessionType: activeSession.type as 'nap' | 'night',
+        capAtIso: null,
+        babyName,
+      };
+      const id = await getStoredActivityId();
+      if (id) {
+        updateNapLiveActivity(state);
+      } else {
+        startNapLiveActivity(state);
+      }
+    } else {
+      endNapLiveActivity();
+    }
+  } catch (err) {
+    if (__DEV__) console.warn('[liveActivity] refreshNapLiveActivityFromServer error:', err);
+  }
 }

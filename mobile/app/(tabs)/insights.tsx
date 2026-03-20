@@ -62,7 +62,7 @@ export default function InsightsScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <LinearGradient colors={['#0B1426', '#0D1B2A', '#101E30']} style={StyleSheet.absoluteFill} />
         <EmptyState
-          icon="✨"
+          icon="sparkles"
           title="Select a baby"
           message="Choose a baby to view insights and recommendations."
         />

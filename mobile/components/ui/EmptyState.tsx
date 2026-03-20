@@ -2,9 +2,10 @@ import { StyleSheet, View, Text } from 'react-native';
 import { Spacing, Typography } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { Button } from './Button';
+import { IconSymbol, type IconSymbolName } from './icon-symbol';
 
 export type EmptyStateProps = {
-  icon: string;
+  icon: IconSymbolName;
   title: string;
   message: string;
   actionTitle?: string;
@@ -16,7 +17,7 @@ export function EmptyState({ icon, title, message, actionTitle, onAction }: Empt
 
   return (
     <View style={styles.container}>
-      <Text style={styles.icon}>{icon}</Text>
+      <IconSymbol name={icon} size={56} color={colors.text} style={styles.icon} />
       <Text style={[Typography.h3, { color: colors.text, textAlign: 'center' }]}>{title}</Text>
       <Text
         style={[
@@ -49,7 +50,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   icon: {
-    fontSize: 56,
     marginBottom: Spacing.md,
   },
   action: {

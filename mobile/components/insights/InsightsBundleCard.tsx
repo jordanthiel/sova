@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Spacing, Typography, Radius, Shadows } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useAiInsight } from '@/hooks/useAiInsight';
 
@@ -66,7 +67,7 @@ export function InsightsBundleCard({
           style={styles.headerGradient}
         >
           <View style={styles.headerRow}>
-            <Text style={styles.headerIcon}>💡</Text>
+            <IconSymbol name="lightbulb.fill" size={20} color={colors.text} />
             <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle}>AI Discoveries</Text>
               <Text style={styles.headerSub}>
@@ -75,7 +76,11 @@ export function InsightsBundleCard({
                   : 'Novel patterns & actionable tips'}
               </Text>
             </View>
-            <Text style={styles.chevron}>{expanded ? '▲' : '▼'}</Text>
+            <IconSymbol
+              name={expanded ? 'chevron.up' : 'chevron.down'}
+              size={14}
+              color="rgba(255,255,255,0.7)"
+            />
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -101,7 +106,7 @@ export function InsightsBundleCard({
                 const message = `Can you tell me more about: ${item.title}?`;
                 const rowContent = (
                   <View style={styles.insightRowTouchable}>
-                    <Text style={styles.insightIcon}>{item.icon || '💡'}</Text>
+                    <IconSymbol name="lightbulb.fill" size={20} color={colors.text} style={styles.insightIcon} />
                     <View style={styles.insightContent}>
                       <Text style={[Typography.bodySemiBold, { color: colors.text }]}>{item.title}</Text>
                       <Text style={[Typography.caption, { color: colors.textSecondary, marginTop: 2, lineHeight: 20 }]}>
@@ -152,6 +157,8 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.sm,
     borderRadius: Radius.lg,
     overflow: 'hidden',
+    alignSelf: 'stretch',
+    width: '100%',
   },
   headerGradient: {
     paddingVertical: Spacing.md,
@@ -162,9 +169,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  headerIcon: {
-    fontSize: 20,
-  },
   headerTitle: {
     ...Typography.bodySemiBold,
     color: '#FFFFFF',
@@ -174,10 +178,6 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
-  },
-  chevron: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.7)',
   },
   body: {
     padding: Spacing.md,
@@ -195,10 +195,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.sm,
   },
-  insightIcon: {
-    fontSize: 18,
-    marginTop: 2,
-  },
+  insightIcon: { marginTop: 2 },
   insightContent: {
     flex: 1,
   },

@@ -18,7 +18,7 @@ const TIME_LABELS = [
   '6a', '8a', '10a', '12p', '2p', '4p', '6p', '8p', '10p', '12a', '2a', '4a',
 ];
 const MIN_ROW_HEIGHT = 32;
-const TIME_LABEL_WIDTH = 30;
+const TIME_LABEL_WIDTH = 36;
 const DAY_HEADER_HEIGHT = 60;
 const LOAD_MORE_THRESHOLD_DAYS = 14;
 
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   timeLabel: {
     ...ChartTypography.axisLabelSmall,
     textAlign: 'right',
-    marginRight: 6,
+    marginRight: 8,
   },
   dayHeaders: {
     flexDirection: 'row',
@@ -377,17 +377,19 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   scoreRingWrap: {
-    marginBottom: 2,
+    marginBottom: 4,
     overflow: 'visible',
   },
   dayLabel: {
     ...ChartTypography.axisLabelSmall,
-    lineHeight: 14,
+    lineHeight: 12,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   dateLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 20,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   chartGrid: {
     position: 'relative',

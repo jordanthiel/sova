@@ -67,3 +67,16 @@ export function formatTimeUntil(minutes: number): string {
   if (minutes <= 0) return '0m';
   return formatDuration(minutes);
 }
+
+/**
+ * Format elapsed time with seconds for live display (e.g. "12:34" or "1:23:45").
+ */
+export function formatDurationWithSeconds(totalSeconds: number): string {
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '0:00';
+  const s = Math.floor(totalSeconds % 60);
+  const m = Math.floor((totalSeconds / 60) % 60);
+  const h = Math.floor(totalSeconds / 3600);
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+  return `${m}:${pad(s)}`;
+}

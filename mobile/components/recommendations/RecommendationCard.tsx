@@ -1,5 +1,6 @@
 import { StyleSheet, TouchableOpacity, View, Text } from 'react-native';
 import { Card } from '@/components/ui/Card';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Spacing, Typography } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { format } from 'date-fns';
@@ -22,7 +23,7 @@ export function RecommendationCard({ recommendation, createdAt, onPress, isLates
       style={[styles.card, !isLatest && { opacity: 0.85 }]}
     >
       <View style={styles.header}>
-        <Text style={styles.icon}>{isLatest ? '✨' : '💡'}</Text>
+        <IconSymbol name={isLatest ? 'sparkles' : 'lightbulb.fill'} size={18} color={colors.text} />
         <Text style={[Typography.small, { color: colors.textTertiary }]}>{formattedDate}</Text>
       </View>
       <Text style={[Typography.body, { color: colors.text, lineHeight: 22 }]}>{recommendation}</Text>
@@ -48,8 +49,5 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.sm,
-  },
-  icon: {
-    fontSize: 18,
   },
 });

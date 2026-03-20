@@ -14,6 +14,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { Button } from '@/components/ui/Button';
 import { format, differenceInMinutes } from 'date-fns';
@@ -96,7 +97,7 @@ export function ManualLogModal({ visible, onClose, onSave }: ManualLogModalProps
                   end={{ x: 1, y: 1 }}
                   style={[styles.typeBtn, type !== 'nap' && { borderWidth: 1, borderColor: colors.border }]}
                 >
-                  <Text style={styles.typeEmoji}>☀️</Text>
+                  <IconSymbol name="sun.max.fill" size={28} color={colors.text} />
                   <Text style={[Typography.bodySemiBold, { color: type === 'nap' ? '#FFFFFF' : colors.text }]}>
                     Nap
                   </Text>
@@ -114,7 +115,7 @@ export function ManualLogModal({ visible, onClose, onSave }: ManualLogModalProps
                   end={{ x: 1, y: 1 }}
                   style={[styles.typeBtn, type !== 'night' && { borderWidth: 1, borderColor: colors.border }]}
                 >
-                  <Text style={styles.typeEmoji}>🌙</Text>
+                  <IconSymbol name="moon.fill" size={28} color={colors.text} />
                   <Text style={[Typography.bodySemiBold, { color: type === 'night' ? '#FFFFFF' : colors.text }]}>
                     Night
                   </Text>
@@ -235,9 +236,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     alignItems: 'center',
     gap: Spacing.xs,
-  },
-  typeEmoji: {
-    fontSize: 28,
   },
   timeRow: {
     flexDirection: 'row',

@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { Spacing, Typography, Radius } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { format } from 'date-fns';
 import { formatDuration } from '@/utils/formatTime';
@@ -83,7 +84,7 @@ export function SwipeableSessionCard({ session, onPress, onDelete, isLast, logge
         >
           <View style={styles.sessionRow}>
             <View style={[styles.sessionIcon, { backgroundColor: isNap ? colors.napColorSoft : colors.nightColorSoft }]}>
-              <Text style={styles.sessionIconEmoji}>{isNap ? '☀️' : '🌙'}</Text>
+              <IconSymbol name={isNap ? 'sun.max.fill' : 'moon.fill'} size={18} color={isNap ? colors.napColor : colors.nightColor} />
             </View>
             <View style={styles.sessionInfo}>
               <Text style={[Typography.bodySemiBold, { color: colors.text }]}>
@@ -137,7 +138,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sessionIconEmoji: { fontSize: 18 },
   sessionInfo: { flex: 1, gap: 2 },
   sessionRight: { alignItems: 'flex-end', gap: Spacing.xs },
   loggedByWrap: { marginBottom: 2 },

@@ -16,7 +16,7 @@ export default function BabyShareScreen() {
   if (!babyId) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <EmptyState icon="⚠️" title="Invalid Baby" message="No baby ID was provided." />
+        <EmptyState icon="exclamationmark.triangle.fill" title="Invalid Baby" message="No baby ID was provided." />
       </View>
     );
   }
