@@ -181,35 +181,12 @@ import WidgetKit
           ?? defaultPadding
       )
 
-      VStack(alignment: .leading, spacing: 8) {
+      VStack(alignment: .leading) {
         let position = attributes.imagePosition ?? "right"
         let isStretch = position.contains("Stretch")
         let isLeftImage = position.hasPrefix("left")
         let hasImage = contentState.imageName != nil
         let effectiveStretch = isStretch && hasImage
-
-        // Sova layout: subtitle "babyName|||Sova|||detailLine" or "babyName|||Sova|||detailLine|||sessionStartMs" for live elapsed timer
-        let subtitleParts = contentState.subtitle?.components(separatedBy: "|||") ?? []
-        let useSovaLayout = subtitleParts.count >= 3
-        let headerLeft = useSovaLayout ? subtitleParts[0] : nil
-        let headerRight = useSovaLayout ? subtitleParts[1] : nil
-        let detailLine = useSovaLayout && subtitleParts.count > 2 && !subtitleParts[2].isEmpty ? subtitleParts[2] : nil
-        let sessionStartMs = subtitleParts.count >= 4 ? Double(subtitleParts[3]) : nil
-        let sessionStartDate = sessionStartMs.map { Date(timeIntervalSince1970: $0 / 1000) }
-
-        if useSovaLayout, let left = headerLeft, let right = headerRight {
-          HStack {
-            Text(left)
-              .font(.subheadline)
-              .fontWeight(.medium)
-              .modifier(ConditionalForegroundViewModifier(color: attributes.subtitleColor))
-            Spacer()
-            Text(right)
-              .font(.subheadline)
-              .fontWeight(.semibold)
-              .modifier(ConditionalForegroundViewModifier(color: attributes.titleColor))
-          }
-        }
 
         HStack(alignment: .center) {
           if hasImage, isLeftImage {
@@ -218,27 +195,15 @@ import WidgetKit
             }
           }
 
-          VStack(alignment: .leading, spacing: 4) {
-            if let startDate = sessionStartDate {
-              Text(startDate, style: .timer)
-                .font(.title2)
-                .fontWeight(.bold)
-                .monospacedDigit()
-                .modifier(ConditionalForegroundViewModifier(color: attributes.titleColor))
-            } else {
-              Text(contentState.title)
-                .font(.title2)
-                .fontWeight(.bold)
-                .modifier(ConditionalForegroundViewModifier(color: attributes.titleColor))
-            }
+          VStack(alignment: .leading, spacing: 2) {
+            Text(contentState.title)
+              .font(.title2)
+              .fontWeight(.semibold)
+              .modifier(ConditionalForegroundViewModifier(color: attributes.titleColor))
 
-            if useSovaLayout, let detail = detailLine {
-              Text(detail)
-                .font(.footnote)
-                .modifier(ConditionalForegroundViewModifier(color: attributes.subtitleColor))
-            } else if let subtitle = contentState.subtitle, !useSovaLayout {
+            if let subtitle = contentState.subtitle {
               Text(subtitle)
-                .font(.subheadline)
+                .font(.title3)
                 .modifier(ConditionalForegroundViewModifier(color: attributes.subtitleColor))
             }
 
@@ -255,7 +220,7 @@ import WidgetKit
             }
           }.layoutPriority(1)
 
-          if hasImage, !isLeftImage {
+          if hasImage, !isLeftImage { // right side (default)
             Spacer()
             if let imageName = contentState.imageName {
               alignedImage(imageName: imageName)
