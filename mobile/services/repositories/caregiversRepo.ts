@@ -7,10 +7,10 @@ async function getFamilyForBaby(babyId: string) {
     .from('babies')
     .select('family_id')
     .eq('id', babyId)
-    .single();
+    .maybeSingle();
 
   if (error || !data?.family_id) {
-    throw new Error('Family not found for this baby');
+    return null;
   }
 
   return data.family_id;
@@ -56,6 +56,7 @@ function rowToCaregiver(row: any, fallbackName = 'Caregiver'): Caregiver {
 export const caregiversRepo = {
   async list(babyId: string): Promise<Caregiver[]> {
     const familyId = await getFamilyForBaby(babyId);
+    if (!familyId) return [];
 
     let rows: any[] | null = null;
     let error: { message: string } | null = null;
@@ -190,6 +191,7 @@ export const caregiversRepo = {
 
   async remove(babyId: string, caregiver: Caregiver): Promise<void> {
     const familyId = await getFamilyForBaby(babyId);
+    if (!familyId) return;
     const { error } = caregiver.inviteSource === 'family_invitation'
       ? await supabase
           .from('family_invitations')
@@ -200,7 +202,7 @@ export const caregiversRepo = {
           .from('family_members')
           .delete()
           .eq('family_id', familyId)
-          .eq(caregiver.status === 'pending' ? 'id' : 'user_id', caregiver.id);
+          .eq('user_id', caregiver.id);
 
     if (error) {
       console.warn('[caregiversRepo] Error removing caregiver/invite:', error.message);

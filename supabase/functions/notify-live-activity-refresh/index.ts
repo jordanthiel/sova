@@ -5,8 +5,9 @@
  * Invoke after inserting or updating a sleep_session:
  *   body: { babyId: string, excludeUserId?: string }  // excludeUserId = user who made the change
  *
- * Sends a push to each other caregiver's device with data: { type: 'live_activity_refresh', babyId }.
- * The app's addLiveActivityRefreshListener() will call refreshNapLiveActivityFromServer(babyId).
+ * Sends a silent high-priority data push (Expo → APNs content-available / FCM) so each other
+ * caregiver's device can refresh the Live Activity via registerLiveActivityBackgroundPushTask +
+ * refreshNapLiveActivityFromServer. Foreground: addLiveActivityRefreshListener also handles the payload.
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -55,7 +56,21 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "babyId is required" }, 400);
   }
 
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return jsonResponse({ error: "Missing or invalid Authorization header" }, 401);
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const token = authHeader.replace("Bearer ", "");
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+
+  if (authError || !user) {
+    return jsonResponse({ error: "Invalid or expired token" }, 401);
+  }
 
   const { data: baby, error: babyError } = await supabase
     .from("babies")
@@ -66,6 +81,23 @@ Deno.serve(async (req) => {
   if (babyError || !baby?.family_id) {
     console.error("notify-live-activity-refresh baby error:", babyError?.message);
     return jsonResponse({ error: "Failed to fetch family for baby" }, 500);
+  }
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("family_members")
+    .select("id")
+    .eq("family_id", baby.family_id)
+    .eq("user_id", user.id)
+    .eq("status", "accepted")
+    .maybeSingle();
+
+  if (membershipError) {
+    console.error("notify-live-activity-refresh membership error:", membershipError.message);
+    return jsonResponse({ error: "Failed to verify membership" }, 500);
+  }
+
+  if (!membership) {
+    return jsonResponse({ error: "Not authorized for this baby" }, 403);
   }
 
   const { data: members, error: membersError } = await supabase
@@ -105,12 +137,14 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: true, sent: 0 }, 200);
   }
 
+  /** Silent data push: wakes iOS briefly (content-available) / Android high-priority data for headless task. */
   const messages = tokens.map((to) => ({
     to,
-    sound: "default" as const,
-    title: "Sleep status updated",
-    body: "Tap to refresh",
+    priority: "high" as const,
+    _contentAvailable: true,
     data: { type: "live_activity_refresh", babyId },
+    collapseId: `live_activity_${babyId}`,
+    channelId: "live_activity_refresh",
   }));
 
   try {

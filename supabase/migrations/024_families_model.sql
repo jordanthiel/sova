@@ -133,15 +133,32 @@ SET role = 'admin',
     invited_by = EXCLUDED.invited_by,
     updated_at = NOW();
 
+WITH deduped_family_members AS (
+  SELECT
+    b.family_id,
+    bp.parent_id AS user_id,
+    CASE
+      WHEN BOOL_OR(bp.role = 'owner') THEN 'admin'
+      ELSE 'member'
+    END AS role,
+    CASE
+      WHEN BOOL_OR(bp.status = 'accepted') THEN 'accepted'
+      WHEN BOOL_OR(bp.status = 'pending') THEN 'pending'
+      ELSE 'declined'
+    END AS status,
+    (ARRAY_AGG(bp.invited_by) FILTER (WHERE bp.invited_by IS NOT NULL))[1] AS invited_by
+  FROM public.baby_parents bp
+  JOIN public.babies b ON b.id = bp.baby_id
+  GROUP BY b.family_id, bp.parent_id
+)
 INSERT INTO public.family_members (family_id, user_id, role, status, invited_by)
 SELECT
-  b.family_id,
-  bp.parent_id,
-  CASE WHEN bp.role = 'owner' THEN 'admin' ELSE 'member' END,
-  bp.status,
-  bp.invited_by
-FROM public.baby_parents bp
-JOIN public.babies b ON b.id = bp.baby_id
+  family_id,
+  user_id,
+  role,
+  status,
+  invited_by
+FROM deduped_family_members
 ON CONFLICT (family_id, user_id) DO UPDATE
 SET role = CASE
       WHEN public.family_members.role = 'admin' OR EXCLUDED.role = 'admin' THEN 'admin'

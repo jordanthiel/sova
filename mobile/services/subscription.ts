@@ -89,6 +89,13 @@ export async function configureBillingForUser(userId: string | null): Promise<vo
     return;
   }
 
+  // Don't initialize the SDK on a signed-out cold start.
+  // If RevenueCat is misconfigured for the current environment, configuring here
+  // surfaces noisy native errors before the user can even reach auth.
+  if (!userId && !sdkConfigured) {
+    return;
+  }
+
   if (!sdkConfigured) {
     try {
       (Purchases as any).setLogLevel?.((Purchases as any).LOG_LEVEL?.WARN ?? 'WARN');

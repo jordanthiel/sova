@@ -5,6 +5,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+/** Default: Opus 4.6 — override with ANTHROPIC_MODEL if Anthropic renames the API id. */
+const ANTHROPIC_MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-opus-4-6';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
@@ -22,7 +25,7 @@ interface ChatMessage {
   content: string;
 }
 
-type Provider = 'openai' | 'gemini';
+type Provider = 'anthropic' | 'openai' | 'gemini';
 type Mode = 'next_sleep' | 'chat' | 'recommendation' | 'nap_evaluation' | 'micro_insight' | 'daily_schedule' | 'forecast' | 'insights_bundle';
 
 interface RequestBody {
@@ -75,12 +78,14 @@ const PREMIUM_LOCKED_MODES = new Set<Mode>([
 // ─── LLM Abstraction ─────────────────────────────────────────────
 
 function resolveProvider(requested?: Provider): Provider {
-  if (requested === 'gemini' && GEMINI_API_KEY) return 'gemini';
+  if (requested === 'anthropic' && ANTHROPIC_API_KEY) return 'anthropic';
   if (requested === 'openai' && OPENAI_API_KEY) return 'openai';
-  // Auto-select based on available keys
+  if (requested === 'gemini' && GEMINI_API_KEY) return 'gemini';
+  // Default: Anthropic when configured, else OpenAI, else Gemini
+  if (ANTHROPIC_API_KEY) return 'anthropic';
   if (OPENAI_API_KEY) return 'openai';
   if (GEMINI_API_KEY) return 'gemini';
-  throw new Error('No LLM API key configured. Set OPENAI_API_KEY or GEMINI_API_KEY.');
+  throw new Error('No LLM API key configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY.');
 }
 
 interface LLMOptions {
@@ -95,6 +100,7 @@ async function callLLM(
   options: LLMOptions = {}
 ): Promise<string> {
   if (provider === 'gemini') return callGemini(messages, options);
+  if (provider === 'anthropic') return callAnthropic(messages, options);
   return callOpenAI(messages, options);
 }
 
@@ -179,6 +185,69 @@ async function callGemini(
 
   const data = await res.json();
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+}
+
+async function callAnthropic(
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+  options: LLMOptions = {}
+): Promise<string> {
+  if (!ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY is not set');
+  }
+  const { maxTokens = 1024, temperature = 0.7, json = false } = options;
+  const max_tokens = Math.min(8192, Math.max(maxTokens, 256));
+
+  const system = messages
+    .filter((m) => m.role === 'system')
+    .map((m) => m.content)
+    .join('\n\n');
+  const systemWithJson = json
+    ? `${system}\n\nReturn ONLY valid JSON (no markdown, no commentary).`
+    : system;
+
+  const chatMessages = messages.filter((m) => m.role !== 'system');
+  const merged: { role: 'user' | 'assistant'; content: string }[] = [];
+  for (const m of chatMessages) {
+    const role = m.role === 'assistant' ? 'assistant' as const : 'user' as const;
+    const last = merged[merged.length - 1];
+    if (last && last.role === role) {
+      last.content += '\n\n' + m.content;
+    } else {
+      merged.push({ role, content: m.content });
+    }
+  }
+  if (merged.length === 0) {
+    merged.push({ role: 'user', content: 'Please respond.' });
+  }
+  if (merged[0].role === 'assistant') {
+    merged.unshift({ role: 'user', content: 'Continue.' });
+  }
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens,
+      temperature,
+      system: systemWithJson,
+      messages: merged,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Anthropic API error (${res.status}): ${err}`);
+  }
+
+  const data = await res.json();
+  const parts = data.content as { type: string; text?: string }[] | undefined;
+  if (!Array.isArray(parts)) return '';
+  return parts.filter((b) => b.type === 'text' && typeof b.text === 'string').map((b) => b.text).join('');
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -768,7 +837,7 @@ Remaining nap budget today: ${fmtDuration(Math.max(0, napBudget - totalNapMinute
 
 --- Historical patterns (from recent data) ---
 ${avgNapDuration != null ? `Average nap duration: ${fmtDuration(avgNapDuration)} (reference only; do not use as nap cap — set cap from budget and best-night patterns)` : 'Avg nap duration: insufficient data'}
-${avgWakeWindow != null ? `Average observed wake window: ${fmtDuration(avgWakeWindow)}` : 'Avg wake window: insufficient data'}
+${avgWakeWindow != null ? `Average observed wake window: ${fmtDuration(avgWakeWindow)} (reference only — do not use this alone to pick the next nap; weigh age norms, nap-count plan, best-night patterns, and whether baby may be over/undertired)` : 'Avg wake window: insufficient data'}
 ${avgNapsPerDay != null ? `Average naps/day (last 7d): ${avgNapsPerDay}` : 'Naps/day: insufficient data'}
 ${observedWakeWindows.length > 3 ? `Recent wake windows: ${observedWakeWindows.slice(-6).map((w) => fmtDuration(w)).join(', ')}` : ''}
 ${buildScheduleToNightOutcomeBlock(sleepData, timezone)}
@@ -793,7 +862,9 @@ function buildPreferencesBlock(body: RequestBody): string {
       parts.push(`Parent's preferred last wake window before bed: ${fmtDuration(prefs.last_wake_window_minutes)}`);
     }
     if (prefs.target_nap_count != null) {
-      parts.push(`Parent's target nap count: ${prefs.target_nap_count}`);
+      parts.push(
+        `Parent's target nap count: ${prefs.target_nap_count} (treat as the day's plan — total naps for today should match this unless impossible; explain in reasoning if you must deviate)`
+      );
     }
     if (prefs.naps_per_day != null) {
       parts.push(`Baby's profile naps/day setting: ${prefs.naps_per_day}`);
@@ -804,6 +875,137 @@ function buildPreferencesBlock(body: RequestBody): string {
   }
   if (parts.length === 0) return '';
   return `\n--- Parent preferences & context ---\n${parts.join('\n')}`;
+}
+
+function getUtcOffsetMinutesAt(anchorIso: string, timezone: string): number {
+  const nowDate = new Date(anchorIso);
+  const tzParts = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(nowDate);
+  const localHour = parseInt(tzParts.find((p) => p.type === 'hour')!.value, 10);
+  const localMin = parseInt(tzParts.find((p) => p.type === 'minute')!.value, 10);
+  return (localHour * 60 + localMin) - (nowDate.getUTCHours() * 60 + nowDate.getUTCMinutes());
+}
+
+/** Parse "h:mm AM/PM" on the same local calendar day as anchorIso (timezone). */
+function parseAmPmOnLocalCalendarDay(timeStr: string, anchorIso: string, timezone: string): number | null {
+  const trimmed = String(timeStr).trim().replace(/\s*\(.*\)\s*$/, '');
+  const amPmMatch = trimmed.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!amPmMatch) return null;
+  let h = parseInt(amPmMatch[1], 10);
+  const m = parseInt(amPmMatch[2], 10);
+  if (amPmMatch[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+  if (amPmMatch[3].toUpperCase() === 'AM' && h === 12) h = 0;
+  const nowDate = new Date(anchorIso);
+  const utcOffsetMin = getUtcOffsetMinutesAt(anchorIso, timezone);
+  return new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), h, m, 0).getTime() - utcOffsetMin * 60000;
+}
+
+function formatLocalAmPm(ms: number, timezone: string): string {
+  return new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone });
+}
+
+function earliestBedtimeMinutesFromMidnight(ageDays: number): number {
+  if (ageDays < 120) return 17 * 60 + 30;
+  if (ageDays < 365) return 18 * 60;
+  return 18 * 60 + 30;
+}
+
+function parentTargetBedtimeMinutesFromMidnight(body: RequestBody): number | null {
+  const p = body.user_preferences;
+  if (p?.bedtime_type !== 'target' || !p.bedtime_target_time) return null;
+  const [h, m] = p.bedtime_target_time.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+/** Fix impossible bedtimes and per-nap caps before returning to the app. */
+function sanitizeNextSleepSchedule(
+  parsed: Record<string, unknown>,
+  body: RequestBody,
+  currentTimeIso: string,
+  timezone: string,
+  ageDays: number,
+  wakeWin: { min: number; max: number; typical: number }
+): void {
+  if (parsed.should_cap_nap !== false && typeof parsed.cap_at_minutes === 'number' && parsed.cap_at_minutes > 0) {
+    const c = Math.round(parsed.cap_at_minutes / 5) * 5;
+    parsed.cap_at_minutes = Math.min(180, Math.max(15, c));
+  }
+
+  const sched = parsed.rest_of_day_schedule;
+  if (!Array.isArray(sched) || sched.length === 0) return;
+
+  const ageEarliestMin = earliestBedtimeMinutesFromMidnight(ageDays);
+  const parentBedMin = parentTargetBedtimeMinutesFromMidnight(body);
+  const floorClockMin =
+    parentBedMin != null ? Math.min(ageEarliestMin, parentBedMin) : ageEarliestMin;
+
+  const minLastWakeMin = Math.max(
+    45,
+    body.user_preferences?.last_wake_window_minutes != null && body.user_preferences.last_wake_window_minutes > 0
+      ? body.user_preferences.last_wake_window_minutes
+      : Math.min(180, Math.round(wakeWin.typical * 0.65))
+  );
+
+  for (const e of sched) {
+    if (!e || typeof e !== 'object') continue;
+    const o = e as Record<string, unknown>;
+    if (o.event === 'nap_start' && typeof o.cap_minutes === 'number' && o.cap_minutes > 0) {
+      const c = Math.round(o.cap_minutes / 5) * 5;
+      o.cap_minutes = Math.min(180, Math.max(15, c));
+    }
+  }
+
+  const bedtimeIdx = sched.findIndex((x) => x && typeof x === 'object' && (x as { event?: string }).event === 'bedtime');
+  if (bedtimeIdx < 0) return;
+
+  let lastNapEndMs: number | null = null;
+  for (let i = bedtimeIdx - 1; i >= 0; i--) {
+    const ev = sched[i] as Record<string, unknown>;
+    if (ev?.event === 'nap_end' && typeof ev.time === 'string') {
+      const ms = parseAmPmOnLocalCalendarDay(ev.time, currentTimeIso, timezone);
+      if (ms != null) {
+        lastNapEndMs = ms;
+        break;
+      }
+    }
+  }
+
+  const bedEv = sched[bedtimeIdx] as Record<string, unknown>;
+  if (typeof bedEv.time !== 'string') return;
+
+  let bedMs = parseAmPmOnLocalCalendarDay(bedEv.time, currentTimeIso, timezone);
+  if (bedMs == null) return;
+
+  const anchorMs = new Date(currentTimeIso).getTime();
+  const nowDate = new Date(currentTimeIso);
+  const utcOffsetMin = getUtcOffsetMinutesAt(currentTimeIso, timezone);
+  const fh = Math.floor(floorClockMin / 60);
+  const fm = floorClockMin % 60;
+  const floorMs = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), fh, fm, 0).getTime() - utcOffsetMin * 60000;
+
+  let targetMs = bedMs;
+  if (targetMs < floorMs) {
+    console.warn('[next_sleep] Bedtime earlier than floor; bumping', { was: bedEv.time, floorClockMin });
+    targetMs = floorMs;
+  }
+
+  if (lastNapEndMs != null) {
+    const needMs = lastNapEndMs + minLastWakeMin * 60000;
+    if (targetMs < needMs) {
+      console.warn('[next_sleep] Last wake before bed too short; bumping bedtime', { minLastWakeMin });
+      targetMs = needMs;
+    }
+  }
+
+  if (targetMs < anchorMs + 10 * 60000) {
+    console.warn('[next_sleep] Bedtime in the past or implausibly soon; nudging forward');
+    targetMs = Math.max(targetMs, anchorMs + 25 * 60000);
+  }
+
+  const newLabel = formatLocalAmPm(targetMs, timezone);
+  if (newLabel !== bedEv.time) {
+    bedEv.time = newLabel;
+  }
 }
 
 // ─── Next Sleep Handler ──────────────────────────────────────────
@@ -824,26 +1026,42 @@ async function handleNextSleep(
   const ctx = buildSleepContext(sleepData, current_time, last_wake_time, babyAgeDays, babyName, timezone);
   const preferencesBlock = buildPreferencesBlock(body);
   const { wakeWindows } = ctx;
+  const napsCompletedToday = ctx.todayNaps.length;
+  const parentTargetNaps = body.user_preferences?.target_nap_count;
+  const earliestReasonableBedtime =
+    babyAgeDays < 120 ? '5:30 PM' : babyAgeDays < 365 ? '6:00 PM' : '6:30 PM';
+  const parentNapPlanBlock =
+    parentTargetNaps != null && parentTargetNaps >= 1 && parentTargetNaps <= 6
+      ? `\nPARENT NAP-COUNT PLAN (must follow unless unsafe or impossible): Target ${parentTargetNaps} total naps today. ${napsCompletedToday} already completed. Your rest_of_day_schedule should add up to that target (remaining nap starts before bedtime = ${parentTargetNaps} − ${napsCompletedToday}). If you must deviate (e.g. too late for another nap), say so clearly in reasoning.\n`
+      : '';
 
   const systemMessage = `You are an expert pediatric sleep consultant. Analyze this baby's sleep data and recommend the ideal next sleep.
 
 Use the baby's ACTUAL historical patterns — nap durations, wake windows, nap counts, night sleep — to drive your recommendation. Only fall back to age-based norms when data is insufficient. You are the expert: use your judgment on wake windows, nap caps, and schedule shape based on what the data tells you about THIS baby.
 
-CRITICAL — Anchor on what led to good night sleep: The context includes a "Schedule → night sleep" summary showing which daily schedules (nap count, total daytime nap, last nap timing) were followed by the best-scoring nights vs. harder nights. Prefer nap recommendations and rest-of-day plans that mirror the patterns that preceded the best nights (e.g. similar nap count, similar total nap, last nap ending in a similar window). Avoid repeating the daytime patterns that preceded poor night sleep. When the data shows a clear trend (e.g. "best nights followed 2–3 naps and ~2–2.5h total nap"), align today's recommendation with that trend so today's schedule is more likely to support a good night.
+NEXT NAP TIMING — Do not anchor solely on "average observed wake window" or a single number. Use the full picture: age-appropriate ranges, how today has gone, nap-count plan (including parent target if given), schedule→night patterns, and whether a shorter or longer wake window fits (e.g. early nap after rough night vs. stretched window when well-rested). Your wake_window_minutes must reflect the schedule you are recommending, not only a historical average.
+
 
 NAP CAP (critical): cap_at_minutes and each rest_of_day_schedule cap_minutes are the MAXIMUM duration that nap should be allowed — the true upper limit. If the baby sleeps that long, the parent should wake them. Do NOT set the cap to the baby's average nap length. Set it to the longest this nap should run to: (1) protect night sleep and (2) hit the daytime nap goal (total day within nap budget, and aligned with the total that preceded best nights). Use remaining budget for the day and nap position (later naps = shorter caps). First nap can have a longer cap; last nap of the day should be shortest. You decide the cap based on age, schedule, and best-night patterns — no fixed ceiling. Round caps to the nearest 5 minutes.
 
+BEDTIME REALISM (critical): Do not suggest an unrealistically early bedtime after a short nap chain. For this age, avoid bedtime earlier than about ${earliestReasonableBedtime} unless there is a clear reason (e.g., severe overtiredness, very poor prior night, explicit parent target earlier than this, illness/disruption). If you recommend an earlier bedtime anyway, explicitly justify it in reasoning.
+
 CONSTRAINTS (hard limits only):
 - All times in ${timezone}
-- Wake windows must be between ${wakeWindows.min}–${wakeWindows.max} minutes for this baby's age (typical: ${wakeWindows.typical} min)
-- recommended_time must be at least ${wakeWindows.min} min after the baby's last wake time
-- recommended_time must equal the first event in rest_of_day_schedule
+- Age wake window reference: typical ${wakeWindows.typical} min, usual range about ${wakeWindows.min}–${wakeWindows.max} min — you may recommend outside the usual range when justified (e.g. shorter if overtired, longer if undertired), and explain why in reasoning
+- recommended_time must equal the first nap_start (or bedtime) event in rest_of_day_schedule
 - If it's too late for a nap (not enough time for nap + wake window before bedtime), recommend bedtime
 - Total daytime nap minutes should stay within the nap budget
 - Round times to the nearest 5 minutes and cap_at_minutes to the nearest 5
 - wake_window_minutes must be in MINUTES (e.g. 150 for 2h30m, not 2.5)
 
-${ctx.contextBlock}${preferencesBlock}
+INTERNAL CONSISTENCY (do this before you output JSON):
+- rest_of_day_schedule must be strictly chronological; each nap_start → nap_end → next nap_start (or bedtime) with realistic gaps
+- After the final nap_end, leave at least a full last wake window before bedtime (use parent last_wake_window if given, otherwise a typical last window for this age — not 20–30 minutes unless baby is a newborn and you justify it)
+- Bedtime must not be wildly earlier than a normal evening bedtime for this age (see BEDTIME REALISM above) unless you justify it
+- Per-nap cap_minutes: keep between 15 and 180; do not invent multi-hour "micro naps" that imply a 4pm bedtime after one short nap unless data strongly supports it
+
+${parentNapPlanBlock}${ctx.contextBlock}${preferencesBlock}
 
 Return a JSON object:
 {
@@ -866,7 +1084,9 @@ Return a JSON object:
 
 SCHEDULE RULES:
 - Number naps based on how many already happened today. If 1 done, next is Nap 2.
+- If a parent nap-count target is given above, the full day should reflect that total (completed + planned), unless you recommend bedtime next because the target is already met or time does not allow another nap.
 - Include recommended sleep as first event, then all events through bedtime.
+- Bedtime should usually not be earlier than ${earliestReasonableBedtime}; if earlier, include a clear reason in reasoning.
 - Chronologically ordered.
 - "urgency": "now" = 0-5 min or overdue, "soon" = 5-15 min, "upcoming" = 15-60 min, "not_yet" = 60+ min.
 
@@ -878,7 +1098,7 @@ Return ONLY valid JSON.`;
       { role: 'system', content: systemMessage },
       { role: 'user', content: `What should ${babyName}'s next sleep be? Analyze the historical data, determine the ideal wake window, plan the rest of the day, and give me your recommendation with full reasoning.` },
     ],
-    { maxTokens: 2000, temperature: 0.4, json: true }
+    { maxTokens: 2000, temperature: 0.25, json: true }
   );
 
   const jsonStr = extractJsonFromText(responseText);
@@ -914,13 +1134,18 @@ Return ONLY valid JSON.`;
       parsed.cap_at_minutes = Math.round(parsed.cap_at_minutes / 5) * 5;
     }
 
-    // SERVER-SIDE ENFORCEMENT: wake_window_minutes must be >= age-appropriate minimum
-    if (typeof parsed.wake_window_minutes === 'number' && parsed.wake_window_minutes < wakeWindows.min) {
-      console.warn(`wake_window_minutes=${parsed.wake_window_minutes} below age min ${wakeWindows.min}, overriding to ${wakeWindows.typical}`);
-      parsed.wake_window_minutes = wakeWindows.typical;
+    // Safety floor only: allow LLM-chosen WW below age "min" when justified; only fix absurdly short gaps
+    const WAKE_GAP_ABSOLUTE_FLOOR_MIN = 25;
+    if (typeof parsed.wake_window_minutes === 'number' && parsed.wake_window_minutes > 0 &&
+        parsed.wake_window_minutes < WAKE_GAP_ABSOLUTE_FLOOR_MIN) {
+      console.warn(`wake_window_minutes=${parsed.wake_window_minutes} below safety floor ${WAKE_GAP_ABSOLUTE_FLOOR_MIN}, clamping`);
+      parsed.wake_window_minutes = WAKE_GAP_ABSOLUTE_FLOOR_MIN;
+    }
+    if (typeof parsed.wake_window_minutes === 'number' && parsed.wake_window_minutes > wakeWindows.max) {
+      parsed.wake_window_minutes = wakeWindows.max;
     }
 
-    // SERVER-SIDE ENFORCEMENT: recommended_time must be at least wakeWindows.min after last_wake_time
+    // Only bump recommended_time if implied gap is unrealistically short (do not force age-typical WW)
     if (last_wake_time && parsed.recommended_time) {
       const lastWakeMs = new Date(last_wake_time).getTime();
       // Parse recommended_time to a Date
@@ -933,8 +1158,6 @@ Return ONLY valid JSON.`;
         if (amPmMatch[3].toUpperCase() === 'AM' && h === 12) h = 0;
         // Build a Date in UTC from the timezone-local time
         const nowDate = new Date(current_time);
-        const recDate = new Date(nowDate);
-        // Convert local hour/min to approximate UTC (best effort)
         const tzParts = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(nowDate);
         const localHour = parseInt(tzParts.find(p => p.type === 'hour')!.value, 10);
         const localMin = parseInt(tzParts.find(p => p.type === 'minute')!.value, 10);
@@ -942,12 +1165,11 @@ Return ONLY valid JSON.`;
         const recUtcMs = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), h, m, 0).getTime() - utcOffsetMin * 60000;
         const impliedWW = Math.round((recUtcMs - lastWakeMs) / 60000);
 
-        if (impliedWW < wakeWindows.min) {
-          // Bump recommended_time forward to meet minimum wake window
-          const correctedMs = lastWakeMs + wakeWindows.typical * 60000;
+        if (impliedWW < WAKE_GAP_ABSOLUTE_FLOOR_MIN) {
+          const correctedMs = lastWakeMs + WAKE_GAP_ABSOLUTE_FLOOR_MIN * 60000;
           const correctedDate = new Date(correctedMs);
           const correctedLocal = correctedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone });
-          console.warn(`Recommended time implies ${impliedWW}m wake window (min: ${wakeWindows.min}m). Bumping from ${parsed.recommended_time} to ${correctedLocal}`);
+          console.warn(`Recommended time implies ${impliedWW}m wake window (floor ${WAKE_GAP_ABSOLUTE_FLOOR_MIN}m). Bumping from ${parsed.recommended_time} to ${correctedLocal}`);
           parsed.recommended_time = correctedLocal;
           parsed.minutes_from_now = Math.round((correctedMs - new Date(current_time).getTime()) / 60000);
           if (parsed.minutes_from_now <= 5) parsed.urgency = 'now';
@@ -976,8 +1198,7 @@ Return ONLY valid JSON.`;
           entry.cap_minutes = Math.round(e.cap_minutes / 5) * 5;
         }
         if (typeof e.wake_window_minutes === 'number' && e.wake_window_minutes > 0) {
-          // Clamp per-event wake window to age range
-          entry.wake_window_minutes = Math.max(wakeWindows.min, Math.min(wakeWindows.max, e.wake_window_minutes));
+          entry.wake_window_minutes = Math.max(25, Math.min(wakeWindows.max, e.wake_window_minutes));
         }
         return entry;
       });
@@ -1010,7 +1231,7 @@ Return ONLY valid JSON.`;
           const recMinsFromNow = (recMs - nowMs) / 60000;
           const schedMinsFromNow = (schedMs - nowMs) / 60000;
           const schedWakeWindow = (schedMs - lastWakeMs) / 60000;
-          if (schedMinsFromNow >= 20 && recMinsFromNow < 30 && schedWakeWindow >= wakeWindows.min) {
+          if (schedMinsFromNow >= 20 && recMinsFromNow < 30 && schedWakeWindow >= 25) {
             parsed.recommended_time = firstNapInSchedule.time;
             parsed.minutes_from_now = Math.round(schedMinsFromNow);
             if (parsed.minutes_from_now <= 5) parsed.urgency = 'now';
@@ -1021,6 +1242,8 @@ Return ONLY valid JSON.`;
         }
       }
     }
+
+    sanitizeNextSleepSchedule(parsed, body, current_time, timezone, babyAgeDays, wakeWindows);
 
     return { next_sleep: parsed, provider };
   } catch (e) {
@@ -1308,7 +1531,8 @@ async function handleInsightsBundle(
   body: RequestBody,
   sleepData: SleepSession[],
   babyName: string,
-  babyAgeDays: number
+  babyAgeDays: number,
+  provider: Provider
 ) {
   const {
     current_time = new Date().toISOString(),
@@ -1347,7 +1571,8 @@ Return a JSON object with exactly 4-5 insights. Each must be:
 
 Return ONLY valid JSON. If there's insufficient data, still return 2-3 insights with the best you can infer, and note data limitations in the insight text.`;
 
-  const responseText = await callOpenAI(
+  const responseText = await callLLM(
+    provider,
     [
       { role: 'system', content: systemMessage },
       { role: 'user', content: `Generate 4-5 novel, valuable insights about ${babyName}'s sleep. Be specific and actionable.` },
@@ -1397,12 +1622,21 @@ Deno.serve(async (req: Request) => {
     let userId: string | null = null;
 
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
+      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const authHeader = req.headers.get('Authorization');
+      const supabase = authHeader
+        ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+            global: {
+              headers: {
+                Authorization: authHeader,
+              },
+            },
+          })
+        : supabaseAdmin;
+
       if (authHeader) {
         const token = authHeader.replace('Bearer ', '');
-        const { data: { user } } = await supabase.auth.getUser(token);
+        const { data: { user } } = await supabaseAdmin.auth.getUser(token);
         if (user) userId = user.id;
       }
 
@@ -1482,7 +1716,7 @@ Deno.serve(async (req: Request) => {
         result = await handleNapEvaluation(body, sleepData, babyName, babyAgeDays, provider);
         break;
       case 'insights_bundle':
-        result = await handleInsightsBundle(body, sleepData, babyName, babyAgeDays);
+        result = await handleInsightsBundle(body, sleepData, babyName, babyAgeDays, provider);
         break;
       default:
         return errorResponse(`Unknown mode: ${mode}`);

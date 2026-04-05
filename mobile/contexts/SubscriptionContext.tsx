@@ -4,7 +4,6 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { Session } from '@supabase/supabase-js';
 
 import type { PremiumFeatureKey } from '@/constants/subscription';
-import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/services/analytics/track';
 import {
@@ -40,7 +39,7 @@ const SubscriptionContext = createContext<PremiumAccessContextValue | null>(null
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { currentBabyId, isHydrated } = useCurrentBaby();
+  const [isHydrated, setIsHydrated] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [status, setStatus] = useState<EntitlementStatus>(DEFAULT_STATUS);
   const [availablePackages, setAvailablePackages] = useState<RevenueCatPackage[]>([]);
@@ -50,7 +49,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const loadForSession = useCallback(
     async (session: Session | null, options: RefreshSubscriptionOptions = {}) => {
-      const { loadOfferings = true, syncPurchases = true } = options;
+      const { loadOfferings = false, syncPurchases = true } = options;
 
       setCurrentUserId(session?.user?.id ?? null);
 
@@ -69,13 +68,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
       try {
         await configureBillingForUser(session.user.id);
-        const next = await refreshPremiumStatus({ loadOfferings, syncPurchases, babyId: currentBabyId });
+        const next = await refreshPremiumStatus({ loadOfferings, syncPurchases });
         setStatus(next.status);
         if (loadOfferings) setAvailablePackages(next.availablePackages);
         return next.status;
       } catch (error) {
         console.error('[subscription] Failed to refresh premium status', error);
-        const fallbackStatus = await (currentBabyId ? refreshPremiumStatus({ loadOfferings: false, syncPurchases: false, babyId: currentBabyId }).then((v) => v.status) : getEntitlementStatus()).catch(() => DEFAULT_STATUS);
+        const fallbackStatus = await getEntitlementStatus().catch(() => DEFAULT_STATUS);
         setStatus(fallbackStatus);
         if (loadOfferings) setAvailablePackages([]);
         return fallbackStatus;
@@ -85,8 +84,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         setIsReady(true);
       }
     },
-    [currentBabyId]
+    []
   );
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -123,7 +126,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     async (pkg: RevenueCatPackage) => {
       setIsLoading(true);
       try {
-        const nextStatus = await purchaseRevenueCatPackage(pkg, currentBabyId);
+        const nextStatus = await purchaseRevenueCatPackage(pkg);
         setStatus(nextStatus);
         track('subscription_purchase_completed', {
           packageIdentifier: (pkg as any)?.identifier ?? null,
@@ -150,7 +153,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const restorePurchases = useCallback(async () => {
     setIsLoading(true);
     try {
-      const nextStatus = await restoreRevenueCatPurchases(currentBabyId);
+      const nextStatus = await restoreRevenueCatPurchases();
       setStatus(nextStatus);
       track('subscription_restore_success', {
         accessSource: nextStatus.accessSource,
@@ -164,7 +167,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     } finally {
       setIsLoading(false);
     }
-  }, [currentBabyId, refresh]);
+  }, [refresh]);
 
   const showPaywall = useCallback(
     (feature?: PremiumFeatureKey) => {

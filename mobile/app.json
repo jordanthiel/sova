@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.jordanthiel.sova",
       "infoPlist": {
-        "NSSupportsLiveActivities": true
+        "NSSupportsLiveActivities": true,
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -32,6 +33,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       [
         "expo-live-activity",
         {

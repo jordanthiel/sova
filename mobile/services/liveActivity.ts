@@ -16,7 +16,6 @@ import { format } from 'date-fns';
 import type { LiveActivityConfig, LiveActivityState } from 'expo-live-activity';
 import { Colors } from '@/constants/theme';
 import type { NapLiveActivityState } from '@/types/liveActivity';
-import { formatDurationWithSeconds } from '@/utils/formatTime';
 import { supabase } from '@/lib/supabase';
 
 const NAP_ACTIVITY_ID_KEY = '@sova/nap_live_activity_id';
@@ -103,8 +102,7 @@ function ensureActivityUpdatesListener(): void {
  * Subtitle format: "babyName|||Sova|||detailLine" for Sova layout.
  */
 export function buildLiveActivityState(
-  state: NapLiveActivityState,
-  now: Date = new Date()
+  state: NapLiveActivityState
 ): LiveActivityState {
   const baseContent = {
     dynamicIslandImageName: APP_ICON_IMAGE_NAME,
@@ -133,9 +131,7 @@ export function buildLiveActivityState(
   }
 
   const sessionStart = parseUtcIso(state.sessionStartIso);
-  const elapsedSeconds = Math.floor((now.getTime() - sessionStart.getTime()) / 1000);
-  const elapsedStr = formatDurationWithSeconds(Math.max(0, elapsedSeconds));
-  const title = elapsedStr;
+  const title = state.sessionType === 'night' ? 'Night sleep' : 'Nap';
   let detailLine: string;
   if (state.capAtIso) {
     detailLine = `Cap by ${format(parseUtcIso(state.capAtIso), 'h:mm a')}`;
@@ -148,6 +144,7 @@ export function buildLiveActivityState(
     ...baseContent,
     title,
     subtitle,
+    timerStartDateInMilliseconds: sessionStartMs,
   } as LiveActivityState;
 }
 
@@ -264,6 +261,23 @@ export function setNapLiveActivityIdForTesting(id: string | null): void {
  * Call this when a push indicates another user started/ended a session (e.g. type: 'live_activity_refresh', babyId).
  * Works when the app is in background so User A's Live Activity can update when User B starts the nap.
  */
+/**
+ * Ask the backend to send a silent push to other caregivers (Expo → APNs/FCM) so their
+ * Live Activity can refresh in the background. Fire-and-forget.
+ */
+export async function requestLiveActivityRefreshForCaregivers(
+  babyId: string,
+  excludeUserId?: string | null
+): Promise<void> {
+  try {
+    await supabase.functions.invoke('notify-live-activity-refresh', {
+      body: { babyId, excludeUserId: excludeUserId ?? undefined },
+    });
+  } catch {
+    // non-blocking
+  }
+}
+
 export async function refreshNapLiveActivityFromServer(babyId: string): Promise<void> {
   try {
     const since = new Date();

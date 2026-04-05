@@ -1,8 +1,11 @@
 /**
  * Hook to keep the Nap Live Activity in sync with Today screen state.
- * Starts only while a sleep session is active, updates on change and every second, and ends when the session ends.
+ * Shows the upcoming nap/bedtime window when awake, and a live elapsed timer when sleeping.
+ * The sleeping timer is system-rendered (Text timerInterval) so JS updates are only needed
+ * for state changes (cap time, mode switch) — not every second.
  */
 
+import { addMinutes } from 'date-fns';
 import { useCallback, useEffect, useRef } from 'react';
 import type { Database } from '@/lib/supabase';
 import type { NapRecommendationPayload } from '@/types/domain';
@@ -24,7 +27,7 @@ export interface UseNapLiveActivityParams {
 }
 
 function buildState(params: UseNapLiveActivityParams): NapLiveActivityState | null {
-  const { activeSession, capAtIso, babyName } = params;
+  const { activeSession, napPayload, capAtIso, babyName, isBedtime } = params;
 
   if (activeSession) {
     return {
@@ -36,11 +39,30 @@ function buildState(params: UseNapLiveActivityParams): NapLiveActivityState | nu
     };
   }
 
+  if (napPayload) {
+    // Cap time shown on the live activity during the upcoming nap (when to wake the baby)
+    const napCapAtIso =
+      !isBedtime &&
+      napPayload.shouldCapNap !== false &&
+      napPayload.recommendedCapMinutes != null
+        ? addMinutes(new Date(napPayload.startWindowBegin), napPayload.recommendedCapMinutes).toISOString()
+        : null;
+    return {
+      mode: 'awake',
+      windowStartIso: napPayload.startWindowBegin,
+      windowEndIso: napPayload.startWindowEnd,
+      isBedtime,
+      babyName: babyName ?? undefined,
+      capAtIso: napCapAtIso ?? undefined,
+    };
+  }
+
   return null;
 }
 
+// System-rendered Text(timerInterval:) updates the sleeping timer natively every second.
+// JS only needs to push updates when meaningful state changes (cap time, mode switch, etc.)
 const UPDATE_INTERVAL_MS = 60 * 1000;
-const SLEEPING_UPDATE_INTERVAL_MS = 1000;
 
 export function useNapLiveActivity(params: UseNapLiveActivityParams): void {
   const state = buildState(params);
@@ -69,15 +91,14 @@ export function useNapLiveActivity(params: UseNapLiveActivityParams): void {
 
     startOrUpdate();
 
-    const isSleeping = state.mode === 'sleeping';
-    const intervalMs = isSleeping ? SLEEPING_UPDATE_INTERVAL_MS : UPDATE_INTERVAL_MS;
-
-    if (!intervalRef.current) {
-      intervalRef.current = setInterval(() => {
-        const currentState = buildState(paramsRef.current);
-        if (currentState) updateNapLiveActivity(currentState);
-      }, intervalMs);
+    // Always reset interval so mode changes (awake↔sleeping) get the right rate
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
     }
+    intervalRef.current = setInterval(() => {
+      const currentState = buildState(paramsRef.current);
+      if (currentState) updateNapLiveActivity(currentState);
+    }, UPDATE_INTERVAL_MS);
 
     return () => {
       if (intervalRef.current) {

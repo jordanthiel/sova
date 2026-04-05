@@ -7,6 +7,7 @@ struct LiveActivityAttributes: ActivityAttributes {
     var title: String
     var subtitle: String?
     var timerEndDateInMilliseconds: Double?
+    var timerStartDateInMilliseconds: Double?
     var progress: Double?
     var imageName: String?
     var dynamicIslandImageName: String?
@@ -98,6 +99,10 @@ struct LiveActivityWidget: Widget {
             )
             .padding(.horizontal, 5)
             .applyWidgetURL(from: context.attributes.deepLinkUrl)
+          } else if let startDate = context.state.timerStartDateInMilliseconds {
+            dynamicIslandExpandedElapsed(startDate: startDate, attributes: context.attributes)
+              .padding(.horizontal, 5)
+              .applyWidgetURL(from: context.attributes.deepLinkUrl)
           }
         }
       } compactLeading: {
@@ -110,7 +115,16 @@ struct LiveActivityWidget: Widget {
         if let date = context.state.timerEndDateInMilliseconds {
           compactTimer(
             endDate: date,
+            startDate: nil,
             timerType: context.attributes.timerType ?? .circular,
+            progressViewTint: context.attributes.progressViewTint,
+            attributes: context.attributes
+          ).applyWidgetURL(from: context.attributes.deepLinkUrl)
+        } else if let startDate = context.state.timerStartDateInMilliseconds {
+          compactTimer(
+            endDate: nil,
+            startDate: startDate,
+            timerType: context.attributes.timerType ?? .digital,
             progressViewTint: context.attributes.progressViewTint,
             attributes: context.attributes
           ).applyWidgetURL(from: context.attributes.deepLinkUrl)
@@ -119,7 +133,16 @@ struct LiveActivityWidget: Widget {
         if let date = context.state.timerEndDateInMilliseconds {
           compactTimer(
             endDate: date,
+            startDate: nil,
             timerType: context.attributes.timerType ?? .circular,
+            progressViewTint: context.attributes.progressViewTint,
+            attributes: context.attributes
+          ).applyWidgetURL(from: context.attributes.deepLinkUrl)
+        } else if let startDate = context.state.timerStartDateInMilliseconds {
+          compactTimer(
+            endDate: nil,
+            startDate: startDate,
+            timerType: context.attributes.timerType ?? .digital,
             progressViewTint: context.attributes.progressViewTint,
             attributes: context.attributes
           ).applyWidgetURL(from: context.attributes.deepLinkUrl)
@@ -130,12 +153,22 @@ struct LiveActivityWidget: Widget {
 
   @ViewBuilder
   private func compactTimer(
-    endDate: Double,
+    endDate: Double?,
+    startDate: Double?,
     timerType: LiveActivityAttributes.DynamicIslandTimerType,
     progressViewTint: String?,
     attributes: LiveActivityAttributes
   ) -> some View {
-    if timerType == .digital {
+    if let startDate, timerType == .digital {
+      Text(timerInterval: Date.toElapsedTimerInterval(miliseconds: startDate), countsDown: false)
+        .font(.system(size: 15))
+        .minimumScaleFactor(0.8)
+        .fontWeight(.semibold)
+        .frame(maxWidth: 60)
+        .multilineTextAlignment(.trailing)
+        .monospacedDigit()
+        .foregroundStyle(titleColor(for: attributes))
+    } else if let endDate, timerType == .digital {
       Text(timerInterval: Date.toTimerInterval(miliseconds: endDate))
         .font(.system(size: 15))
         .minimumScaleFactor(0.8)
@@ -143,9 +176,11 @@ struct LiveActivityWidget: Widget {
         .frame(maxWidth: 60)
         .multilineTextAlignment(.trailing)
         .foregroundStyle(titleColor(for: attributes))
-    } else {
+    } else if let endDate {
       circularTimer(endDate: endDate)
         .tint(progressViewTint.map { Color(hex: $0) } ?? accentColor(for: attributes))
+    } else {
+      EmptyView()
     }
   }
 
@@ -186,6 +221,17 @@ struct LiveActivityWidget: Widget {
     ProgressView(timerInterval: Date.toTimerInterval(miliseconds: endDate))
       .foregroundStyle(titleColor(for: attributes))
       .tint(progressViewTint.map { Color(hex: $0) } ?? accentColor(for: attributes))
+      .padding(.top, 5)
+  }
+
+  private func dynamicIslandExpandedElapsed(
+    startDate: Double,
+    attributes: LiveActivityAttributes
+  ) -> some View {
+    Text(timerInterval: Date.toElapsedTimerInterval(miliseconds: startDate), countsDown: false)
+      .font(.system(size: 22, weight: .semibold, design: .rounded))
+      .monospacedDigit()
+      .foregroundStyle(titleColor(for: attributes))
       .padding(.top, 5)
   }
 

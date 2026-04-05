@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -23,6 +23,7 @@ import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
 import { format, differenceInMinutes } from 'date-fns';
 import { formatDuration } from '@/utils/formatTime';
+import { requestLiveActivityRefreshForCaregivers } from '@/services/liveActivity';
 import { caregiversRepo } from '@/services/repositories/caregiversRepo';
 import type { Caregiver } from '@/types/domain';
 import { Avatar } from '@/components/ui/Avatar';
@@ -69,6 +70,12 @@ export default function LogSleepScreen() {
   }>();
   const babyId = params.babyId || null;
   const existingSessionId = params.sessionId || null;
+
+  const pingLiveActivitySync = useCallback(async () => {
+    if (!babyId) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    void requestLiveActivityRefreshForCaregivers(babyId, user?.id ?? null);
+  }, [babyId]);
   const paramStartTime = params.startTime || null;
   const paramEndTime = params.endTime || null;
 
@@ -241,7 +248,9 @@ export default function LogSleepScreen() {
           .from('sleep_sessions')
           .update({ start_time: date.toISOString() })
           .eq('id', sessionId)
-          .then();
+          .then(({ error }) => {
+            if (!error) void pingLiveActivitySync();
+          });
       }
     } else {
       setEndTime(date);
@@ -306,6 +315,7 @@ export default function LogSleepScreen() {
     setSessionId(data?.id || null);
     setEndTime(null);
     setMode('live');
+    void pingLiveActivitySync();
   };
 
   const handleStop = async () => {
@@ -320,7 +330,9 @@ export default function LogSleepScreen() {
         .from('sleep_sessions')
         .update({ end_time: now.toISOString(), duration_minutes: dur, type })
         .eq('id', sessionId)
-        .then();
+        .then(({ error }) => {
+          if (!error) void pingLiveActivitySync();
+        });
     }
   };
 
@@ -341,7 +353,9 @@ export default function LogSleepScreen() {
                 .from('sleep_sessions')
                 .update({ end_time: null, duration_minutes: null })
                 .eq('id', sessionId)
-                .then();
+                .then(({ error }) => {
+                  if (!error) void pingLiveActivitySync();
+                });
             }
           },
         },
@@ -373,6 +387,7 @@ export default function LogSleepScreen() {
         Alert.alert('Error', error.message);
         return;
       }
+      void pingLiveActivitySync();
     } else {
       if (!endTime || endTime <= startTime) {
         Alert.alert('Invalid Times', 'End time must be after start time.');
@@ -400,6 +415,7 @@ export default function LogSleepScreen() {
         Alert.alert('Error', error.message);
         return;
       }
+      void pingLiveActivitySync();
     }
     router.back();
   };
@@ -418,6 +434,7 @@ export default function LogSleepScreen() {
               Alert.alert('Could not delete', error.message);
               return;
             }
+            void pingLiveActivitySync();
           }
           router.back();
         },

@@ -5,15 +5,39 @@ import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { refreshNapLiveActivityFromServer } from '@/services/liveActivity';
 
+/** Android channel for silent caregiver sync pushes (matches notify-live-activity-refresh). */
+export const LIVE_ACTIVITY_REFRESH_CHANNEL_ID = 'live_activity_refresh';
+
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification.request.content.data as { type?: string };
+    if (data?.type === 'live_activity_refresh') {
+      return {
+        shouldShowBanner: false,
+        shouldShowList: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      };
+    }
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    };
+  },
 });
+
+async function ensureAndroidLiveActivityRefreshChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync(LIVE_ACTIVITY_REFRESH_CHANNEL_ID, {
+    name: 'Sleep sync',
+    importance: Notifications.AndroidImportance.MIN,
+    sound: null,
+    vibrationPattern: [0],
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.SECRET,
+  });
+}
 
 export async function requestNotificationPermissions(): Promise<boolean> {
   const { status: existing } = await Notifications.getPermissionsAsync();
@@ -69,6 +93,7 @@ export async function registerPushToken(userId: string, token: string): Promise<
 
 /** Request permission, get token, and store for the given user. Call on app init when user is logged in. */
 export async function registerForPushNotifications(userId: string): Promise<void> {
+  await ensureAndroidLiveActivityRefreshChannel();
   const token = await getExpoPushToken();
   if (token) await registerPushToken(userId, token);
 }
@@ -254,18 +279,18 @@ export async function cancelAllReminders(): Promise<void> {
 
 /** Call from app init to handle push-driven Live Activity updates (e.g. when another user starts/ends a nap). */
 export function addLiveActivityRefreshListener(): () => void {
-  const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data as { type?: string; babyId?: string };
+  const runRefresh = (data: { type?: string; babyId?: string }) => {
     if (data?.type === 'live_activity_refresh' && data?.babyId) {
-      refreshNapLiveActivityFromServer(data.babyId);
+      void refreshNapLiveActivityFromServer(data.babyId);
     }
+  };
+
+  const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    runRefresh(response.notification.request.content.data as { type?: string; babyId?: string });
   });
 
   const subReceived = Notifications.addNotificationReceivedListener((notification) => {
-    const data = notification.request.content.data as { type?: string; babyId?: string };
-    if (data?.type === 'live_activity_refresh' && data?.babyId) {
-      refreshNapLiveActivityFromServer(data.babyId);
-    }
+    runRefresh(notification.request.content.data as { type?: string; babyId?: string });
   });
 
   return () => {

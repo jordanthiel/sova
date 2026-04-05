@@ -17,10 +17,9 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
 const HAS_OPENAI = OPENAI_API_KEY.length > 0;
 const HAS_GEMINI = GEMINI_API_KEY.length > 0;
 
-/** Min wake window for a 6-month-old.
- * Textbook says 2h15m, but LLM may use shorter windows based on
- * the baby's actual historical patterns. We allow down to 2h. */
-const MIN_WAKE_WINDOW_6MO = 120;
+/** Safety floor for wake windows (matches edge function): LLM may pick below age-typical when justified. */
+const ABSOLUTE_MIN_WAKE_WINDOW_MIN = 25;
+const MAX_WAKE_WINDOW_MIN = 360;
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -282,6 +281,8 @@ function buildNextSleepPrompt(opts: {
   const wakeWindows = getWakeWindowForAge(babyAgeDays);
   const napCount = getNapCountForAge(babyAgeDays);
   const napBudget = getDayNapBudget(babyAgeDays);
+  const earliestReasonableBedtime =
+    babyAgeDays < 120 ? "5:30 PM" : babyAgeDays < 365 ? "6:00 PM" : "6:30 PM";
 
   // Today's start
   const todayStartParts = new Intl.DateTimeFormat("en-CA", {
@@ -358,7 +359,9 @@ function buildNextSleepPrompt(opts: {
       prefParts.push(`Parent's preferred last wake window before bed: ${fmtDuration(preferences.last_wake_window_minutes as number)}`);
     }
     if (preferences.target_nap_count != null) {
-      prefParts.push(`Parent's target nap count: ${preferences.target_nap_count}`);
+      prefParts.push(
+        `Parent's target nap count: ${preferences.target_nap_count} (treat as the day's plan — total naps for today should match this unless impossible; explain in reasoning if you must deviate)`,
+      );
     }
   }
   if (memories?.length) {
@@ -385,7 +388,7 @@ Remaining nap budget today: ${fmtDuration(Math.max(0, napBudget - totalNapMinute
 
 --- Historical patterns (from recent data) ---
 ${avgNapDuration != null ? `Average nap duration: ${fmtDuration(avgNapDuration)} (reference only; do not use as nap cap — set cap from budget and best-night patterns)` : "Avg nap duration: insufficient data"}
-${avgWW != null ? `Average observed wake window: ${fmtDuration(avgWW)}` : "Avg wake window: insufficient data"}
+${avgWW != null ? `Average observed wake window: ${fmtDuration(avgWW)} (reference only — do not use this alone to pick the next nap; weigh age norms, nap-count plan, best-night patterns, and whether baby may be over/undertired)` : "Avg wake window: insufficient data"}
 ${avgNapsPerDay != null ? `Average naps/day (last 7d): ${avgNapsPerDay}` : "Naps/day: insufficient data"}
 ${observedWW.length > 3 ? `Recent wake windows: ${observedWW.slice(-6).map((w) => fmtDuration(w)).join(", ")}` : ""}
 
@@ -399,19 +402,28 @@ ${sleepHistory.slice(0, 15).map((s) => `${s.type} ${fmtDateTime(s.start_time, ti
 
 Use the baby's ACTUAL historical patterns — nap durations, wake windows, nap counts, night sleep — to drive your recommendation. Only fall back to age-based norms when data is insufficient. You are the expert: use your judgment on wake windows, nap caps, and schedule shape based on what the data tells you about THIS baby.
 
+NEXT NAP TIMING — Do not anchor solely on "average observed wake window" or a single number. Use the full picture: age-appropriate ranges, how today has gone, nap-count plan (including parent target if given), schedule→night patterns, and whether a shorter or longer wake window fits (e.g. early nap after rough night vs. stretched window when well-rested). Your wake_window_minutes must reflect the schedule you are recommending, not only a historical average.
+
 CRITICAL — Anchor on what led to good night sleep: The context includes a "Schedule → night sleep" summary showing which daily schedules (nap count, total daytime nap, last nap timing) were followed by the best-scoring nights vs. harder nights. Prefer nap recommendations and rest-of-day plans that mirror the patterns that preceded the best nights (e.g. similar nap count, similar total nap, last nap ending in a similar window). Avoid repeating the daytime patterns that preceded poor night sleep. When the data shows a clear trend (e.g. "best nights followed 2–3 naps and ~2–2.5h total nap"), align today's recommendation with that trend so today's schedule is more likely to support a good night.
 
 NAP CAP (critical): cap_at_minutes and each rest_of_day_schedule cap_minutes are the MAXIMUM duration that nap should be allowed — the true upper limit. If the baby sleeps that long, the parent should wake them. Do NOT set the cap to the baby's average nap length. Set it to the longest this nap should run to: (1) protect night sleep and (2) hit the daytime nap goal (total day within nap budget, and aligned with the total that preceded best nights). Use remaining budget for the day and nap position (later naps = shorter caps). First nap can have a longer cap; last nap of the day should be shortest. You decide the cap based on age, schedule, and best-night patterns — no fixed ceiling. Round caps to the nearest 5 minutes.
 
+BEDTIME REALISM (critical): Do not suggest an unrealistically early bedtime after a short nap chain. For this age, avoid bedtime earlier than about ${earliestReasonableBedtime} unless there is a clear reason (e.g., severe overtiredness, very poor prior night, explicit parent target earlier than this, illness/disruption). If you recommend an earlier bedtime anyway, explicitly justify it in reasoning.
+
 CONSTRAINTS (hard limits only):
 - All times in ${timezone}
-- Wake windows must be between ${wakeWindows.min}–${wakeWindows.max} minutes for this baby's age (typical: ${wakeWindows.typical} min)
-- recommended_time must be at least ${wakeWindows.min} min after the baby's last wake time
-- recommended_time must equal the first event in rest_of_day_schedule
+- Age wake window reference: typical ${wakeWindows.typical} min, usual range about ${wakeWindows.min}–${wakeWindows.max} min — you may recommend outside the usual range when justified (e.g. shorter if overtired, longer if undertired), and explain why in reasoning
+- recommended_time must equal the first nap_start (or bedtime) event in rest_of_day_schedule
 - If it's too late for a nap (not enough time for nap + wake window before bedtime), recommend bedtime
 - Total daytime nap minutes should stay within the nap budget
 - Round times to the nearest 5 minutes and cap_at_minutes to the nearest 5
 - wake_window_minutes must be in MINUTES (e.g. 150 for 2h30m, not 2.5)
+
+INTERNAL CONSISTENCY (do this before you output JSON):
+- rest_of_day_schedule must be strictly chronological; each nap_start → nap_end → next nap_start (or bedtime) with realistic gaps
+- After the final nap_end, leave at least a full last wake window before bedtime (use parent last_wake_window if given, otherwise a typical last window for this age — not 20–30 minutes unless baby is a newborn and you justify it)
+- Bedtime must not be wildly earlier than a normal evening bedtime for this age (see BEDTIME REALISM above) unless you justify it
+- Per-nap cap_minutes: keep between 15 and 180; do not invent multi-hour "micro naps" that imply a 4pm bedtime after one short nap unless data strongly supports it
 
 ${contextBlock}${preferencesBlock}
 
@@ -436,7 +448,9 @@ Return a JSON object:
 
 SCHEDULE RULES:
 - Number naps based on how many already happened today. If 1 done, next is Nap 2.
+- If a parent nap-count target is given above, the full day should reflect that total (completed + planned), unless you recommend bedtime next because the target is already met or time does not allow another nap.
 - Include recommended sleep as first event, then all events through bedtime.
+- Bedtime should usually not be earlier than ${earliestReasonableBedtime}; if earlier, include a clear reason in reasoning.
 - Chronologically ordered.
 - "urgency": "now" = 0-5 min or overdue, "soon" = 5-15 min, "upcoming" = 15-60 min, "not_yet" = 60+ min.
 
@@ -492,8 +506,10 @@ function validateNextSleep(
   }
 
   const ww = nextSleep.wake_window_minutes;
-  assert(typeof ww === "number" && ww >= 30 && ww <= 360, `[${providerName}] wake_window_minutes out of range: ${ww}`);
-  assert(ww >= MIN_WAKE_WINDOW_6MO, `[${providerName}] wake_window_minutes ${ww} < min ${MIN_WAKE_WINDOW_6MO} for 6mo`);
+  assert(
+    typeof ww === "number" && ww >= ABSOLUTE_MIN_WAKE_WINDOW_MIN && ww <= MAX_WAKE_WINDOW_MIN,
+    `[${providerName}] wake_window_minutes out of range: ${ww}`,
+  );
 
   assert(nextSleep.summary.length >= 20, `[${providerName}] summary too short (${nextSleep.summary.length} chars)`);
   assert(nextSleep.reasoning.length >= 50, `[${providerName}] reasoning too short (${nextSleep.reasoning.length} chars)`);
@@ -519,11 +535,11 @@ function validateNextSleep(
     const recMin = parseTimeToMinutes(nextSleep.recommended_time);
     const wwToRec = minutesBetween(lastWakeMin, recMin);
     assert(
-      wwToRec >= MIN_WAKE_WINDOW_6MO,
-      `[${providerName}] wake window to recommended time: ${wwToRec}m < ${MIN_WAKE_WINDOW_6MO}m`
+      wwToRec >= ABSOLUTE_MIN_WAKE_WINDOW_MIN,
+      `[${providerName}] wake window to recommended time: ${wwToRec}m < ${ABSOLUTE_MIN_WAKE_WINDOW_MIN}m`,
     );
 
-    // Wake windows in schedule (nap_end -> nap_start/bedtime) — all must be >= min
+    // Wake windows in schedule (nap_end -> nap_start/bedtime) — sanity check (LLM may use < age textbook min)
     const scheduleGaps: number[] = [];
     for (let i = 0; i < schedule.length - 1; i++) {
       const curr = schedule[i];
@@ -535,8 +551,8 @@ function validateNextSleep(
         const gap = minutesBetween(currMin, nextMin);
         scheduleGaps.push(gap);
         assert(
-          gap >= MIN_WAKE_WINDOW_6MO,
-          `[${providerName}] schedule gap ${gap}m between "${curr.time}" (${curr.label}) and "${next.time}" (${next.label}) < ${MIN_WAKE_WINDOW_6MO}m`
+          gap >= ABSOLUTE_MIN_WAKE_WINDOW_MIN,
+          `[${providerName}] schedule gap ${gap}m between "${curr.time}" (${curr.label}) and "${next.time}" (${next.label}) < ${ABSOLUTE_MIN_WAKE_WINDOW_MIN}m`,
         );
       } catch (e) {
         console.warn(`[${providerName}] Could not parse schedule time: ${e}`);
@@ -610,22 +626,6 @@ async function runNextSleepTest(
   if (typeof parsed.wake_window_minutes === "number" && parsed.wake_window_minutes > 0 && parsed.wake_window_minutes < 10) {
     console.warn(`[${provider}] wake_window_minutes=${parsed.wake_window_minutes} looks like hours, converting to minutes`);
     parsed.wake_window_minutes = Math.round(parsed.wake_window_minutes * 60);
-  }
-
-  // Auto-correct: enforce age-appropriate minimum wake window (mirrors edge function server-side enforcement)
-  const ageDays = overrides.babyAgeDays ?? 180;
-  const wwRef = (() => {
-    if (ageDays < 30) return { min: 45, typical: 60 };
-    if (ageDays < 60) return { min: 60, typical: 90 };
-    if (ageDays < 120) return { min: 75, typical: 105 };
-    if (ageDays < 180) return { min: 120, typical: 135 };
-    if (ageDays < 270) return { min: 135, typical: 150 };
-    if (ageDays < 365) return { min: 150, typical: 180 };
-    return { min: 180, typical: 240 };
-  })();
-  if (typeof parsed.wake_window_minutes === "number" && parsed.wake_window_minutes < wwRef.min) {
-    console.warn(`[${provider}] wake_window_minutes=${parsed.wake_window_minutes} below age min ${wwRef.min}, overriding to ${wwRef.typical}`);
-    parsed.wake_window_minutes = wwRef.typical;
   }
 
   return parsed;

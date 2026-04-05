@@ -18,11 +18,13 @@ import { useBabies } from '@/hooks/useBabies';
 import { useNightSleepScores } from '@/hooks/useNightSleepScores';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
 import { supabase } from '@/lib/supabase';
+import { requestLiveActivityRefreshForCaregivers } from '@/services/liveActivity';
 import { track } from '@/services/analytics/track';
 import type { CareEvent } from '@/services/repositories/careEventsRepo';
 import { careEventsRepo } from '@/services/repositories/careEventsRepo';
 import { eventsRepo } from '@/services/repositories/eventsRepo';
 import type { EventLogType, SleepEvent } from '@/types/domain';
+import { getExtendedDayCalendarDate } from '@/utils/dateUtils';
 import { formatDuration } from '@/utils/formatTime';
 import { getNightSummaries } from '@/utils/nightSleepScore';
 import { addDays, addWeeks, format, startOfWeek, subDays, subWeeks } from 'date-fns';
@@ -51,7 +53,7 @@ const STRIP_LOAD_MORE_WEEKS = 4;
 export default function LogScreen() {
   const { babies, loading: babiesLoading } = useBabies();
   const { currentBabyId, setCurrentBabyId, isHydrated } = useCurrentBaby();
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(() => getExtendedDayCalendarDate(new Date()));
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [displayWeekStart, setDisplayWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
@@ -231,6 +233,10 @@ export default function LogScreen() {
             try {
               await eventsRepo.delete(event.id);
               await loadEvents();
+              if (currentBabyId) {
+                const { data: { user } } = await supabase.auth.getUser();
+                void requestLiveActivityRefreshForCaregivers(currentBabyId, user?.id ?? null);
+              }
             } catch (err: any) {
               Alert.alert('Error', err?.message ?? 'Could not delete entry.');
             }
@@ -291,6 +297,10 @@ export default function LogScreen() {
               }
               await loadEvents();
               handleCancelSelection();
+              if (currentBabyId) {
+                const { data: { user } } = await supabase.auth.getUser();
+                void requestLiveActivityRefreshForCaregivers(currentBabyId, user?.id ?? null);
+              }
             } catch (err: any) {
               Alert.alert('Error', err?.message ?? 'Could not delete entries.');
             }
@@ -311,7 +321,7 @@ export default function LogScreen() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { Alert.alert('Error', 'Not authenticated'); return; }
 
-        await supabase
+        const { error: insErr } = await supabase
           .from('sleep_sessions')
           .insert({
             baby_id: currentBabyId,
@@ -319,6 +329,8 @@ export default function LogScreen() {
             start_time: new Date().toISOString(),
             logged_by: user.id,
           });
+        if (insErr) throw insErr;
+        void requestLiveActivityRefreshForCaregivers(currentBabyId, user.id);
 
         await loadEvents();
       } catch (err: any) {
@@ -784,7 +796,11 @@ export default function LogScreen() {
 
         {/* Selectors */}
         {viewMode === 'daily' && (
-          <DaySelector selectedDate={selectedDate} onDateChange={setSelectedDate} />
+          <DaySelector
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            todayAnchor={getExtendedDayCalendarDate(new Date())}
+          />
         )}
         {viewMode === 'weekly' && (
           <WeekSelector

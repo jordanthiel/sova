@@ -45,6 +45,31 @@ function computeNapCap(ageDays: number, totalNapMinutesToday: number): number {
   return cap;
 }
 
+/** Conservative earliest bedtime floor by age to avoid unrealistic "5pm bedtime" outputs. */
+function getEarliestReasonableBedtimeMinutes(ageDays: number): number {
+  if (ageDays < 120) return 17 * 60 + 30; // 5:30 PM
+  if (ageDays < 365) return 18 * 60;      // 6:00 PM
+  return 18 * 60 + 30;                    // 6:30 PM
+}
+
+function clampTooEarlyBedtime(
+  candidate: Date,
+  baseline: Date,
+  ageDays: number,
+  now: Date
+): Date {
+  const floorByAge = new Date(now);
+  const floorMin = getEarliestReasonableBedtimeMinutes(ageDays);
+  floorByAge.setHours(Math.floor(floorMin / 60), floorMin % 60, 0, 0);
+  if (floorByAge.getTime() < now.getTime()) floorByAge.setDate(floorByAge.getDate() + 1);
+
+  // Allow some flexibility, but reject bedtimes >2h earlier than baseline target/default.
+  const floorByBaseline = addMinutes(baseline, -120);
+  const effectiveFloor = new Date(Math.max(floorByAge.getTime(), floorByBaseline.getTime()));
+
+  return candidate.getTime() < effectiveFloor.getTime() ? effectiveFloor : candidate;
+}
+
 // ─── Time parsing ───────────────────────────────────────────────
 
 /**
@@ -244,13 +269,16 @@ async function fetchRemoteRecommendation(
       expectedBedtimeDate.setHours(h, m, 0, 0);
     }
   }
+  const baselineBedtimeDate = new Date(expectedBedtimeDate);
   // Check if LLM returned a bedtime in schedule
   const bedtimeEvent = Array.isArray(nextSleep.rest_of_day_schedule)
     ? nextSleep.rest_of_day_schedule.find((e: { event?: string }) => e.event === 'bedtime')
     : undefined;
   if (bedtimeEvent?.time) {
     const parsedBedtime = parseRecommendedTime(String(bedtimeEvent.time), now);
-    if (!Number.isNaN(parsedBedtime.getTime())) expectedBedtimeDate = parsedBedtime;
+    if (!Number.isNaN(parsedBedtime.getTime())) {
+      expectedBedtimeDate = clampTooEarlyBedtime(parsedBedtime, baselineBedtimeDate, ageDays, now);
+    }
   }
   if (expectedBedtimeDate.getTime() < now.getTime()) {
     expectedBedtimeDate.setDate(expectedBedtimeDate.getDate() + 1);
@@ -392,6 +420,18 @@ function validateAndFixSchedule(
     }
   }
 
+  // Reject schedules whose bedtime is far earlier than the bedtime guardrail used for the payload.
+  const bedtimeInSchedule = parsed.find((p) => p.event.event === 'bedtime');
+  if (bedtimeInSchedule) {
+    const minutesEarlierThanExpected = (bedtime.getTime() - bedtimeInSchedule.date.getTime()) / 60000;
+    if (minutesEarlierThanExpected > 90) {
+      console.warn(
+        `[recommendations] Schedule bedtime too early (${bedtimeInSchedule.event.time}); expected around ${format(bedtime, 'h:mm a')}`
+      );
+      isValid = false;
+    }
+  }
+
   if (isValid) return rawSchedule;
 
   // Rebuild locally
@@ -455,14 +495,15 @@ export function getLocalNapRecommendation(
   let capMinutes = computeNapCap(ageDays, totalNapMinutes);
   capMinutes = roundToNearest5(capMinutes);
 
-  // Determine target nap count for today, adapting to observed reality.
-  // If baby has been consistently taking fewer naps than age-typical, use observed count.
-  const { typical: typicalNapCount } = getRecommendedNapCountForAge(ageDays);
+  // Target naps for today: explicit parent preference wins, then observed habit vs age-typical.
+  const ageNapRec = getRecommendedNapCountForAge(ageDays);
   const observedNapCount = getObservedDailyNapCount(events);
-  const targetNapCount =
-    observedNapCount != null && observedNapCount < typicalNapCount
-      ? observedNapCount
-      : typicalNapCount;
+  let targetNapCount = ageNapRec.typical;
+  if (prefs.targetNapCount != null && prefs.targetNapCount >= 1 && prefs.targetNapCount <= 6) {
+    targetNapCount = prefs.targetNapCount;
+  } else if (observedNapCount != null && observedNapCount < ageNapRec.typical) {
+    targetNapCount = observedNapCount;
+  }
 
   // If baby has already hit the target nap count, treat this as a bedtime scenario
   const napBudgetExhausted = todayNaps.length >= targetNapCount;

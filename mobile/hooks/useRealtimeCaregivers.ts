@@ -14,6 +14,15 @@ export function useRealtimeCaregivers(babyId: string | null) {
       return;
     }
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.user) {
+        setCaregivers([]);
+        return;
+      }
+
       const data = await caregiversRepo.list(babyId);
       setCaregivers(data);
     } catch (err) {
@@ -29,29 +38,32 @@ export function useRealtimeCaregivers(babyId: string | null) {
     if (!babyId) return;
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    supabase
-      .from('babies')
-      .select('family_id')
-      .eq('id', babyId)
-      .single()
-      .then(({ data }) => {
-        if (!data?.family_id) return;
-        channel = supabase
-          .channel(`family_members:${data.family_id}`)
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'family_members',
-              filter: `family_id=eq.${data.family_id}`,
-            },
-            () => {
-              fetchCaregivers();
-            }
-          )
-          .subscribe();
-      });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user) return null;
+      return supabase
+        .from('babies')
+        .select('family_id')
+        .eq('id', babyId)
+        .maybeSingle();
+    }).then((result) => {
+      const data = result?.data;
+      if (!data?.family_id) return;
+      channel = supabase
+        .channel(`family_members:${data.family_id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'family_members',
+            filter: `family_id=eq.${data.family_id}`,
+          },
+          () => {
+            fetchCaregivers();
+          }
+        )
+        .subscribe();
+    });
 
     return () => {
       if (channel) supabase.removeChannel(channel);

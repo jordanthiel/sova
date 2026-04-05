@@ -6,6 +6,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import { requestLiveActivityRefreshForCaregivers } from '@/services/liveActivity';
 
 const OFFLINE_QUEUE_KEY = '@sova/offline_sleep_queue';
 
@@ -64,6 +65,9 @@ export async function flushOfflineQueue(): Promise<number> {
   const queue = await loadQueue();
   if (queue.length === 0) return 0;
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const excludeId = user?.id ?? null;
+
   const remaining: OfflineOp[] = [];
   for (const op of queue) {
     try {
@@ -74,8 +78,17 @@ export async function flushOfflineQueue(): Promise<number> {
           start_time: op.startTime,
           logged_by: op.loggedBy,
         });
-        if (error) remaining.push(op);
+        if (error) {
+          remaining.push(op);
+        } else {
+          void requestLiveActivityRefreshForCaregivers(op.babyId, excludeId);
+        }
       } else {
+        const { data: row } = await supabase
+          .from('sleep_sessions')
+          .select('baby_id')
+          .eq('id', op.sessionId)
+          .maybeSingle();
         const { error } = await supabase
           .from('sleep_sessions')
           .update({
@@ -83,7 +96,11 @@ export async function flushOfflineQueue(): Promise<number> {
             duration_minutes: op.durationMinutes,
           })
           .eq('id', op.sessionId);
-        if (error) remaining.push(op);
+        if (error) {
+          remaining.push(op);
+        } else if (row?.baby_id) {
+          void requestLiveActivityRefreshForCaregivers(row.baby_id as string, excludeId);
+        }
       }
     } catch {
       remaining.push(op);

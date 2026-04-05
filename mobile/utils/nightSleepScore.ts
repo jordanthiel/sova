@@ -29,14 +29,63 @@ function get6amCutoffNextDay(dateKey: string): number {
   return d.getTime();
 }
 
-/** Duration in minutes for a segment, capped at capEndMs so we don't count sleep past 6am toward that night's total. */
-function effectiveDurationCappedAt(s: NightScoreSession, capEndMs: number): number {
-  if (!s.end_time) return s.duration_minutes ?? 0;
-  const startMs = new Date(s.start_time).getTime();
-  const endMs = new Date(s.end_time).getTime();
-  if (startMs >= capEndMs) return 0;
-  if (endMs <= capEndMs) return Math.round((endMs - startMs) / 60000);
-  return Math.round((capEndMs - startMs) / 60000);
+type TimeIntervalMs = { startMs: number; endMs: number };
+
+function intervalsFromSessions(segs: NightScoreSession[]): TimeIntervalMs[] {
+  const out: TimeIntervalMs[] = [];
+  for (const s of segs) {
+    if (!s.end_time) continue;
+    const startMs = new Date(s.start_time).getTime();
+    const endMs = new Date(s.end_time).getTime();
+    if (endMs <= startMs) continue;
+    out.push({ startMs, endMs });
+  }
+  return out;
+}
+
+/** Merge overlapping or touching intervals so duplicate/overlapping logs are not double-counted. */
+function mergeOverlappingIntervals(intervals: TimeIntervalMs[]): TimeIntervalMs[] {
+  if (intervals.length === 0) return [];
+  const sorted = [...intervals].sort((a, b) => a.startMs - b.startMs);
+  const merged: TimeIntervalMs[] = [{ ...sorted[0] }];
+  for (let i = 1; i < sorted.length; i++) {
+    const cur = sorted[i];
+    const last = merged[merged.length - 1];
+    if (cur.startMs <= last.endMs) {
+      last.endMs = Math.max(last.endMs, cur.endMs);
+    } else {
+      merged.push({ ...cur });
+    }
+  }
+  return merged;
+}
+
+function totalSleepAndAwakeFromMerged(
+  merged: TimeIntervalMs[],
+  capEndMs: number
+): { totalSleepMinutes: number; totalAwakeMinutes: number; wakeupCount: number } {
+  if (merged.length === 0) {
+    return { totalSleepMinutes: 0, totalAwakeMinutes: 0, wakeupCount: 0 };
+  }
+  let totalSleep = 0;
+  for (let i = 0; i < merged.length; i++) {
+    const isLast = i === merged.length - 1;
+    let { startMs, endMs } = merged[i];
+    if (isLast) {
+      if (startMs >= capEndMs) break;
+      endMs = Math.min(endMs, capEndMs);
+    }
+    totalSleep += Math.round((endMs - startMs) / 60000);
+  }
+  let totalAwake = 0;
+  for (let i = 1; i < merged.length; i++) {
+    totalAwake += Math.round((merged[i].startMs - merged[i - 1].endMs) / 60000);
+  }
+  return {
+    totalSleepMinutes: totalSleep,
+    totalAwakeMinutes: totalAwake,
+    wakeupCount: merged.length > 0 ? merged.length - 1 : 0,
+  };
 }
 
 /** Include naps that connect to the run (within 2h) so evening/mislabeled segments count as one night. */
@@ -98,7 +147,7 @@ export interface NightSummary {
   wakeupCount: number;
   /** Total minutes awake during the night (sum of gaps between segments). */
   totalAwakeMinutes: number;
-  /** Number of night segments (wakeupCount + 1 when segments > 0). */
+  /** Merged sleep blocks after overlapping logs are combined (wakeupCount + 1 when blocks > 0). */
   segmentCount: number;
   /** ISO timestamp of the last segment's end time — used to determine if night is complete. */
   lastSegmentEndTime: string;
@@ -192,73 +241,40 @@ export function getNightSummaries(
   return result.slice(0, max);
 }
 
-/** Combine multiple runs (split by gap > 2h) into a single night: total sleep, total awake, wakeupCount = total segments - 1. */
+function lastSegmentEndTimeFromSessions(segs: NightScoreSession[]): string {
+  let maxMs = 0;
+  let end = '';
+  for (const s of segs) {
+    if (!s.end_time) continue;
+    const t = new Date(s.end_time).getTime();
+    if (t >= maxMs) {
+      maxMs = t;
+      end = s.end_time;
+    }
+  }
+  return end;
+}
+
+/** Combine multiple runs (split by gap > 2h) into a single night: total sleep, total awake, wakeupCount = gaps between merged sleep blocks - 1. */
 function mergeRunsIntoOneNight(runs: NightScoreSession[][], dateKey: string): NightSummary {
   if (runs.length === 0) {
     return { dateKey, totalSleepMinutes: 0, wakeupCount: 0, totalAwakeMinutes: 0, segmentCount: 0, lastSegmentEndTime: '' };
   }
-  if (runs.length === 1) return summarizeRun(runs[0], dateKey);
-
-  let totalSleepMinutes = 0;
-  let totalAwakeMinutes = 0;
-  let segmentCount = 0;
-
   const cap6am = get6amCutoffNextDay(dateKey);
-  for (let r = 0; r < runs.length; r++) {
-    const run = runs[r];
-    const isLastRun = r === runs.length - 1;
-    for (let i = 0; i < run.length; i++) {
-      const isLastSegment = isLastRun && i === run.length - 1;
-      totalSleepMinutes += isLastSegment
-        ? effectiveDurationCappedAt(run[i], cap6am)
-        : effectiveDuration(run[i]);
-      if (i > 0) {
-        const prevEnd = new Date(run[i - 1].end_time!).getTime();
-        const currStart = new Date(run[i].start_time).getTime();
-        totalAwakeMinutes += Math.round((currStart - prevEnd) / 60000);
-      }
-      segmentCount += 1;
-    }
-    if (r > 0) {
-      const prevRunEnd = new Date(runs[r - 1][runs[r - 1].length - 1].end_time!).getTime();
-      const thisRunStart = new Date(run[0].start_time).getTime();
-      totalAwakeMinutes += Math.round((thisRunStart - prevRunEnd) / 60000);
-    }
+  const flat: TimeIntervalMs[] = [];
+  for (const run of runs) {
+    flat.push(...mergeOverlappingIntervals(intervalsFromSessions(run)));
   }
-
-  const lastRun = runs[runs.length - 1];
+  const merged = mergeOverlappingIntervals(flat);
+  const { totalSleepMinutes, totalAwakeMinutes, wakeupCount } = totalSleepAndAwakeFromMerged(merged, cap6am);
+  const allSegs = runs.flat();
   return {
     dateKey,
     totalSleepMinutes,
-    wakeupCount: segmentCount - 1,
+    wakeupCount,
     totalAwakeMinutes,
-    segmentCount,
-    lastSegmentEndTime: lastRun[lastRun.length - 1].end_time!,
-  };
-}
-
-function summarizeRun(segs: NightScoreSession[], dateKey: string): NightSummary {
-  let totalSleep = 0;
-  let totalAwake = 0;
-  const cap6am = get6amCutoffNextDay(dateKey);
-  for (let i = 0; i < segs.length; i++) {
-    const isLast = i === segs.length - 1;
-    totalSleep += isLast
-      ? effectiveDurationCappedAt(segs[i], cap6am)
-      : effectiveDuration(segs[i]);
-    if (i > 0) {
-      const prevEnd = new Date(segs[i - 1].end_time!).getTime();
-      const currStart = new Date(segs[i].start_time).getTime();
-      totalAwake += Math.round((currStart - prevEnd) / 60000);
-    }
-  }
-  return {
-    dateKey,
-    totalSleepMinutes: totalSleep,
-    wakeupCount: segs.length - 1,
-    totalAwakeMinutes: totalAwake,
-    segmentCount: segs.length,
-    lastSegmentEndTime: segs[segs.length - 1].end_time!,
+    segmentCount: merged.length,
+    lastSegmentEndTime: lastSegmentEndTimeFromSessions(allSegs),
   };
 }
 

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { BarChart, LineChart } from 'react-native-gifted-charts';
-import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { Spacing, Typography, Radius, ChartTypography } from '@/constants/theme';
 import { chartConfig, getBarChartAxisStyles } from '@/constants/chartConfig';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
@@ -435,7 +435,7 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
       </View>
 
       {/* Averages card */}
-      <Card padding="md" style={styles.card}>
+      <DarkPanel padding="md" shadow="sm" style={styles.card}>
         <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.xs }]}>
           Averages
         </Text>
@@ -456,10 +456,10 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
             <Text style={[Typography.h3, { color: colors.text }]}>{formatDuration(Math.round(averages.avgDailyTotal))}</Text>
           </View>
         </View>
-      </Card>
+      </DarkPanel>
 
       {/* Daily total sleep: average by day of week */}
-      <Card padding="md" style={styles.card}>
+      <DarkPanel padding="md" shadow="sm" style={styles.card}>
         <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.xs }]}>
           Sleep by weekday
         </Text>
@@ -523,11 +523,11 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
             ]}
           />
         ) : null}
-      </Card>
+      </DarkPanel>
 
       {/* Rise & bedtime trend */}
       {riseBedPoints.length > 0 && (
-        <Card padding="md" style={[styles.card, styles.overflowVisibleCard]}>
+        <DarkPanel padding="md" shadow="sm" style={[styles.card, styles.overflowVisibleCard]}>
           <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.xs }]}>
             Rise & bedtime
           </Text>
@@ -655,12 +655,12 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
               ]}
             />
           ) : null}
-        </Card>
+        </DarkPanel>
       )}
 
       {/* Night sleep score chart */}
       {scorePoints.length > 0 && (
-        <Card padding="md" style={styles.card}>
+        <DarkPanel padding="md" shadow="sm" style={styles.card}>
           <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.xs }]}>
             Night sleep score
           </Text>
@@ -736,12 +736,12 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
               ]}
             />
           ) : null}
-        </Card>
+        </DarkPanel>
       )}
 
       {/* Load by caregiver */}
       {caregiverLoad.length > 0 && (
-        <Card padding="md" style={styles.card}>
+        <DarkPanel padding="md" shadow="sm" style={styles.card}>
           <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.xs }]}>
             Load by caregiver
           </Text>
@@ -831,12 +831,12 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
               </View>
             ))}
           </View>
-        </Card>
+        </DarkPanel>
       )}
 
       {/* Naps per week (for longer periods) */}
       {period.bucket === 'week' && (
-        <Card padding="md" style={styles.card}>
+        <DarkPanel padding="md" shadow="sm" style={styles.card}>
           <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.xs }]}>
             Naps per week
           </Text>
@@ -892,7 +892,7 @@ export function TrendsTab({ sessions, ageMonths, caregivers }: TrendsTabProps) {
               ]}
             />
           ) : null}
-        </Card>
+        </DarkPanel>
       )}
 
       <View style={{ height: 100 }} />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format, addDays, subDays, isToday, isTomorrow, isYesterday } from 'date-fns';
+import { format, addDays, subDays, isSameDay, isToday, isTomorrow, isYesterday } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
@@ -9,16 +9,24 @@ import { useThemeColors } from '@/hooks/use-theme-color';
 interface DaySelectorProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
+  /** When set, Today/Yesterday/Tomorrow follow this anchor (e.g. extended 6am–6am “today”) instead of calendar midnight. */
+  todayAnchor?: Date;
 }
 
-function getDateLabel(date: Date): string {
+function getDateLabel(date: Date, todayAnchor?: Date): string {
+  if (todayAnchor) {
+    if (isSameDay(date, todayAnchor)) return 'Today';
+    if (isSameDay(date, subDays(todayAnchor, 1))) return 'Yesterday';
+    if (isSameDay(date, addDays(todayAnchor, 1))) return 'Tomorrow';
+    return format(date, 'EEE, MMM d');
+  }
   if (isToday(date)) return 'Today';
   if (isYesterday(date)) return 'Yesterday';
   if (isTomorrow(date)) return 'Tomorrow';
   return format(date, 'EEE, MMM d');
 }
 
-export function DaySelector({ selectedDate, onDateChange }: DaySelectorProps) {
+export function DaySelector({ selectedDate, onDateChange, todayAnchor }: DaySelectorProps) {
   const colors = useThemeColors();
   const [showPicker, setShowPicker] = useState(false);
 
@@ -67,7 +75,7 @@ export function DaySelector({ selectedDate, onDateChange }: DaySelectorProps) {
           activeOpacity={0.7}
         >
           <Text style={[Typography.bodySemiBold, { color: colors.text }]}>
-            {getDateLabel(selectedDate)}
+            {getDateLabel(selectedDate, todayAnchor)}
           </Text>
           <Text style={[Typography.small, { color: colors.textTertiary }]}>
             {format(selectedDate, 'MMMM d, yyyy')}

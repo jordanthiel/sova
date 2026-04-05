@@ -1,14 +1,14 @@
 import { BabySwitcher } from '@/components/baby/BabySwitcher';
 import { ProfileAvatarButton } from '@/components/ProfileAvatarButton';
 import { PremiumUpsellCard } from '@/components/premium/PremiumUpsellCard';
-import { TrialStatusBanner } from '@/components/premium/TrialStatusBanner';
+import { TrialStatusChip } from '@/components/premium/TrialStatusChip';
 import { AiForecastCard } from '@/components/recommendations/AiForecastCard';
 import { ActiveSessionCard } from '@/components/sleep/ActiveSessionCard';
 import { SessionEditModal } from '@/components/sleep/SessionEditModal';
 import { SwipeableSessionCard } from '@/components/sleep/SwipeableSessionCard';
 import { NightSleepScoreCard } from '@/components/today/NightSleepScoreCard';
 import { StatusAndRecommendationCard } from '@/components/today/StatusAndRecommendationCard';
-import { Card } from '@/components/ui/Card';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
@@ -36,6 +36,7 @@ import {
   scheduleNapWindowReminder,
   scheduleWakeWindowAlert,
 } from '@/services/notifications';
+import { requestLiveActivityRefreshForCaregivers } from '@/services/liveActivity';
 import { flushOfflineQueue, queueInsert, queueUpdate } from '@/services/offlineSleepQueue';
 import { excludedDaysRepo } from '@/services/repositories/excludedDaysRepo';
 import { babiesRepo } from '@/services/repositories/babiesRepo';
@@ -662,9 +663,7 @@ export default function TodayScreen() {
       }
 
       await refetchSessions?.();
-      supabase.functions
-        .invoke('notify-live-activity-refresh', { body: { babyId: currentBabyId, excludeUserId: user.id } })
-        .catch(() => {});
+      void requestLiveActivityRefreshForCaregivers(currentBabyId, user.id);
     } catch (err: any) {
       const isNetworkError =
         err?.message?.includes('network') ||
@@ -707,11 +706,7 @@ export default function TodayScreen() {
       await refetchSessions?.();
       const { data: { user } } = await supabase.auth.getUser();
       if (currentBabyId && user) {
-        supabase.functions
-          .invoke('notify-live-activity-refresh', {
-            body: { babyId: currentBabyId, excludeUserId: user.id },
-          })
-          .catch(() => {});
+        void requestLiveActivityRefreshForCaregivers(currentBabyId, user.id);
       }
     } catch (err: any) {
       const isNetworkError =
@@ -784,6 +779,10 @@ export default function TodayScreen() {
     if (error) Alert.alert('Error', error.message);
     setEditSession(null);
     await refetchSessions?.();
+    if (!error && currentBabyId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      void requestLiveActivityRefreshForCaregivers(currentBabyId, user?.id ?? null);
+    }
   };
 
   const handleDeleteSession = async (sessionId: string) => {
@@ -791,6 +790,10 @@ export default function TodayScreen() {
     if (error) Alert.alert('Error', error.message);
     setEditSession(null);
     await refetchSessions?.();
+    if (!error && currentBabyId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      void requestLiveActivityRefreshForCaregivers(currentBabyId, user?.id ?? null);
+    }
   };
 
   const handleSwipeDeleteSession = (sessionId: string) => {
@@ -803,6 +806,10 @@ export default function TodayScreen() {
           const { error } = await supabase.from('sleep_sessions').delete().eq('id', sessionId);
           if (error) Alert.alert('Error', error.message);
           await refetchSessions?.();
+          if (!error && currentBabyId) {
+            const { data: { user } } = await supabase.auth.getUser();
+            void requestLiveActivityRefreshForCaregivers(currentBabyId, user?.id ?? null);
+          }
         },
       },
     ]);
@@ -911,16 +918,17 @@ export default function TodayScreen() {
               track('switch_baby', { babyId: id });
               setCurrentBabyId(id);
             }} />
-            <ProfileAvatarButton />
+            <View style={styles.headerActions}>
+              {shouldShowTrialBanner && trialDaysRemaining != null ? (
+                <TrialStatusChip
+                  daysRemaining={trialDaysRemaining}
+                  onPress={() => showPaywall()}
+                />
+              ) : null}
+              <ProfileAvatarButton />
+            </View>
           </View>
         </View>
-
-        {shouldShowTrialBanner && trialDaysRemaining != null ? (
-          <TrialStatusBanner
-            daysRemaining={trialDaysRemaining}
-            onPress={() => showPaywall()}
-          />
-        ) : null}
 
         {/* Status & recommendation — one card when user has logged sessions and awake time is reasonable (≤16h) */}
         {showStatusCard &&
@@ -989,7 +997,7 @@ export default function TodayScreen() {
 
         {/* Empty state when no sleep data yet (status card is hidden in that case) */}
         {!activeSession && !hasAnyEndedSessions && (
-          <Card style={styles.recommendationEmptyCard} padding="lg">
+          <DarkPanel style={styles.recommendationEmptyCard} padding="lg" shadow="sm">
             <EmptyState
               icon="moon.zzz.fill"
               title="No sleep data yet"
@@ -997,7 +1005,7 @@ export default function TodayScreen() {
               actionTitle="Log first sleep session"
               onAction={handleStartNap}
             />
-          </Card>
+          </DarkPanel>
         )}
         {/* Last night — section title + score card */}
         {lastNightScore != null && (
@@ -1049,7 +1057,7 @@ export default function TodayScreen() {
             {`Today's Sessions`}
           </Text>
           {todaySessions.length === 0 ? (
-            <Card padding="lg">
+            <DarkPanel padding="lg" shadow="sm">
               <View style={styles.emptySessions}>
                 <IconSymbol name="moon.zzz.fill" size={40} color={colors.textSecondary} style={styles.emptyIcon} />
                 <Text style={[Typography.bodyMedium, { color: colors.textSecondary, textAlign: 'center' }]}>
@@ -1059,7 +1067,7 @@ export default function TodayScreen() {
                   Use the quick actions above to get started
                 </Text>
               </View>
-            </Card>
+            </DarkPanel>
           ) : (
             todaySessions.map((session, index) => {
               const loggedByCaregiver = caregivers.find((c) => c.id === session.logged_by) ?? null;
@@ -1109,6 +1117,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   section: {
     paddingHorizontal: Spacing.md,

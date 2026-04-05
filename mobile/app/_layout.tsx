@@ -8,6 +8,7 @@ import { View, ActivityIndicator, StyleSheet, Text, Image } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
+import { registerLiveActivityBackgroundPushTask } from '@/registerLiveActivityBackgroundTask';
 import { Colors, Gradients, Typography, Spacing } from '@/constants/theme';
 import { CurrentBabyProvider } from '@/contexts/CurrentBabyContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
@@ -62,6 +63,7 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
+    registerLiveActivityBackgroundPushTask().catch(() => {});
     const remove = addLiveActivityRefreshListener();
     return remove;
   }, []);

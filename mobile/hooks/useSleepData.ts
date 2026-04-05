@@ -18,20 +18,40 @@ export function useSleepData({ babyId }: UseSleepDataProps) {
 
   useEffect(() => {
     if (!babyId) {
+      setBaby(null);
+      setSessions([]);
+      setAgeDays(0);
       setLoading(false);
       return;
     }
 
     const loadData = async () => {
       try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.user) {
+          setBaby(null);
+          setSessions([]);
+          setAgeDays(0);
+          return;
+        }
+
         // Load baby info
         const { data: babyData, error: babyError } = await supabase
           .from('babies')
           .select('*')
           .eq('id', babyId)
-          .single();
+          .maybeSingle();
 
         if (babyError) throw babyError;
+        if (!babyData) {
+          setBaby(null);
+          setSessions([]);
+          setAgeDays(0);
+          return;
+        }
         setBaby(babyData);
         if (babyData) {
           setAgeDays(calculateAgeDays(babyData.birth_date));

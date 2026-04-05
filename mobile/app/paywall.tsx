@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -64,6 +64,7 @@ export default function PaywallScreen() {
     billingConfigured,
     isLoading,
     offeringsLoading,
+    refresh,
     restorePurchases,
     purchasePackage,
     trialEndsAt,
@@ -92,6 +93,26 @@ export default function PaywallScreen() {
       : trialDaysRemaining > 0
       ? `${trialDaysRemaining} day${trialDaysRemaining === 1 ? '' : 's'} left in your 7-day free trial`
       : 'Your 7-day free trial has ended';
+  const noPlansAvailable = billingConfigured && !offeringsLoading && packages.length === 0;
+
+  useEffect(() => {
+    if (!billingConfigured) return;
+    if (availablePackages.length > 0) return;
+    void refresh({ loadOfferings: true, syncPurchases: false });
+  }, [billingConfigured, availablePackages.length, refresh]);
+
+  const handleContinue = async () => {
+    if (noPlansAvailable) {
+      await refresh({ loadOfferings: true, syncPurchases: false });
+      Alert.alert(
+        'Plans unavailable',
+        'No subscription plans are available right now. Please try again in a moment.'
+      );
+      return;
+    }
+
+    await handlePurchase();
+  };
 
   const handlePurchase = async () => {
     if (!selectedPackage) return;
@@ -201,6 +222,13 @@ export default function PaywallScreen() {
               Loading plans...
             </Text>
           </View>
+        ) : noPlansAvailable ? (
+          <View style={[styles.errorCard, { borderColor: colors.borderLight }]}>
+            <Text style={[Typography.bodySemiBold, { color: colors.text }]}>Plans unavailable</Text>
+            <Text style={[Typography.body, { color: colors.textSecondary, marginTop: Spacing.xs }]}>
+              We couldn&apos;t load any subscription options right now. Try again shortly, or restore purchases if you already subscribed.
+            </Text>
+          </View>
         ) : (
           <View style={styles.planList}>
             {packages.map((pkg) => {
@@ -244,9 +272,11 @@ export default function PaywallScreen() {
         )}
 
         <Button
-          title={isLoading ? 'Processing...' : 'Continue'}
-          onPress={handlePurchase}
-          disabled={!billingConfigured || !selectedPackage || offeringsLoading || isLoading}
+          title={
+            isLoading ? 'Processing...' : noPlansAvailable ? 'Reload plans' : 'Continue'
+          }
+          onPress={handleContinue}
+          disabled={!billingConfigured || offeringsLoading || isLoading}
           loading={isLoading}
           variant="gradient"
           fullWidth

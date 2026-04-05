@@ -1,4 +1,4 @@
-import { addDays, format } from 'date-fns';
+import { addDays, format, parse } from 'date-fns';
 
 /**
  * Extended "day" is 6am–6am (e.g. "today" = 6am today through 6am tomorrow).
@@ -38,6 +38,12 @@ export function getExtendedDayKey(date: Date): string {
     return format(prev, 'yyyy-MM-dd');
   }
   return format(date, 'yyyy-MM-dd');
+}
+
+/** Local midnight on the calendar day that anchors the extended day containing `from` (for pickers / selected-day state). */
+export function getExtendedDayCalendarDate(from: Date): Date {
+  const key = getExtendedDayKey(from);
+  return parse(key, 'yyyy-MM-dd', from);
 }
 
 /** True if a session [start, end] overlaps the extended day [dayStart6am, dayEnd6am). */

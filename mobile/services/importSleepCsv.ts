@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from '@/lib/supabase';
+import { requestLiveActivityRefreshForCaregivers } from '@/services/liveActivity';
 import { parseSleepCsv, type ParsedSleepRow } from '@/utils/sleepCsvImport';
 
 const BATCH_SIZE = 50;
@@ -59,6 +60,10 @@ export async function importSleepSessions(
     } else {
       imported += batch.length;
     }
+  }
+
+  if (imported > 0) {
+    void requestLiveActivityRefreshForCaregivers(babyId, userId);
   }
 
   return { imported, failed, errors };
