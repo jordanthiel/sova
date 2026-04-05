@@ -79,6 +79,9 @@ export interface AIRecommendation {
   type: RecommendationType;
   payload: NapRecommendationPayload | CapNapPayload | GenericRecommendationPayload;
   confidence: ConfidenceLevel;
+  /** When present, numeric confidence from agentic path (0–1). */
+  confidenceNumeric?: number;
+  dataQualityScore?: number;
 }
 
 /** One event in the ideal rest-of-day schedule (from next_sleep AI). */
@@ -91,6 +94,22 @@ export interface RestOfDayScheduleEvent {
   cap_minutes?: number | null;
   /** For nap_start/bedtime events: the wake window leading up to this event (graduates through the day). */
   wake_window_minutes?: number | null;
+}
+
+/** Structured fields from agentic `agentic` response (edge function). */
+export interface AgenticScheduleMeta {
+  requestType?: string;
+  confidence?: number;
+  dataQualityScore?: number;
+  reasoningSummary?: string;
+  watchFors?: string[];
+  parentFacingResponse?: string;
+  fallbackAction?: { type?: string; label?: string; startAt?: string; endAt?: string; wakeAt?: string };
+  idealWakeRange?: { startAt: string; endAt: string };
+  preferredWakeAt?: string;
+  stillOkayUntil?: string;
+  softCapAt?: string;
+  hardCapAt?: string;
 }
 
 export interface NapRecommendationPayload {
@@ -108,6 +127,8 @@ export interface NapRecommendationPayload {
   restOfDaySchedule?: RestOfDayScheduleEvent[] | null;
   /** Wake window in minutes from the LLM (used for StatusCard when present). */
   recommendedWakeWindowMinutes?: number | null;
+  /** Agentic orchestrator output subset for UI (confidence, watch-fors, nap-cap bands, etc.). */
+  agentic?: AgenticScheduleMeta;
 }
 
 export interface CapNapPayload {

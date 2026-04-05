@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { agenticResponseToLegacyNextSleep } from './ai/legacyNextSleepMap.ts';
+import { runScheduleRecommendationOrchestrator } from './ai/orchestrators/scheduleRecommendationOrchestrator.ts';
 
 // ─── Environment ─────────────────────────────────────────────────
 
@@ -26,7 +28,16 @@ interface ChatMessage {
 }
 
 type Provider = 'anthropic' | 'openai' | 'gemini';
-type Mode = 'next_sleep' | 'chat' | 'recommendation' | 'nap_evaluation' | 'micro_insight' | 'daily_schedule' | 'forecast' | 'insights_bundle';
+type Mode =
+  | 'next_sleep'
+  | 'max_nap_duration'
+  | 'chat'
+  | 'recommendation'
+  | 'nap_evaluation'
+  | 'micro_insight'
+  | 'daily_schedule'
+  | 'forecast'
+  | 'insights_bundle';
 
 interface RequestBody {
   baby_id: string;
@@ -40,12 +51,22 @@ interface RequestBody {
   timezone?: string;
   last_wake_time?: string | null;
   baby_name?: string;
+  /** Agentic routing: schedule card vs chat vs generic API */
+  request_source?: 'schedule_card' | 'chat' | 'api';
+  /** Optional user text for LLM classifier (chat-style asks on schedule topics) */
+  user_message?: string;
+  /** When true, `agentic` includes debug.facts, candidates, stage timings */
+  include_ai_debug?: boolean;
+  /** Escape hatch to monolithic one-shot next_sleep (set USE_LEGACY_NEXT_SLEEP=true) */
+  use_legacy_next_sleep?: boolean;
   user_preferences?: {
     bedtime_type?: 'target' | 'flexible';
     bedtime_target_time?: string | null;
     last_wake_window_minutes?: number | null;
     target_nap_count?: number | null;
     naps_per_day?: number | null;
+    prefer_longer_naps?: boolean;
+    prefer_earlier_bedtime?: boolean;
   };
   memories?: string[];
 }
@@ -66,6 +87,7 @@ interface EntitlementStatusRow {
 
 const PREMIUM_LOCKED_MODES = new Set<Mode>([
   'next_sleep',
+  'max_nap_duration',
   'chat',
   'recommendation',
   'nap_evaluation',
@@ -1015,7 +1037,95 @@ async function handleNextSleep(
   sleepData: SleepSession[],
   babyName: string,
   babyAgeDays: number,
-  provider: Provider
+  provider: Provider,
+) {
+  const useLegacy =
+    body.use_legacy_next_sleep === true || Deno.env.get('USE_LEGACY_NEXT_SLEEP') === 'true';
+  if (!useLegacy) {
+    try {
+      const orchestrator = await runScheduleRecommendationOrchestrator({
+        body: {
+          ...body,
+          request_source: body.request_source ?? 'schedule_card',
+          user_message: body.user_message ?? body.message,
+        },
+        sleepData,
+        babyName,
+        babyAgeDays,
+        callLLM: (messages, options) => callLLM(provider, messages, options ?? {}),
+        includeDebug: body.include_ai_debug === true,
+      });
+      const nowIso = body.current_time ?? new Date().toISOString();
+      const legacyNext = agenticResponseToLegacyNextSleep(
+        orchestrator.response,
+        orchestrator.selectedCandidate,
+        orchestrator.facts,
+        nowIso,
+      );
+      sanitizeNextSleepSchedule(
+        legacyNext,
+        body,
+        nowIso,
+        body.timezone ?? 'UTC',
+        babyAgeDays,
+        getWakeWindowForAge(babyAgeDays),
+      );
+      return {
+        next_sleep: legacyNext,
+        agentic: orchestrator.response,
+        provider,
+        ...(body.include_ai_debug
+          ? {
+            classifier: orchestrator.classifier,
+            ranked_candidates: orchestrator.rankedCandidates.slice(0, 5),
+          }
+          : {}),
+      };
+    } catch (e) {
+      console.error('[next_sleep] agentic orchestrator failed, falling back to legacy', e);
+    }
+  }
+  return runLegacyNextSleep(body, sleepData, babyName, babyAgeDays, provider);
+}
+
+async function handleMaxNapDuration(
+  body: RequestBody,
+  sleepData: SleepSession[],
+  babyName: string,
+  babyAgeDays: number,
+  provider: Provider,
+) {
+  const orchestrator = await runScheduleRecommendationOrchestrator({
+    body: {
+      ...body,
+      request_source: body.request_source ?? 'api',
+      user_message: body.user_message ?? body.message,
+      force_request_type: 'MAX_NAP_DURATION_RECOMMENDATION',
+    },
+    sleepData,
+    babyName,
+    babyAgeDays,
+    callLLM: (messages, options) => callLLM(provider, messages, options ?? {}),
+    includeDebug: body.include_ai_debug === true,
+  });
+  return {
+    agentic: orchestrator.response,
+    provider,
+    ...(body.include_ai_debug
+      ? {
+        classifier: orchestrator.classifier,
+        ranked_candidates: orchestrator.rankedCandidates.slice(0, 5),
+      }
+      : {}),
+  };
+}
+
+async function runLegacyNextSleep(
+  body: RequestBody,
+  sleepData: SleepSession[],
+  babyName: string,
+  babyAgeDays: number,
+  provider: Provider,
 ) {
   const {
     current_time = new Date().toISOString(),
@@ -1696,6 +1806,9 @@ Deno.serve(async (req: Request) => {
     switch (mode) {
       case 'next_sleep':
         result = await handleNextSleep(body, sleepData, babyName, babyAgeDays, provider);
+        break;
+      case 'max_nap_duration':
+        result = await handleMaxNapDuration(body, sleepData, babyName, babyAgeDays, provider);
         break;
       case 'chat':
         result = await handleChat(body, sleepData, babyName, babyAgeDays, userId, provider);

@@ -150,6 +150,54 @@ export function NapRecommendationCard({
           
         </View>
 
+        {payload.agentic != null &&
+          (payload.agentic.confidence != null || payload.agentic.dataQualityScore != null) ? (
+            <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm }}>
+              <Text style={[Typography.small, { color: colors.textTertiary }]}>
+                {payload.agentic.confidence != null
+                  ? `Confidence ~${Math.round(payload.agentic.confidence * 100)}%`
+                  : ''}
+                {payload.agentic.confidence != null && payload.agentic.dataQualityScore != null ? ' \u00B7 ' : ''}
+                {payload.agentic.dataQualityScore != null
+                  ? `Data quality ~${Math.round(payload.agentic.dataQualityScore * 100)}%`
+                  : ''}
+              </Text>
+            </View>
+          ) : null}
+
+        {payload.agentic != null &&
+          (payload.agentic.preferredWakeAt != null || payload.agentic.stillOkayUntil != null || payload.agentic.hardCapAt != null) ? (
+          <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm, gap: 4 }}>
+            <Text style={[Typography.captionMedium, { color: colors.textSecondary }]}>Nap timing guidance</Text>
+            {payload.agentic.preferredWakeAt != null ? (
+              <Text style={[Typography.small, { color: colors.text }]}>
+                Preferred wake: {format(new Date(payload.agentic.preferredWakeAt), 'h:mm a')}
+              </Text>
+            ) : null}
+            {payload.agentic.stillOkayUntil != null ? (
+              <Text style={[Typography.small, { color: colors.textTertiary }]}>
+                Still okay until: {format(new Date(payload.agentic.stillOkayUntil), 'h:mm a')}
+              </Text>
+            ) : null}
+            {payload.agentic.hardCapAt != null ? (
+              <Text style={[Typography.small, { color: colors.textTertiary }]}>
+                Latest wake: {format(new Date(payload.agentic.hardCapAt), 'h:mm a')}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {payload.agentic != null && Array.isArray(payload.agentic.watchFors) && payload.agentic.watchFors.length > 0 ? (
+          <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm }}>
+            <Text style={[Typography.captionMedium, { color: colors.textSecondary }]}>Watch for</Text>
+            {payload.agentic.watchFors.map((line, i) => (
+              <Text key={i} style={[Typography.small, { color: colors.textTertiary, marginTop: 2 }]}>
+                {'\u2022'} {line}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
         {explanationExpanded && hasExplanation && (
           <View style={styles.explanationBlock}>
             {payload.explanation?.trim() ? (

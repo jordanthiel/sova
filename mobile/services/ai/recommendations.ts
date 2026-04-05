@@ -2,6 +2,7 @@ import type {
   Baby,
   SleepEvent,
   AIRecommendation,
+  AgenticScheduleMeta,
   NapRecommendationPayload,
   RestOfDayScheduleEvent,
 } from '@/types/domain';
@@ -186,6 +187,7 @@ async function fetchRemoteRecommendation(
     body: JSON.stringify({
       baby_id: baby.id,
       mode: 'next_sleep',
+      request_source: 'schedule_card',
       sleep_history: sleepHistory,
       baby_age_days: ageDays,
       current_time: now.toISOString(),
@@ -197,6 +199,8 @@ async function fetchRemoteRecommendation(
         bedtime_target_time: baby.preferences.bedtimeTargetTime ?? undefined,
         last_wake_window_minutes: baby.preferences.lastWakeWindowMinutes ?? undefined,
         target_nap_count: baby.preferences.targetNapCount ?? undefined,
+        prefer_longer_naps: baby.preferences.preferLongerNaps,
+        prefer_earlier_bedtime: baby.preferences.preferEarlierBedtime,
       },
       memories: memories && memories.length > 0 ? memories : undefined,
     }),
@@ -211,6 +215,8 @@ async function fetchRemoteRecommendation(
   const data = await res.json();
   const nextSleep = data?.next_sleep;
   if (!nextSleep) return null;
+
+  const agenticMeta = parseAgenticMeta(data?.agentic);
 
   const recTime = parseRecommendedTime(nextSleep.recommended_time ?? '', now);
 
@@ -341,10 +347,11 @@ async function fetchRemoteRecommendation(
     recommendedCapMinutes: cap,
     shouldCapNap: nextSleep.should_cap_nap !== false,
     expectedBedtime: roundedBedtime.toISOString(),
-    explanation: nextSleep.summary ?? null,
-    reasoning: nextSleep.reasoning ?? null,
+    explanation: agenticMaybeExplain(agenticMeta, nextSleep.summary),
+    reasoning: agenticMaybeReason(agenticMeta, nextSleep.reasoning),
     restOfDaySchedule: scheduleRounded.length > 0 ? scheduleRounded : undefined,
     recommendedWakeWindowMinutes: effectiveWakeWindow,
+    ...(agenticMeta ? { agentic: agenticMeta } : {}),
   };
 
   const confidenceMap: Record<string, 'low' | 'medium' | 'high'> = {
@@ -358,14 +365,65 @@ async function fetchRemoteRecommendation(
   const isBedtime =
     nextSleep.sleep_type === 'bedtime' && (minutesSinceWake > 120 || !lastWake);
 
+  const numericConf = agenticMeta?.confidence;
+  const agenticConfidenceLevel: 'low' | 'medium' | 'high' | undefined =
+    numericConf != null
+      ? numericConf >= 0.72
+        ? 'high'
+        : numericConf >= 0.45
+          ? 'medium'
+          : 'low'
+      : undefined;
+
   return {
     id: `rec_remote_${Date.now()}`,
     babyId: baby.id,
     createdAt: now.toISOString(),
     type: isBedtime ? 'bedtime' : 'next_nap',
     payload,
-    confidence: confidenceMap[nextSleep.urgency] || 'medium',
+    confidence: agenticConfidenceLevel ?? confidenceMap[nextSleep.urgency] ?? 'medium',
+    ...(numericConf != null ? { confidenceNumeric: numericConf } : {}),
+    ...(agenticMeta?.dataQualityScore != null ? { dataQualityScore: agenticMeta.dataQualityScore } : {}),
   };
+}
+
+function parseAgenticMeta(raw: unknown): AgenticScheduleMeta | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const a = raw as Record<string, unknown>;
+  const fallback = a.fallbackAction;
+  const ideal = a.idealWakeRange;
+  return {
+    requestType: typeof a.requestType === 'string' ? a.requestType : undefined,
+    confidence: typeof a.confidence === 'number' ? a.confidence : undefined,
+    dataQualityScore: typeof a.dataQualityScore === 'number' ? a.dataQualityScore : undefined,
+    reasoningSummary: typeof a.reasoningSummary === 'string' ? a.reasoningSummary : undefined,
+    watchFors: Array.isArray(a.watchFors) ? a.watchFors.filter((x): x is string => typeof x === 'string') : undefined,
+    parentFacingResponse: typeof a.parentFacingResponse === 'string' ? a.parentFacingResponse : undefined,
+    fallbackAction:
+      fallback && typeof fallback === 'object'
+        ? (fallback as AgenticScheduleMeta['fallbackAction'])
+        : undefined,
+    idealWakeRange:
+      ideal && typeof ideal === 'object' && 'startAt' in ideal && 'endAt' in ideal
+        ? { startAt: String((ideal as { startAt: unknown }).startAt), endAt: String((ideal as { endAt: unknown }).endAt) }
+        : undefined,
+    preferredWakeAt: typeof a.preferredWakeAt === 'string' ? a.preferredWakeAt : undefined,
+    stillOkayUntil: typeof a.stillOkayUntil === 'string' ? a.stillOkayUntil : undefined,
+    softCapAt: typeof a.softCapAt === 'string' ? a.softCapAt : undefined,
+    hardCapAt: typeof a.hardCapAt === 'string' ? a.hardCapAt : undefined,
+  };
+}
+
+function agenticMaybeExplain(meta: AgenticScheduleMeta | undefined, fallback: string | null): string | null {
+  const p = meta?.parentFacingResponse?.trim();
+  if (p) return p;
+  return fallback ?? null;
+}
+
+function agenticMaybeReason(meta: AgenticScheduleMeta | undefined, fallback: string | null): string | null {
+  const r = meta?.reasoningSummary?.trim();
+  if (r) return r;
+  return fallback ?? null;
 }
 
 /**
