@@ -8,9 +8,10 @@ export interface Baby {
 }
 
 export interface BabyPreferences {
-  preferLongerNaps: boolean;
-  preferEarlierBedtime: boolean;
-  strictSchedule: boolean;
+  /** null = no explicit preference (AI uses age/data only). */
+  preferLongerNaps: boolean | null;
+  preferEarlierBedtime: boolean | null;
+  strictSchedule: boolean | null;
   sleepGoals: string[];
   /** 'target' = use bedtimeTargetTime; 'flexible' = no fixed bedtime target */
   bedtimeType: 'target' | 'flexible';
@@ -23,9 +24,9 @@ export interface BabyPreferences {
 }
 
 export const DEFAULT_BABY_PREFERENCES: BabyPreferences = {
-  preferLongerNaps: false,
-  preferEarlierBedtime: false,
-  strictSchedule: false,
+  preferLongerNaps: null,
+  preferEarlierBedtime: null,
+  strictSchedule: null,
   sleepGoals: [],
   bedtimeType: 'flexible',
   bedtimeTargetTime: null,
@@ -110,6 +111,8 @@ export interface AgenticScheduleMeta {
   stillOkayUntil?: string;
   softCapAt?: string;
   hardCapAt?: string;
+  /** Deterministic 30-day engine block from edge function (`sleepEngine` spec). */
+  sleepEngine?: Record<string, unknown>;
 }
 
 export interface NapRecommendationPayload {

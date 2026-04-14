@@ -18,11 +18,11 @@ import { useCoachConversations } from '@/hooks/useCoachConversations';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
 import { useSleepData } from '@/hooks/useSleepData';
 import { supabase } from '@/lib/supabase';
-import type { CoachContext } from '@/services/ai/coach';
+import type { CoachChatPhase, CoachContext } from '@/services/ai/coach';
 import * as coachService from '@/services/ai/coach';
 import { track } from '@/services/analytics/track';
 import { babiesRepo } from '@/services/repositories/babiesRepo';
-import type { Baby, BabyPreferences } from '@/types/domain';
+import { DEFAULT_BABY_PREFERENCES, type Baby, type BabyPreferences } from '@/types/domain';
 import { isPremiumAccessRequiredError } from '@/types/subscription';
 import { format, isToday, isYesterday } from 'date-fns';
 import { getExtendedDayBounds, sessionOverlapsExtendedDay } from '@/utils/dateUtils';
@@ -184,6 +184,8 @@ export default function CoachScreen() {
   const { messages, loading: messagesLoading, sendMessage, refetch: refetchMessages } = useChatMessages(currentBabyId, selectedConversationId);
   const { memoryStrings, addMemories } = useCoachMemories(currentBabyId);
   const [sending, setSending] = useState(false);
+  /** Remote coach is two LLM steps (reply, then optional memory extraction) — not the schedule agentic path. */
+  const [coachPhase, setCoachPhase] = useState<'idle' | CoachChatPhase>('idle');
   const [preferences, setPreferences] = useState<BabyPreferences | null>(null);
   const [pendingSuggestedMemories, setPendingSuggestedMemories] = useState<string[] | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -324,16 +326,7 @@ export default function CoachScreen() {
       id: currentBabyId,
       name: baby.name,
       birthdate: baby.birth_date,
-      preferences: prefsOverride || preferences || {
-        preferLongerNaps: false,
-        preferEarlierBedtime: false,
-        strictSchedule: false,
-        sleepGoals: [],
-        bedtimeType: 'flexible',
-        bedtimeTargetTime: null,
-        targetNapCount: null,
-        lastWakeWindowMinutes: null,
-      },
+      preferences: prefsOverride || preferences || DEFAULT_BABY_PREFERENCES,
       caregivers: [],
     };
 
@@ -363,6 +356,7 @@ export default function CoachScreen() {
     }
 
     setSending(true);
+    setCoachPhase('drafting');
     track('ask_ai', { babyId: currentBabyId, prompt: content.substring(0, 50) });
 
     try {
@@ -398,7 +392,9 @@ export default function CoachScreen() {
         timestamp: userMsg.created_at,
       });
 
-      const response = await coachService.chat(allMsgs, ctx);
+      const response = await coachService.chat(allMsgs, ctx, {
+        onProgress: (phase) => setCoachPhase(phase),
+      });
       const intentNote = summarizePreferencePatch(intentPatch);
       const assistantContent =
         ((response?.message?.content && String(response.message.content).trim()) || '') ||
@@ -481,6 +477,7 @@ export default function CoachScreen() {
       }
     } finally {
       setSending(false);
+      setCoachPhase('idle');
     }
   };
 
@@ -807,7 +804,15 @@ export default function CoachScreen() {
                   </View>
                 );
               })}
-              {sending && <TypingIndicator />}
+              {sending ? (
+                <TypingIndicator
+                  statusLabel={
+                    coachPhase === 'memories'
+                      ? 'Looking for takeaways to save…'
+                      : 'Drafting your reply…'
+                  }
+                />
+              ) : null}
               {pendingSuggestedMemories != null && pendingSuggestedMemories.length > 0 && (
                 <View style={styles.suggestedMemoriesCard}>
                   <Text style={[Typography.captionMedium, { color: colors.textSecondary, marginBottom: Spacing.sm }]}>

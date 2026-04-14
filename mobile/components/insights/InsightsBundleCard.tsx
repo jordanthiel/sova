@@ -14,8 +14,47 @@ interface InsightItem {
 
 interface InsightsBundleData {
   insights_bundle?: {
-    insights: InsightItem[];
+    insights?: unknown;
+    insights_bundle?: { insights?: unknown };
   };
+}
+
+function asInsightItems(raw: unknown): InsightItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item, i) => {
+      if (typeof item === 'string') {
+        return { title: `Insight ${i + 1}`, insight: item, icon: '💡' };
+      }
+      if (!item || typeof item !== 'object') {
+        return { title: 'Insight', insight: String(item ?? ''), icon: '💡' };
+      }
+      const o = item as Record<string, unknown>;
+      const title =
+        typeof o.title === 'string' && o.title.trim() ? o.title.trim() : `Insight ${i + 1}`;
+      let insight = '';
+      if (typeof o.insight === 'string') insight = o.insight;
+      else if (typeof o.body === 'string') insight = o.body;
+      else if (typeof o.summary === 'string') insight = o.summary;
+      else if (typeof o.text === 'string') insight = o.text;
+      const icon = typeof o.icon === 'string' ? o.icon : '💡';
+      return { title, insight: insight.trim() || title, icon };
+    })
+    .filter((x) => x.insight.length > 0);
+}
+
+/** Handles API/cache shapes: `{ insights }`, double-wrapped `insights_bundle`, or misparsed blobs. */
+function extractInsights(data: InsightsBundleData | null | undefined): InsightItem[] {
+  const bundle = data?.insights_bundle;
+  if (!bundle || typeof bundle !== 'object') return [];
+  const nested = bundle.insights_bundle;
+  const raw =
+    Array.isArray(bundle.insights)
+      ? bundle.insights
+      : nested && typeof nested === 'object' && Array.isArray(nested.insights)
+        ? nested.insights
+        : null;
+  return raw ? asInsightItems(raw) : [];
 }
 
 export function InsightsBundleCard({
@@ -33,7 +72,7 @@ export function InsightsBundleCard({
   const { data, loading, error, fetch: fetchInsights, clearCache } = useAiInsight<InsightsBundleData>(
     'insights_bundle',
     babyId,
-    { cacheTtlMs: 60 * 60 * 1000 } // 1 hour cache
+    { cacheTtlMs: 60 * 60 * 1000, cacheKeySuffix: 'shape_v2' }
   );
 
   useEffect(() => {
@@ -48,7 +87,7 @@ export function InsightsBundleCard({
     }
   }, [babyId]);
 
-  const insights = data?.insights_bundle?.insights || [];
+  const insights = extractInsights(data);
 
   const handleRefresh = () => {
     clearCache().then(() => fetchInsights({}));
@@ -100,7 +139,7 @@ export function InsightsBundleCard({
           ) : error ? (
             <TouchableOpacity onPress={handleRefresh}>
               <Text style={[Typography.caption, { color: colors.error }]}>
-                Couldn't load insights. Tap to retry.
+                Could not load insights. Tap to retry.
               </Text>
             </TouchableOpacity>
           ) : insights.length > 0 ? (

@@ -17,6 +17,7 @@ import { getChildProfile } from '../services/childProfileService.ts';
 import { getRecentSleepHistory } from '../services/sleepHistoryService.ts';
 import { generateCandidateScheduleOptions } from '../services/candidateGenerationService.ts';
 import { evaluateRecommendationCandidates } from '../services/candidateEvaluationService.ts';
+import type { RankedCandidate } from '../types/candidateOption.ts';
 import type { SleepSession } from '../types/sessions.ts';
 import { agenticResponseToLegacyNextSleep } from '../legacyNextSleepMap.ts';
 
@@ -549,12 +550,64 @@ Deno.test('legacy map: NAP_WINDOW produces expected fields', () => {
     watchFors: [],
     parentFacingResponse: 'Try a nap around 2:30.',
   };
-  const legacy = agenticResponseToLegacyNextSleep(agentic, undefined, facts, '2026-04-04T14:00:00.000Z');
+  const legacy = agenticResponseToLegacyNextSleep(agentic, undefined, facts, '2026-04-04T14:00:00.000Z', profile);
   assertEquals(legacy.sleep_type, 'nap');
   assert(typeof legacy.recommended_time === 'string');
   assert(typeof legacy.minutes_from_now === 'number');
   assertEquals(legacy.should_cap_nap, true);
   assert(Array.isArray(legacy.rest_of_day_schedule));
+});
+
+Deno.test('legacy map: 2-nap target inserts a second nap before bedtime (not straight to bed)', () => {
+  const profile = getChildProfile(
+    {
+      baby_id: 'x',
+      timezone: 'UTC',
+      user_preferences: {
+        target_nap_count: 2,
+        bedtime_type: 'target',
+        bedtime_target_time: '19:30',
+        last_wake_window_minutes: 120,
+      },
+    },
+    'B',
+    200,
+  );
+  const sessions: SleepSession[] = [];
+  const pack = getRecentSleepHistory('x', sessions, '2026-04-04T14:00:00.000Z', 'UTC', 7);
+  const facts = computeSleepFacts(profile, sessions, pack, '2026-04-04T14:00:00.000Z', null);
+  const chosen: RankedCandidate = {
+    id: 'x',
+    requestType: 'NEXT_NAP_RECOMMENDATION',
+    actionType: 'NAP_START',
+    label: 'test',
+    suggestedCapMinutes: 60,
+    pros: [],
+    risks: [],
+    expectedDownstream: '',
+    score: 0.8,
+    confidence: 0.8,
+    rank: 1,
+    strengths: [],
+    weaknesses: [],
+  };
+  const agentic = {
+    requestType: 'NEXT_NAP_RECOMMENDATION' as const,
+    recommendedAction: { type: 'NAP_WINDOW' as const, startAt: '2026-04-04T14:30:00.000Z', label: 'Next nap' },
+    reasoningSummary: 'test',
+    confidence: 0.7,
+    dataQualityScore: 0.8,
+    watchFors: [],
+    parentFacingResponse: 'Try a nap around 2:30.',
+  };
+  const legacy = agenticResponseToLegacyNextSleep(agentic, chosen, facts, '2026-04-04T14:00:00.000Z', profile);
+  const sched = legacy.rest_of_day_schedule as { event: string }[];
+  const napStarts = sched.filter((e) => e.event === 'nap_start');
+  assert(
+    napStarts.length >= 2,
+    `expected 2+ nap_start rows (next + later nap), got ${napStarts.length}: ${JSON.stringify(sched.map((e) => e.event))}`,
+  );
+  assert(sched.some((e) => e.event === 'bedtime'), 'bedtime row present');
 });
 
 Deno.test('legacy map: WAKE_FROM_NAP produces cap fields', () => {
@@ -574,7 +627,7 @@ Deno.test('legacy map: WAKE_FROM_NAP produces cap fields', () => {
     watchFors: [],
     parentFacingResponse: 'Consider waking.',
   };
-  const legacy = agenticResponseToLegacyNextSleep(agentic, undefined, facts, '2026-04-04T14:30:00.000Z');
+  const legacy = agenticResponseToLegacyNextSleep(agentic, undefined, facts, '2026-04-04T14:30:00.000Z', profile);
   assertEquals(legacy.headline, 'Cap ongoing nap');
   assertEquals(legacy.should_cap_nap, true);
   assert(typeof legacy.cap_at_minutes === 'number');

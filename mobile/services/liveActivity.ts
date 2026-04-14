@@ -59,9 +59,6 @@ function getDeepLinkUrl(state: NapLiveActivityState): string {
 /** App icon for Dynamic Island only; lock screen shows name as text (no logo). */
 const APP_ICON_IMAGE_NAME = 'sova_icon';
 
-/** Delimiter for lock screen layout: babyName|||Sova|||detailLine (parsed in LiveActivityView.swift). */
-const SUBTITLE_DELIMITER = '|||';
-
 /** Parse ISO string as UTC so elapsed time is correct (no local-time shift). Supabase returns Z; some sources omit it. */
 function parseUtcIso(iso: string): Date {
   if (/[Zz]$|[+-]\d{2}:?\d{2}$/.test(iso)) return new Date(iso);
@@ -98,8 +95,8 @@ function ensureActivityUpdatesListener(): void {
 
 /**
  * Build state for the native Live Activity (ActivityKit).
- * Lock screen layout: baby name top left, "Sova" top right; then main status (bold) and detail (smaller).
- * Subtitle format: "babyName|||Sova|||detailLine" for Sova layout.
+ * expo-live-activity maps `progressBar.date` → native `timerEndDateInMilliseconds`; Swift interprets
+ * past timestamps as elapsed (nap) and future as countdown (next window).
  */
 export function buildLiveActivityState(
   state: NapLiveActivityState
@@ -108,19 +105,18 @@ export function buildLiveActivityState(
     dynamicIslandImageName: APP_ICON_IMAGE_NAME,
   };
 
-  const babyName = state.babyName ?? 'Baby';
-  const productName = 'Sova';
+  const babyName = state.babyName?.trim() || 'Baby';
 
   if (state.mode === 'awake') {
     const windowStart = new Date(state.windowStartIso);
     const windowEnd = new Date(state.windowEndIso);
     const nextTimeStr = format(windowStart, 'h:mm a');
-    const title = state.isBedtime ? `Bedtime ${nextTimeStr}` : `Next nap ${nextTimeStr}`;
-    const detailLine =
-      !state.isBedtime && state.capAtIso
-        ? `Cap by ${format(parseUtcIso(state.capAtIso), 'h:mm a')}`
-        : `${format(windowStart, 'h:mm a')} – ${format(windowEnd, 'h:mm a')}`;
-    const subtitle = [babyName, productName, detailLine].join(SUBTITLE_DELIMITER);
+    const title = state.isBedtime
+      ? `${babyName} · Bedtime ${nextTimeStr}`
+      : `${babyName} · Next nap ${nextTimeStr}`;
+    const subtitle = !state.isBedtime && state.capAtIso
+      ? `Window ${format(windowStart, 'h:mm a')}–${format(windowEnd, 'h:mm a')} · Cap ${format(parseUtcIso(state.capAtIso), 'h:mm a')}`
+      : `${format(windowStart, 'h:mm a')} – ${format(windowEnd, 'h:mm a')}`;
     return {
       ...baseContent,
       title,
@@ -131,20 +127,17 @@ export function buildLiveActivityState(
   }
 
   const sessionStart = parseUtcIso(state.sessionStartIso);
-  const title = state.sessionType === 'night' ? 'Night sleep' : 'Nap';
-  let detailLine: string;
-  if (state.capAtIso) {
-    detailLine = `Cap by ${format(parseUtcIso(state.capAtIso), 'h:mm a')}`;
-  } else {
-    detailLine = state.sessionType === 'night' ? 'Night sleep' : 'Nap';
-  }
+  const title =
+    state.sessionType === 'night' ? `${babyName} · Night sleep` : `${babyName} · Nap`;
+  const subtitle = state.capAtIso
+    ? `Started ${format(sessionStart, 'h:mm a')} · Cap ${format(parseUtcIso(state.capAtIso), 'h:mm a')}`
+    : `Started ${format(sessionStart, 'h:mm a')}`;
   const sessionStartMs = sessionStart.getTime();
-  const subtitle = [babyName, productName, detailLine, String(sessionStartMs)].join(SUBTITLE_DELIMITER);
   return {
     ...baseContent,
     title,
     subtitle,
-    timerStartDateInMilliseconds: sessionStartMs,
+    progressBar: { date: sessionStartMs },
   } as LiveActivityState;
 }
 

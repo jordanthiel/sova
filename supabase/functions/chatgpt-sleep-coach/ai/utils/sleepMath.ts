@@ -94,11 +94,11 @@ export function getLastNightTotalMinutes(sleepData: SleepSession[]): number | nu
     .sort((a, b) => new Date(b.end_time!).getTime() - new Date(a.end_time!).getTime());
   if (nightSessions.length === 0) return null;
   let total = 0;
-  let prevStart = Infinity;
+  let prevStart: number | null = null;
   for (const s of nightSessions) {
     const end = new Date(s.end_time!).getTime();
     const start = new Date(s.start_time).getTime();
-    if (prevStart - end > NIGHT_SEGMENT_GAP_MS) break;
+    if (prevStart != null && prevStart - end > NIGHT_SEGMENT_GAP_MS) break;
     total += s.duration_minutes ?? 0;
     prevStart = start;
   }
@@ -129,6 +129,47 @@ export function inferTodayMorningWakeIso(
   if (nightsEndingToday.length === 0) return null;
 
   const sorted = [...nightsEndingToday].sort(
+    (a, b) => new Date(a.end_time!).getTime() - new Date(b.end_time!).getTime(),
+  );
+  const chain: SleepSession[] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const s = sorted[i];
+    if (chain.length === 0) {
+      chain.unshift(s);
+      continue;
+    }
+    const prev = chain[0];
+    const gap = new Date(prev.start_time).getTime() - new Date(s.end_time!).getTime();
+    if (gap >= 0 && gap <= NIGHT_SEGMENT_GAP_MS) chain.unshift(s);
+    else break;
+  }
+  return chain.length > 0 ? chain[chain.length - 1].end_time! : sorted[sorted.length - 1].end_time!;
+}
+
+/**
+ * Morning wake for a completed local calendar day (no "now" cutoff — for historical analysis).
+ */
+export function inferMorningWakeIsoForLocalDate(
+  sleepData: SleepSession[],
+  dateKey: string,
+  timezone: string,
+): string | null {
+  const napsOnDay = sleepData
+    .filter((s) => s.type === 'nap' && s.end_time != null && toLocalDateKey(s.start_time, timezone) === dateKey)
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  const firstNapStartMs = napsOnDay.length > 0 ? new Date(napsOnDay[0].start_time).getTime() : null;
+
+  const nightsEnding = sleepData.filter((s) => {
+    if (s.type !== 'night' || !s.end_time) return false;
+    if (toLocalDateKey(s.end_time, timezone) !== dateKey) return false;
+    const endMs = new Date(s.end_time).getTime();
+    if (firstNapStartMs != null && endMs >= firstNapStartMs) return false;
+    return true;
+  });
+
+  if (nightsEnding.length === 0) return null;
+
+  const sorted = [...nightsEnding].sort(
     (a, b) => new Date(a.end_time!).getTime() - new Date(b.end_time!).getTime(),
   );
   const chain: SleepSession[] = [];

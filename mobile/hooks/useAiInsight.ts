@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAppNow, getAppNowMs } from '@/lib/appClock';
 import { supabase } from '@/lib/supabase';
 import { getPremiumAccessErrorFromResponse } from '@/services/subscription';
 
@@ -57,7 +58,7 @@ export function useAiInsight<T = Record<string, unknown>>(
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           const { data: cachedData, ts } = JSON.parse(cached);
-          if (Date.now() - ts < cacheTtlMs) {
+          if (getAppNowMs() - ts < cacheTtlMs) {
             setData(cachedData);
             return cachedData;
           }
@@ -82,7 +83,7 @@ export function useAiInsight<T = Record<string, unknown>>(
           body: JSON.stringify({
             baby_id: babyId,
             mode,
-            current_time: new Date().toISOString(),
+            current_time: getAppNow().toISOString(),
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             ...params,
           }),
@@ -100,7 +101,7 @@ export function useAiInsight<T = Record<string, unknown>>(
 
         // Write to cache
         try {
-          await AsyncStorage.setItem(cacheKey, JSON.stringify({ data: result, ts: Date.now() }));
+          await AsyncStorage.setItem(cacheKey, JSON.stringify({ data: result, ts: getAppNowMs() }));
         } catch { /* cache write failure is non-critical */ }
 
         return result;

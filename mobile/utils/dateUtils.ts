@@ -1,3 +1,4 @@
+import { getAppNow } from '@/lib/appClock';
 import { addDays, format, parse } from 'date-fns';
 
 /**
@@ -58,6 +59,6 @@ export function sessionOverlapsExtendedDay(
     ? typeof sessionEnd === 'string'
       ? new Date(sessionEnd)
       : sessionEnd
-    : new Date();
+    : getAppNow();
   return st.getTime() < dayEnd.getTime() && et.getTime() > dayStart.getTime();
 }

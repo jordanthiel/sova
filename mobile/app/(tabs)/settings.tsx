@@ -1,3 +1,4 @@
+import { AppClockDebugSection } from '@/components/dev/AppClockDebugSection';
 import { BabySwitcher } from '@/components/baby/BabySwitcher';
 import { AiPreferencesSection } from '@/components/settings/AiPreferencesSection';
 import { BabyProfileSection } from '@/components/settings/BabyProfileSection';
@@ -533,6 +534,8 @@ export default function SettingsScreen() {
             />
           </DarkPanel>
         </View>
+
+        <AppClockDebugSection />
 
         <View style={styles.section}>
           <Button

@@ -7,12 +7,14 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAppNow } from '@/contexts/AppClockContext';
 import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
 import { useCoachMemories } from '@/hooks/useCoachMemories';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
 import { useSleepData } from '@/hooks/useSleepData';
+import { getAppNowMs } from '@/lib/appClock';
 import type { Database } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/services/analytics/track';
@@ -30,6 +32,7 @@ import {
 type Recommendation = Database['public']['Tables']['recommendations']['Row'];
 
 export function InsightsTab() {
+  useAppNow();
   const { babies, loading: babiesLoading } = useBabies();
   const { currentBabyId, setCurrentBabyId, isHydrated } = useCurrentBaby();
   const { baby, ageDays } = useSleepData({ babyId: currentBabyId });
@@ -52,7 +55,7 @@ export function InsightsTab() {
     .sort((a, b) => new Date(b.end_time!).getTime() - new Date(a.end_time!).getTime());
   const rawLastWakeTime = endedSessions.length > 0 ? endedSessions[0].end_time : null;
   const awakeMinutes = rawLastWakeTime
-    ? Math.round((Date.now() - new Date(rawLastWakeTime).getTime()) / 60000)
+    ? Math.round((getAppNowMs() - new Date(rawLastWakeTime).getTime()) / 60000)
     : 0;
   const MAX_AWAKE_MINUTES = 16 * 60;
   const lastWakeTime =

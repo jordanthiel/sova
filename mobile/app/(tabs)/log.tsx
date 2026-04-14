@@ -6,7 +6,7 @@ import { LogEventSheet } from '@/components/log/LogEventSheet';
 import { WeekSelector } from '@/components/log/WeekSelector';
 import { WeekTimelineStrip } from '@/components/log/WeekTimelineStrip';
 import { ProfileAvatarButton } from '@/components/ProfileAvatarButton';
-import { Card } from '@/components/ui/Card';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { SleepScoreRing } from '@/components/ui/SleepScoreRing';
@@ -679,7 +679,7 @@ export default function LogScreen() {
                 <Text style={[Typography.captionMedium, styles.listDayHeader, { color: colors.textSecondary }]}>
                   {format(new Date(section.dayKey), 'EEEE, MMM d')}
                 </Text>
-                <Card style={styles.dayTotalsCard} padding="sm">
+                <DarkPanel style={styles.dayTotalsCard} padding="sm" shadow="sm">
                   <View style={styles.dayTotalsRow}>
                     {nightScore != null && (
                       <View style={[styles.summaryItem, { alignItems: 'center' }]}>
@@ -700,7 +700,7 @@ export default function LogScreen() {
                       </Text>
                     </View>
                   </View>
-                </Card>
+                </DarkPanel>
               </View>
             );
           }}
@@ -831,7 +831,7 @@ export default function LogScreen() {
         {viewMode === 'daily' && (
           <>
             <TouchableOpacity
-              style={styles.summaryRow}
+              style={styles.summaryRowWrap}
               onPress={() =>
                 currentBabyId &&
                 router.push({
@@ -844,30 +844,34 @@ export default function LogScreen() {
               }
               activeOpacity={0.8}
             >
-              <View style={styles.summaryItem}>
-                <Text style={[Typography.small, { color: colors.textTertiary }]}>Daytime sleep</Text>
-                <Text style={[Typography.bodyMedium, { color: colors.text }]}>
-                  {formatDuration(totalDaytimeSleepMin)}
-                </Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={[Typography.small, { color: colors.textTertiary }]}>Night sleep</Text>
-                <Text style={[Typography.bodyMedium, { color: colors.text }]}>
-                  {totalNightSleepMin > 0 ? formatDuration(totalNightSleepMin) : '—'}
-                </Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={[Typography.small, { color: colors.textTertiary }]}>Naps</Text>
-                <Text style={[Typography.bodyMedium, { color: colors.text }]}>
-                  {napEvents.length}
-                </Text>
-              </View>
-              {nightScoreForDisplay != null && (
-                <View style={[styles.summaryItem, { alignItems: 'center' }]}>
-                  <Text style={[Typography.small, { color: colors.textTertiary }]}>Night score</Text>
-                  <SleepScoreRing score={nightScoreForDisplay.score} size={40} />
+              <DarkPanel padding="md" shadow="sm" style={styles.summaryPanel}>
+                <View style={styles.summaryRow}>
+                  <View style={styles.summaryItem}>
+                    <Text style={[Typography.small, { color: colors.textTertiary }]}>Daytime sleep</Text>
+                    <Text style={[Typography.bodyMedium, { color: colors.text }]}>
+                      {formatDuration(totalDaytimeSleepMin)}
+                    </Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={[Typography.small, { color: colors.textTertiary }]}>Night sleep</Text>
+                    <Text style={[Typography.bodyMedium, { color: colors.text }]}>
+                      {totalNightSleepMin > 0 ? formatDuration(totalNightSleepMin) : '—'}
+                    </Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={[Typography.small, { color: colors.textTertiary }]}>Naps</Text>
+                    <Text style={[Typography.bodyMedium, { color: colors.text }]}>
+                      {napEvents.length}
+                    </Text>
+                  </View>
+                  {nightScoreForDisplay != null && (
+                    <View style={[styles.summaryItem, { alignItems: 'center' }]}>
+                      <Text style={[Typography.small, { color: colors.textTertiary }]}>Night score</Text>
+                      <SleepScoreRing score={nightScoreForDisplay.score} size={40} />
+                    </View>
+                  )}
                 </View>
-              )}
+              </DarkPanel>
             </TouchableOpacity>
             <Text style={[Typography.caption, { color: colors.textTertiary, textAlign: 'center', marginTop: Spacing.xs }]}>
               Tap for day overview
@@ -1051,18 +1055,21 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: Radius.md,
   },
+  summaryRowWrap: {
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.xs,
+  },
+  summaryPanel: {
+    borderRadius: Radius.lg,
+  },
   summaryRow: {
     flexDirection: 'row',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
     gap: Spacing.md,
   },
   summaryItem: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    paddingVertical: Spacing.xs,
     gap: 2,
   },
   fab: {

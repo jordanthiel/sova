@@ -12,12 +12,14 @@ import {
   getWakeWindowBandsForAge,
 } from '../sleepRules.ts';
 import { formatLocalTime, getUtcOffsetMinutesAt, roundToNearestMinutes } from '../utils/sleepMath.ts';
+import type { SleepEngineGuidance } from './sleepRecommendationEngine.ts';
 
 export function generateCandidateScheduleOptions(
   facts: SleepFacts,
   profile: ChildProfile,
   requestType: AgenticRequestType,
   nowIso: string,
+  engineGuidance?: SleepEngineGuidance | null,
 ): ScheduleCandidate[] {
   switch (requestType) {
     case 'MAX_NAP_DURATION_RECOMMENDATION':
@@ -29,11 +31,16 @@ export function generateCandidateScheduleOptions(
       return catnapVsBedtimeCandidates(facts, profile, nowIso);
     case 'NEXT_NAP_RECOMMENDATION':
     default:
-      return nextNapCandidates(facts, profile, nowIso);
+      return nextNapCandidates(facts, profile, nowIso, engineGuidance);
   }
 }
 
-function nextNapCandidates(facts: SleepFacts, profile: ChildProfile, nowIso: string): ScheduleCandidate[] {
+function nextNapCandidates(
+  facts: SleepFacts,
+  profile: ChildProfile,
+  nowIso: string,
+  engineGuidance?: SleepEngineGuidance | null,
+): ScheduleCandidate[] {
   if (facts.ongoingNight || !facts.lastWakeIso) {
     return [];
   }
@@ -43,6 +50,9 @@ function nextNapCandidates(facts: SleepFacts, profile: ChildProfile, nowIso: str
   }
 
   const ww = getWakeWindowBandsForAge(facts.ageDays);
+  const baseWw = engineGuidance?.targetWakeWindowMinutes ?? ww.typical;
+  const softMin = engineGuidance?.wakeWindowFloorMinutes ?? ww.min;
+  const softMax = engineGuidance?.wakeWindowCeilingMinutes ?? ww.max;
   const targetNaps = profile.preferences.target_nap_count ?? getNapCountExpectationForAge(facts.ageDays).typical;
   const lastWakeMs = new Date(facts.lastWakeIso).getTime();
   const nowMs = new Date(nowIso).getTime();
@@ -51,7 +61,9 @@ function nextNapCandidates(facts: SleepFacts, profile: ChildProfile, nowIso: str
   const out: ScheduleCandidate[] = [];
   for (let i = 0; i < deltas.length; i++) {
     const delta = deltas[i];
-    const napStartMs = roundToNearestMinutes(lastWakeMs + (ww.typical + delta) * 60000, 5);
+    let minutesWw = baseWw + delta;
+    minutesWw = Math.max(softMin, Math.min(softMax, minutesWw));
+    const napStartMs = roundToNearestMinutes(lastWakeMs + minutesWw * 60000, 5);
     if (napStartMs < nowMs - 60000) continue;
 
     const napBudget = getDaytimeNapBudgetMinutes(facts.ageDays);
@@ -63,8 +75,9 @@ function nextNapCandidates(facts: SleepFacts, profile: ChildProfile, nowIso: str
 
     let score =
       0.55 +
-      (delta === 0 ? 0.12 : 0) -
+      (delta === 0 ? 0.14 : 0) -
       Math.abs(delta) * 0.004;
+    if (engineGuidance && delta === 0) score += 0.04;
     // Bedtime protection: penalize late nap starts when pressure high
     const projectedEnd = napStartMs + cap * 60000;
     const bedEnd = new Date(facts.bedtimeWindow.endIso).getTime();

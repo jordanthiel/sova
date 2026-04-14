@@ -48,7 +48,7 @@ function buildMemoryProfileFromRequest(body: ProfileRequestBody): CoachingMemory
     feedingNotesRelevantToSchedule: null,
     recurringIssues: recurring.length ? recurring : undefined,
   };
-  const textBlob = (body.memories ?? joinsafe(body)).toLowerCase();
+  const textBlob = (body.memories?.join(' ') ?? joinsafe(body)).toLowerCase();
   if (textBlob.includes('false start')) recurring.push('false_starts');
   if (textBlob.includes('short nap')) recurring.push('short_naps');
   if (textBlob.includes('early wake')) recurring.push('early_wakes');

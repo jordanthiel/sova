@@ -1,3 +1,4 @@
+import { getAppNowMs } from '@/lib/appClock';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAiInsight } from '@/hooks/useAiInsight';
 
@@ -64,10 +65,10 @@ export function useProactiveRecommendations({
 
     // Use the AI's minutes_from_now as a starting point, then tick down
     const initialMinutes = recommendation.minutes_from_now;
-    const fetchedAt = Date.now();
+    const fetchedAt = getAppNowMs();
 
     const tick = () => {
-      const elapsed = Math.floor((Date.now() - fetchedAt) / 60000);
+      const elapsed = Math.floor((getAppNowMs() - fetchedAt) / 60000);
       setMinutesFromNow(Math.max(initialMinutes - elapsed, -30));
     };
 

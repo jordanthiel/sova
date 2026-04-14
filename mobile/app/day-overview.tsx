@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
-import { Card } from '@/components/ui/Card';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { SleepScoreRing } from '@/components/ui/SleepScoreRing';
 import { formatDuration } from '@/utils/formatTime';
 import { getNightSummaries, isNightComplete, computeNightSleepScore } from '@/utils/nightSleepScore';
@@ -16,11 +16,43 @@ import type { NightScoreSession } from '@/utils/nightSleepScore';
 import { getExtendedDayBounds, sessionOverlapsExtendedDay } from '@/utils/dateUtils';
 import { excludedDaysRepo } from '@/services/repositories/excludedDaysRepo';
 
+function firstParam(v: string | string[] | undefined): string | null {
+  if (v == null) return null;
+  const s = Array.isArray(v) ? v[0] : v;
+  return typeof s === 'string' && s.length > 0 ? s : null;
+}
+
 export default function DayOverviewScreen() {
-  const { dateKey, babyId } = useLocalSearchParams<{ dateKey: string; babyId: string }>();
+  const params = useLocalSearchParams<{ dateKey?: string | string[]; babyId?: string | string[] }>();
+  const dateKey = firstParam(params.dateKey);
+  const babyId = firstParam(params.babyId);
+
   const colors = useThemeColors();
   const gradients = useThemeGradients();
-  const { sessions: allSessions } = useRealtimeSleepSessions(babyId ?? null);
+  const { sessions: allSessions } = useRealtimeSleepSessions(babyId);
+
+  const nightSummaries = getNightSummaries(
+    (allSessions ?? []) as NightScoreSession[],
+    { maxNights: 30 }
+  );
+  const nightForDay = dateKey ? nightSummaries.find((n) => n.dateKey === dateKey) : undefined;
+  const nightScoresByDateKey = useNightSleepScores(
+    babyId,
+    nightForDay && dateKey ? [dateKey] : [],
+    allSessions ?? []
+  );
+
+  const [excluded, setExcluded] = useState(false);
+  useEffect(() => {
+    if (!babyId || !dateKey) return;
+    excludedDaysRepo.isDayExcluded(babyId, dateKey).then(setExcluded);
+  }, [babyId, dateKey]);
+
+  const handleToggleExclude = async () => {
+    if (!babyId || !dateKey) return;
+    const next = await excludedDaysRepo.toggleDayExcluded(babyId, dateKey);
+    setExcluded(next);
+  };
 
   if (!dateKey || !babyId) {
     return (
@@ -43,31 +75,9 @@ export default function DayOverviewScreen() {
   const totalNapMin = napSessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0);
   const totalNightMin = nightSessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0);
 
-  const nightSummaries = getNightSummaries(
-    (allSessions ?? []) as NightScoreSession[],
-    { maxNights: 30 }
-  );
-  const nightForDay = nightSummaries.find((n) => n.dateKey === dateKey);
-  const nightScoresByDateKey = useNightSleepScores(
-    babyId,
-    nightForDay ? [dateKey] : [],
-    allSessions ?? []
-  );
   const nightScore = nightForDay && isNightComplete(nightForDay)
     ? (nightScoresByDateKey[dateKey] ?? computeNightSleepScore(nightForDay))
     : null;
-
-  const [excluded, setExcluded] = useState(false);
-  useEffect(() => {
-    if (!babyId) return;
-    excludedDaysRepo.isDayExcluded(babyId, dateKey).then(setExcluded);
-  }, [babyId, dateKey]);
-
-  const handleToggleExclude = async () => {
-    if (!babyId) return;
-    const next = await excludedDaysRepo.toggleDayExcluded(babyId, dateKey);
-    setExcluded(next);
-  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -90,7 +100,7 @@ export default function DayOverviewScreen() {
           <Text style={[Typography.captionMedium, { color: colors.textTertiary, marginBottom: Spacing.sm }]}>
             Day stats (6am–6am)
           </Text>
-          <Card padding="lg" style={styles.card}>
+          <DarkPanel padding="lg" shadow="sm" style={styles.card}>
             <View style={styles.statRow}>
               <Text style={[Typography.small, { color: colors.textTertiary }]}>Daytime sleep</Text>
               <Text style={[Typography.bodyMedium, { color: colors.text }]}>
@@ -115,7 +125,7 @@ export default function DayOverviewScreen() {
                 <SleepScoreRing score={nightScore} size={44} />
               </View>
             )}
-          </Card>
+          </DarkPanel>
         </View>
         <View style={styles.section}>
           <TouchableOpacity
@@ -136,7 +146,7 @@ export default function DayOverviewScreen() {
             <Text style={[Typography.captionMedium, { color: colors.textTertiary, marginBottom: Spacing.sm }]}>
               Night details
             </Text>
-            <Card padding="lg" style={styles.card}>
+            <DarkPanel padding="lg" shadow="sm" style={styles.card}>
               <View style={styles.statRow}>
                 <Text style={[Typography.small, { color: colors.textTertiary }]}>Total sleep</Text>
                 <Text style={[Typography.bodyMedium, { color: colors.text }]}>
@@ -155,7 +165,7 @@ export default function DayOverviewScreen() {
                   {formatDuration(nightForDay.totalAwakeMinutes)}
                 </Text>
               </View>
-            </Card>
+            </DarkPanel>
           </View>
         )}
         <View style={{ height: 100 }} />

@@ -16,6 +16,16 @@ export interface TimelineAction {
   label: string;
 }
 
+/** Spec-shaped explainability payload from the deterministic sleep engine layer. */
+export interface SleepEngineStructuredBlock {
+  summary: Record<string, unknown>;
+  analysis: Record<string, unknown>;
+  recommendation: Record<string, unknown>;
+  rest_of_day_plan: { plan_a: string[]; plan_b: string[] };
+  validation: Record<string, unknown>;
+  explanation: string[];
+}
+
 export interface AgenticScheduleResponse {
   requestType: AgenticRequestType;
   recommendedAction: TimelineAction;
@@ -25,6 +35,8 @@ export interface AgenticScheduleResponse {
   dataQualityScore: number;
   watchFors: string[];
   parentFacingResponse: string;
+  /** 30-day pattern analysis + rest-of-day plan A/B + validation (sleep recommendation engine spec). */
+  sleepEngine?: SleepEngineStructuredBlock;
   idealWakeRange?: { startAt: string; endAt: string };
   preferredWakeAt?: string;
   stillOkayUntil?: string;
@@ -52,4 +64,6 @@ export interface CritiqueOutput {
   approved: boolean;
   issues: string[];
   revisions: string[];
+  /** Full replacement for reasoningSummary when fixing clientRestOfDay alignment, etc. */
+  reasoningSummaryRevision?: string;
 }

@@ -3,12 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
 import { format } from 'date-fns';
-import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { DarkPanel } from '@/components/ui/DarkPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { IconSymbolName } from '@/components/ui/icon-symbol';
-import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
+import { Colors, Spacing, Typography, Radius, Shadows } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
 import type { SleepEvent } from '@/types/domain';
@@ -78,6 +78,9 @@ function EventCard({
     );
   };
 
+  const napNight = event.type === 'night' ? 'night' : 'nap';
+  const tint = napNight === 'nap' ? { soft: colors.napColorSoft, main: colors.napColor } : { soft: colors.nightColorSoft, main: colors.nightColor };
+
   const card = (
     <TouchableOpacity
       onPress={onPress}
@@ -85,14 +88,15 @@ function EventCard({
       activeOpacity={0.7}
       delayLongPress={400}
     >
-      <Card
+      <DarkPanel
         style={[
           styles.eventCard,
+          Shadows.sm,
           !isLast && { marginBottom: Spacing.sm },
-          isActive && styles.activeCard,
           isSelected && styles.selectedCard,
         ]}
         padding="md"
+        shadow="none"
       >
         <View style={styles.row}>
           {isSelected != null && (
@@ -100,8 +104,8 @@ function EventCard({
               {isSelected ? <Text style={styles.checkmark}>✓</Text> : null}
             </View>
           )}
-          <View style={[styles.icon, { backgroundColor: config.bg }]}>
-            <IconSymbol name={config.icon} size={18} color={config.color} />
+          <View style={[styles.icon, { backgroundColor: tint.soft }]}>
+            <IconSymbol name={config.icon} size={18} color={tint.main} />
           </View>
           <View style={styles.info}>
             <View style={styles.infoHeader}>
@@ -136,13 +140,13 @@ function EventCard({
           {event.durationMinutes != null && (
             <Badge
               label={formatDuration(event.durationMinutes)}
-              backgroundColor={config.bg}
-              color={config.color}
+              backgroundColor={tint.soft}
+              color={tint.main}
               size="md"
             />
           )}
         </View>
-      </Card>
+      </DarkPanel>
     </TouchableOpacity>
   );
 
@@ -204,13 +208,9 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
   },
   eventCard: {},
-  activeCard: {
-    borderColor: Colors.dark.border,
-    borderWidth: 1,
-  },
   selectedCard: {
-    borderColor: Colors.dark.border,
     borderWidth: 2,
+    borderColor: 'rgba(102, 168, 255, 0.45)',
   },
   checkbox: {
     width: 24,

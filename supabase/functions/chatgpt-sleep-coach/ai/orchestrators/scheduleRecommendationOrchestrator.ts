@@ -3,7 +3,12 @@ import { critiquePrompt } from '../prompts/critiquePrompt.ts';
 import { recommendationSelectorPrompt } from '../prompts/recommendationSelectorPrompt.ts';
 import type { AgenticRequestType, ChildProfile, ClassifierResult } from '../types/aiRequest.ts';
 import type { RankedCandidate } from '../types/candidateOption.ts';
-import type { AgenticScheduleResponse, CritiqueOutput, LlmSelectionOutput } from '../types/recommendation.ts';
+import type {
+  AgenticScheduleResponse,
+  CritiqueOutput,
+  LlmSelectionOutput,
+  SleepEngineStructuredBlock,
+} from '../types/recommendation.ts';
 import type { SleepFacts } from '../types/sleepFacts.ts';
 import type { SleepSession } from '../types/sessions.ts';
 import { getChildProfile } from '../services/childProfileService.ts';
@@ -14,6 +19,11 @@ import { buildContextPacket } from '../services/contextPacketService.ts';
 import { computeDataQuality } from '../services/dataQualityService.ts';
 import { getRecentSleepHistory } from '../services/sleepHistoryService.ts';
 import { computeSleepFacts } from '../services/sleepAnalysisService.ts';
+import { analyzeSleepPatterns30d } from '../services/sleepPatternAnalysisService.ts';
+import {
+  buildSleepEngineGuidance,
+  buildSleepEngineStructuredBlock,
+} from '../services/sleepRecommendationEngine.ts';
 import { getTodaySleepTimeline } from '../services/sleepTimelineService.ts';
 import { effectiveConfidence, hedgingPrefix } from '../guards/confidenceGuard.ts';
 import { scrubMedicalClaims, hasJudgmentShameLanguage } from '../guards/safetyGuard.ts';
@@ -64,6 +74,15 @@ export async function runScheduleRecommendationOrchestrator(
   const facts = computeSleepFacts(profile, input.sleepData, recentPack, nowIso, input.body.last_wake_time ?? null);
   log.log('facts_computed', { napCount: facts.napCountToday, napInProgress: facts.currentNapInProgress });
 
+  const patternAnalysis = analyzeSleepPatterns30d(input.sleepData, nowIso, tz, input.babyAgeDays);
+  const engineGuidance = buildSleepEngineGuidance(patternAnalysis, facts, profile);
+  log.log('sleep_engine', {
+    inputSessions: patternAnalysis.inputSessionCount,
+    usableDays: patternAnalysis.daysAnalyzed,
+    strength: engineGuidance.personalizationStrength,
+    wwTarget: engineGuidance.targetWakeWindowMinutes,
+  });
+
   const dqBreakdown = computeDataQuality(facts, input.sleepData, nowIso);
   log.log('data_quality', { score: dqBreakdown.score, notes: dqBreakdown.notes });
 
@@ -100,16 +119,25 @@ export async function runScheduleRecommendationOrchestrator(
     };
   }
 
-  let candidates = generateCandidateScheduleOptions(facts, profile, requestType, nowIso);
+  let candidates = generateCandidateScheduleOptions(facts, profile, requestType, nowIso, engineGuidance);
   if (candidates.length === 0) {
     requestType = 'BEDTIME_RECOMMENDATION';
-    candidates = generateCandidateScheduleOptions(facts, profile, requestType, nowIso);
+    candidates = generateCandidateScheduleOptions(facts, profile, requestType, nowIso, engineGuidance);
   }
 
   const ranked = evaluateRecommendationCandidates(candidates, facts, profile);
   log.log('candidates', { count: ranked.length, top: ranked[0]?.id });
 
-  const packet = buildContextPacket(requestType, profile, facts, ranked, dqBreakdown, input.body.user_message);
+  const packet = buildContextPacket(
+    requestType,
+    profile,
+    facts,
+    ranked,
+    dqBreakdown,
+    input.body.user_message,
+    patternAnalysis,
+    engineGuidance,
+  );
   const tSel = Date.now();
   const selRaw = await input.callLLM(
     [
@@ -132,17 +160,34 @@ export async function runScheduleRecommendationOrchestrator(
   );
   log.log('llm_critique', { ms: Date.now() - tCrit });
   const critique = safeParseCritique(extractJsonFromText(critRaw));
-  if (critique && !critique.approved && critique.revisions.length > 0) {
-    selection = {
-      ...selection,
-      parentFacingResponse: critique.revisions[0] ?? selection.parentFacingResponse,
-    };
+  if (critique && !critique.approved) {
+    if (critique.revisions.length > 0) {
+      selection = {
+        ...selection,
+        parentFacingResponse: critique.revisions[0] ?? selection.parentFacingResponse,
+      };
+    }
+    if (critique.reasoningSummaryRevision) {
+      selection = { ...selection, reasoningSummary: critique.reasoningSummaryRevision };
+    }
   }
 
   const chosen = ranked.find((c) => c.id === selection.recommendedOptionId) ?? ranked[0];
   const fallbackC = selection.fallbackOptionId
     ? ranked.find((c) => c.id === selection.fallbackOptionId)
     : ranked[1];
+
+  const sleepEngineBlock = buildSleepEngineStructuredBlock({
+    analysis: patternAnalysis,
+    guidance: engineGuidance,
+    facts,
+    profile,
+    chosen,
+    fallback: fallbackC,
+    nowIso,
+    dataQualityScore: dqBreakdown.score,
+    requestType,
+  });
 
   const response = assembleStructuredResponse(
     requestType,
@@ -153,6 +198,7 @@ export async function runScheduleRecommendationOrchestrator(
     profile,
     dqBreakdown.score,
     ranked,
+    sleepEngineBlock,
     input.includeDebug
       ? {
         facts,
@@ -310,6 +356,10 @@ function safeParseCritique(raw: string): CritiqueOutput | null {
       approved: Boolean(j.approved),
       issues: Array.isArray(j.issues) ? j.issues.map(String) : [],
       revisions: Array.isArray(j.revisions) ? j.revisions.map(String) : [],
+      reasoningSummaryRevision:
+        typeof j.reasoningSummaryRevision === 'string' && j.reasoningSummaryRevision.trim()
+          ? String(j.reasoningSummaryRevision)
+          : undefined,
     };
   } catch {
     return null;
@@ -325,6 +375,7 @@ function assembleStructuredResponse(
   profile: ChildProfile,
   dq: number,
   ranked: RankedCandidate[],
+  sleepEngine: SleepEngineStructuredBlock,
   debug?: AgenticScheduleResponse['debug'],
 ): AgenticScheduleResponse {
   let parentText = hedgingPrefix(dq) + selection.parentFacingResponse;
@@ -349,6 +400,7 @@ function assembleStructuredResponse(
     dataQualityScore: dq,
     watchFors: selection.watchFors,
     parentFacingResponse: parentText,
+    sleepEngine,
     ...maxNapsExtrasSpread(maxNapExtras),
     debug,
   };

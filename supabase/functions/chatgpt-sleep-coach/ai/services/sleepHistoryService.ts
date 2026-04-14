@@ -109,7 +109,7 @@ function computeNightPatternRates(
   };
 }
 
-function chunkNightRuns(sorted: SleepSession[]): SleepSession[][] {
+export function chunkNightRuns(sorted: SleepSession[]): SleepSession[][] {
   const runs: SleepSession[][] = [];
   let run: SleepSession[] = [];
   for (const s of sorted) {

@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 
 import { registerLiveActivityBackgroundPushTask } from '@/registerLiveActivityBackgroundTask';
 import { Colors, Gradients, Typography, Spacing } from '@/constants/theme';
+import { AppClockProvider } from '@/contexts/AppClockContext';
 import { CurrentBabyProvider } from '@/contexts/CurrentBabyContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { supabase } from '@/lib/supabase';
@@ -87,6 +88,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={SovaDarkTheme}>
+        <AppClockProvider>
         <CurrentBabyProvider>
           <SubscriptionProvider>
             <Stack
@@ -126,6 +128,7 @@ export default function RootLayout() {
             </Stack>
           </SubscriptionProvider>
         </CurrentBabyProvider>
+        </AppClockProvider>
         <StatusBar style="light" />
       </ThemeProvider>
     </GestureHandlerRootView>

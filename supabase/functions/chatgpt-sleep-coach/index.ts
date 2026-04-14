@@ -1,7 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { agenticResponseToLegacyNextSleep } from './ai/legacyNextSleepMap.ts';
+import {
+  agenticResponseToLegacyNextSleep,
+  clampLegacyNextSleepToTargetNapPlan,
+} from './ai/legacyNextSleepMap.ts';
 import { runScheduleRecommendationOrchestrator } from './ai/orchestrators/scheduleRecommendationOrchestrator.ts';
+import { getChildProfile } from './ai/services/childProfileService.ts';
 
 // ─── Environment ─────────────────────────────────────────────────
 
@@ -32,6 +36,7 @@ type Mode =
   | 'next_sleep'
   | 'max_nap_duration'
   | 'chat'
+  | 'chat_memory_extract'
   | 'recommendation'
   | 'nap_evaluation'
   | 'micro_insight'
@@ -59,6 +64,10 @@ interface RequestBody {
   include_ai_debug?: boolean;
   /** Escape hatch to monolithic one-shot next_sleep (set USE_LEGACY_NEXT_SLEEP=true) */
   use_legacy_next_sleep?: boolean;
+  /** When true, chat handler skips the follow-up memory-extraction LLM (client may call chat_memory_extract). */
+  skip_memory_extraction?: boolean;
+  /** Assistant reply text for mode chat_memory_extract (pair with message). */
+  memory_assistant_reply?: string;
   user_preferences?: {
     bedtime_type?: 'target' | 'flexible';
     bedtime_target_time?: string | null;
@@ -89,6 +98,7 @@ const PREMIUM_LOCKED_MODES = new Set<Mode>([
   'next_sleep',
   'max_nap_duration',
   'chat',
+  'chat_memory_extract',
   'recommendation',
   'nap_evaluation',
   'micro_insight',
@@ -891,6 +901,16 @@ function buildPreferencesBlock(body: RequestBody): string {
     if (prefs.naps_per_day != null) {
       parts.push(`Baby's profile naps/day setting: ${prefs.naps_per_day}`);
     }
+    if (prefs.prefer_longer_naps === true) {
+      parts.push('Parent prefers longer naps when feasible.');
+    } else if (prefs.prefer_longer_naps === false) {
+      parts.push('Parent prefers more frequent / shorter naps when feasible.');
+    }
+    if (prefs.prefer_earlier_bedtime === true) {
+      parts.push('Parent prefers an earlier bedtime when schedule tradeoffs arise.');
+    } else if (prefs.prefer_earlier_bedtime === false) {
+      parts.push('Parent is open to a slightly later bedtime when tradeoffs arise.');
+    }
   }
   if (memories?.length) {
     parts.push(`Coach memories from past conversations:\n${memories.map((m) => `  - ${m}`).join('\n')}`);
@@ -1056,11 +1076,24 @@ async function handleNextSleep(
         includeDebug: body.include_ai_debug === true,
       });
       const nowIso = body.current_time ?? new Date().toISOString();
+      const profileForLegacy = getChildProfile(
+        {
+          baby_id: body.baby_id,
+          baby_name: babyName,
+          baby_age_days: babyAgeDays,
+          timezone: body.timezone,
+          user_preferences: body.user_preferences,
+          memories: body.memories,
+        },
+        babyName,
+        babyAgeDays,
+      );
       const legacyNext = agenticResponseToLegacyNextSleep(
         orchestrator.response,
         orchestrator.selectedCandidate,
         orchestrator.facts,
         nowIso,
+        profileForLegacy,
       );
       sanitizeNextSleepSchedule(
         legacyNext,
@@ -1070,6 +1103,7 @@ async function handleNextSleep(
         babyAgeDays,
         getWakeWindowForAge(babyAgeDays),
       );
+      clampLegacyNextSleepToTargetNapPlan(legacyNext, orchestrator.facts, profileForLegacy, nowIso);
       return {
         next_sleep: legacyNext,
         agentic: orchestrator.response,
@@ -1363,6 +1397,66 @@ Return ONLY valid JSON.`;
   }
 }
 
+// ─── Chat: memory extraction (second LLM; can be called separately from mobile for progress UI) ─
+
+async function extractSuggestedMemoriesFromChatTurn(
+  provider: Provider,
+  userMessage: string,
+  assistantResponse: string,
+): Promise<string[]> {
+  const trimmedUser = userMessage.trim();
+  const trimmedAsst = assistantResponse.trim();
+  if (!trimmedUser || !trimmedAsst) return [];
+
+  const memoryText = await callLLM(
+    provider,
+    [
+      {
+        role: 'system',
+        content: `You are a memory extractor for a baby sleep coach app. Only suggest memories when ONE of these is true:
+1) The assistant suggested a specific change or recommendation (schedule, routine, timing, etc.) and the user agreed or indicated they will follow it.
+2) The user explicitly asked to remember something, stated a preference to save, or said something like "we're doing X" / "remember that" / "note that".
+
+Do NOT suggest memories for: general Q&A, casual chat, one-off questions, or when the user merely shared info without the assistant recommending a change and without the user asking to remember. In those cases return {"memories": []}.
+
+When you do suggest memories: extract 0-3 short sentences — only what the parent stated or clearly agreed to. Return JSON: {"memories": ["memory 1"]}. No other text.`,
+      },
+      {
+        role: 'user',
+        content: `User: "${trimmedUser}"\n\nAssistant: "${trimmedAsst.slice(0, 600)}"`,
+      },
+    ],
+    { temperature: 0.2, maxTokens: 200, json: true },
+  );
+  try {
+    const parsed = JSON.parse(memoryText);
+    if (Array.isArray(parsed.memories)) {
+      return parsed.memories
+        .filter((m: unknown) => typeof m === 'string' && m.trim().length > 0)
+        .map((m: string) => m.trim())
+        .slice(0, 5);
+    }
+  } catch (_e) { /* ignore */ }
+  return [];
+}
+
+async function handleChatMemoryExtract(
+  body: RequestBody,
+  _sleepData: SleepSession[],
+  _babyName: string,
+  _babyAgeDays: number,
+  _userId: string | null,
+  provider: Provider,
+) {
+  const user = body.message?.trim() ?? '';
+  const assistant = body.memory_assistant_reply?.trim() ?? '';
+  const suggested_memories = await extractSuggestedMemoriesFromChatTurn(provider, user, assistant);
+  return {
+    provider,
+    ...(suggested_memories.length > 0 ? { suggested_memories } : {}),
+  };
+}
+
 // ─── Chat Handler ────────────────────────────────────────────────
 
 async function handleChat(
@@ -1379,6 +1473,7 @@ async function handleChat(
     current_time = new Date().toISOString(),
     timezone = 'UTC',
     last_wake_time = null,
+    skip_memory_extraction = false,
   } = body;
 
   const ctx = buildSleepContext(sleepData, current_time, last_wake_time, babyAgeDays, babyName, timezone);
@@ -1404,38 +1499,9 @@ Be conversational, supportive, and practical. Keep responses concise but helpful
 
   const responseText = await callLLM(provider, messages, { maxTokens: 600 });
 
-  // Extract memories only when the assistant suggested a change/recommendation or the user asked to remember something
   let suggested_memories: string[] = [];
-  if (message && responseText) {
-    const memoryText = await callLLM(
-      provider,
-      [
-        {
-          role: 'system',
-          content: `You are a memory extractor for a baby sleep coach app. Only suggest memories when ONE of these is true:
-1) The assistant suggested a specific change or recommendation (schedule, routine, timing, etc.) and the user agreed or indicated they will follow it.
-2) The user explicitly asked to remember something, stated a preference to save, or said something like "we're doing X" / "remember that" / "note that".
-
-Do NOT suggest memories for: general Q&A, casual chat, one-off questions, or when the user merely shared info without the assistant recommending a change and without the user asking to remember. In those cases return {"memories": []}.
-
-When you do suggest memories: extract 0-3 short sentences — only what the parent stated or clearly agreed to. Return JSON: {"memories": ["memory 1"]}. No other text.`,
-        },
-        {
-          role: 'user',
-          content: `User: "${message}"\n\nAssistant: "${responseText.slice(0, 600)}"`,
-        },
-      ],
-      { temperature: 0.2, maxTokens: 200, json: true }
-    );
-    try {
-      const parsed = JSON.parse(memoryText);
-      if (Array.isArray(parsed.memories)) {
-        suggested_memories = parsed.memories
-          .filter((m: unknown) => typeof m === 'string' && m.trim().length > 0)
-          .map((m: string) => m.trim())
-          .slice(0, 5);
-      }
-    } catch (_e) { /* ignore */ }
+  if (!skip_memory_extraction && message && responseText) {
+    suggested_memories = await extractSuggestedMemoriesFromChatTurn(provider, message, responseText);
   }
 
   return {
@@ -1637,6 +1703,69 @@ async function handleNapEvaluation(
   return { evaluation: responseText, provider };
 }
 
+function stripMarkdownJsonFence(text: string): string {
+  const t = text.trim();
+  const m = t.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
+  if (m) return m[1].trim();
+  return t;
+}
+
+type InsightBundleItem = { title: string; insight: string; icon: string };
+
+function normalizeInsightsBundlePayload(parsed: unknown, fallbackText: string): { insights: InsightBundleItem[] } {
+  if (parsed == null || typeof parsed !== 'object') {
+    return { insights: [{ title: 'Analysis', insight: fallbackText, icon: '💡' }] };
+  }
+  let root = parsed as Record<string, unknown>;
+  if (root.insights_bundle != null && typeof root.insights_bundle === 'object') {
+    root = root.insights_bundle as Record<string, unknown>;
+  }
+  let raw = root.insights;
+  if (!Array.isArray(raw)) {
+    if (raw != null && typeof raw === 'object') {
+      raw = [raw];
+    } else if (typeof raw === 'string') {
+      try {
+        const inner = JSON.parse(raw) as unknown;
+        if (Array.isArray(inner)) raw = inner;
+        else if (inner && typeof inner === 'object' && Array.isArray((inner as Record<string, unknown>).insights)) {
+          raw = (inner as { insights: unknown[] }).insights;
+        } else {
+          return { insights: [{ title: 'Analysis', insight: raw, icon: '💡' }] };
+        }
+      } catch {
+        return { insights: [{ title: 'Analysis', insight: raw, icon: '💡' }] };
+      }
+    } else {
+      return { insights: [{ title: 'Analysis', insight: fallbackText, icon: '💡' }] };
+    }
+  }
+  const insights: InsightBundleItem[] = (raw as unknown[]).map((item, i) => {
+    if (typeof item === 'string') {
+      return { title: `Insight ${i + 1}`, insight: item, icon: '💡' };
+    }
+    if (!item || typeof item !== 'object') {
+      return { title: 'Insight', insight: String(item), icon: '💡' };
+    }
+    const o = item as Record<string, unknown>;
+    const title =
+      typeof o.title === 'string' && o.title.trim() ? o.title.trim() : `Insight ${i + 1}`;
+    let insightStr = '';
+    if (typeof o.insight === 'string') insightStr = o.insight;
+    else if (typeof o.body === 'string') insightStr = o.body;
+    else if (typeof o.summary === 'string') insightStr = o.summary;
+    else if (typeof o.text === 'string') insightStr = o.text;
+    else if (typeof o.description === 'string') insightStr = o.description;
+    const icon = typeof o.icon === 'string' ? o.icon : '💡';
+    return { title, insight: insightStr.trim() || title, icon };
+  }).filter((x) => x.insight.trim().length > 0);
+
+  if (insights.length === 0) {
+    return { insights: [{ title: 'Analysis', insight: fallbackText, icon: '💡' }] };
+  }
+  return { insights };
+}
+
 async function handleInsightsBundle(
   body: RequestBody,
   sleepData: SleepSession[],
@@ -1691,8 +1820,10 @@ Return ONLY valid JSON. If there's insufficient data, still return 2-3 insights 
   );
 
   try {
-    const parsed = JSON.parse(responseText);
-    return { insights_bundle: parsed };
+    const cleaned = stripMarkdownJsonFence(responseText);
+    const parsed = JSON.parse(cleaned);
+    const normalized = normalizeInsightsBundlePayload(parsed, responseText);
+    return { insights_bundle: normalized };
   } catch {
     return { insights_bundle: { insights: [{ title: 'Analysis', insight: responseText, icon: '💡' }] } };
   }
@@ -1787,7 +1918,7 @@ Deno.serve(async (req: Request) => {
           .select('type, start_time, end_time, duration_minutes')
           .eq('baby_id', baby_id)
           .order('start_time', { ascending: false })
-          .limit(30);
+          .limit(500);
 
         if (sessions) {
           sleepData = sessions.map((s: any) => ({
@@ -1812,6 +1943,9 @@ Deno.serve(async (req: Request) => {
         break;
       case 'chat':
         result = await handleChat(body, sleepData, babyName, babyAgeDays, userId, provider);
+        break;
+      case 'chat_memory_extract':
+        result = await handleChatMemoryExtract(body, sleepData, babyName, babyAgeDays, userId, provider);
         break;
       case 'recommendation':
         result = await handleRecommendation(body, sleepData, babyName, babyAgeDays, provider);

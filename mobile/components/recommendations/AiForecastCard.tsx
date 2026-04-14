@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Spacing, Typography, Radius, Shadows } from '@/constants/theme';
 import { DarkPanel } from '@/components/ui/DarkPanel';
-import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColors } from '@/hooks/use-theme-color';
 import { useAiInsight } from '@/hooks/useAiInsight';
 
@@ -89,8 +89,6 @@ export function AiForecastCard({ babyId }: AiForecastCardProps) {
   }, [babyId]);
 
   const f = data?.forecast;
-  const trend = f?.trend;
-  const trendNote = f?.trend_note;
   const preview = headerPreview(f);
 
   const handleRefresh = () => {
@@ -98,13 +96,6 @@ export function AiForecastCard({ babyId }: AiForecastCardProps) {
   };
 
   if (!loading && !data && !error) return null;
-
-  const trendIconName: IconSymbolName = (() => {
-    if (trend === 'improving') return 'chart.line.uptrend.xyaxis';
-    if (trend === 'declining') return 'chart.line.downtrend.xyaxis';
-    if (trend === 'transitioning') return 'arrow.triangle.2.circlepath';
-    return 'chart.line.flattrend.xyaxis';
-  })();
 
   return (
     <DarkPanel style={[styles.wrapper, Shadows.sm]} padding="none" shadow="none">
@@ -203,16 +194,6 @@ export function AiForecastCard({ babyId }: AiForecastCardProps) {
                 </View>
               </View>
 
-              {(trend || trendNote) && (
-                <View style={[styles.trendBar, { backgroundColor: colors.accentSoft }]}>
-                  <IconSymbol name={trendIconName} size={16} color={colors.accent} style={styles.trendIcon} />
-                  <Text style={[Typography.caption, { color: colors.accent, flex: 1 }]}>
-                    {trend ? trend.charAt(0).toUpperCase() + trend.slice(1) : 'Trend'}
-                    {trendNote ? ` — ${trendNote}` : ''}
-                  </Text>
-                </View>
-              )}
-
               {f?.key_factors && f.key_factors.length > 0 && (
                 <View style={styles.factorsBlock}>
                   <Text style={[Typography.caption, { color: colors.textTertiary, marginBottom: Spacing.xs }]}>
@@ -308,18 +289,6 @@ const styles = StyleSheet.create({
   },
   factorsBlock: {
     marginBottom: Spacing.sm,
-  },
-  trendBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.md,
-    marginBottom: Spacing.sm,
-  },
-  trendIcon: {
-    marginTop: 1,
   },
   confidenceDot: {
     width: 6,

@@ -39,36 +39,8 @@ import WidgetKit
     let attributes: LiveActivityAttributes
     @State private var imageContainerSize: CGSize?
 
-    private struct ParsedSubtitle {
-      let babyName: String?
-      let productName: String?
-      let detailLine: String?
-      let timestampMs: Double?
-    }
-
     var progressViewTint: Color? {
       attributes.progressViewTint.map { Color(hex: $0) }
-    }
-
-    private var parsedSubtitle: ParsedSubtitle {
-      guard let subtitle = contentState.subtitle, subtitle.contains("|||") else {
-        return ParsedSubtitle(
-          babyName: nil,
-          productName: nil,
-          detailLine: contentState.subtitle,
-          timestampMs: nil
-        )
-      }
-
-      let parts = subtitle.components(separatedBy: "|||")
-      let timestampMs = parts.count > 3 ? Double(parts[3]) : nil
-
-      return ParsedSubtitle(
-        babyName: parts.indices.contains(0) && !parts[0].isEmpty ? parts[0] : nil,
-        productName: parts.indices.contains(1) && !parts[1].isEmpty ? parts[1] : nil,
-        detailLine: parts.indices.contains(2) && !parts[2].isEmpty ? parts[2] : nil,
-        timestampMs: timestampMs
-      )
     }
 
     private var imageAlignment: Alignment {
@@ -178,68 +150,6 @@ import WidgetKit
       )
     }
 
-    @ViewBuilder
-    private var headerRow: some View {
-      if parsedSubtitle.babyName != nil || parsedSubtitle.productName != nil {
-        HStack(alignment: .center) {
-          if let babyName = parsedSubtitle.babyName {
-            Text(babyName)
-              .font(.caption)
-              .fontWeight(.semibold)
-              .lineLimit(1)
-              .modifier(ConditionalForegroundViewModifier(color: attributes.subtitleColor))
-          }
-
-          Spacer(minLength: 8)
-
-          if let productName = parsedSubtitle.productName {
-            Text(productName)
-              .font(.caption)
-              .fontWeight(.medium)
-              .lineLimit(1)
-              .modifier(ConditionalForegroundViewModifier(color: attributes.subtitleColor))
-          }
-        }
-      }
-    }
-
-    @ViewBuilder
-    private var titleBlock: some View {
-      VStack(alignment: .leading, spacing: 4) {
-        // Sleeping: system-rendered elapsed timer (counts up every second natively on lock screen)
-        // Awake: static title text (e.g. "Next nap 2:30 PM" or "Bedtime 7:30 PM")
-        if let timestampMs = parsedSubtitle.timestampMs {
-          Text(timerInterval: Date.toElapsedTimerInterval(miliseconds: timestampMs), countsDown: false)
-            .font(.system(size: 30, weight: .semibold, design: .rounded))
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
-            .monospacedDigit()
-            .modifier(ConditionalForegroundViewModifier(color: attributes.titleColor))
-        } else {
-          Text(contentState.title)
-            .font(.system(size: 30, weight: .semibold, design: .rounded))
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
-            .modifier(ConditionalForegroundViewModifier(color: attributes.titleColor))
-        }
-
-        // Detail line: cap time ("Cap by 3:00 PM"), nap type, or window range
-        if let detailLine = parsedSubtitle.detailLine {
-          Text(detailLine)
-            .font(.subheadline)
-            .lineLimit(1)
-            .minimumScaleFactor(0.85)
-            .modifier(ConditionalForegroundViewModifier(color: attributes.subtitleColor))
-        } else if let subtitle = contentState.subtitle, !subtitle.contains("|||") {
-          Text(subtitle)
-            .font(.subheadline)
-            .lineLimit(1)
-            .minimumScaleFactor(0.85)
-            .modifier(ConditionalForegroundViewModifier(color: attributes.subtitleColor))
-        }
-      }
-    }
-
     var body: some View {
       let defaultPadding = 24
 
@@ -285,13 +195,24 @@ import WidgetKit
             }
           }
 
-          VStack(alignment: .leading, spacing: 8) {
-            headerRow
-            titleBlock
+          VStack(alignment: .leading, spacing: 2) {
+            Text(contentState.title)
+              .font(.title2)
+              .fontWeight(.semibold)
+              .modifier(ConditionalForegroundViewModifier(color: attributes.titleColor))
+
+            if let subtitle = contentState.subtitle {
+              Text(subtitle)
+                .font(.title3)
+                .modifier(ConditionalForegroundViewModifier(color: attributes.subtitleColor))
+            }
 
             if effectiveStretch {
               if let date = contentState.timerEndDateInMilliseconds {
-                ProgressView(timerInterval: Date.toTimerInterval(miliseconds: date))
+                ProgressView(
+                  timerInterval: Date.toTimerInterval(miliseconds: date),
+                  countsDown: Date.timerIntervalCountsDown(miliseconds: date)
+                )
                   .tint(progressViewTint)
                   .modifier(ConditionalForegroundViewModifier(color: attributes.progressViewLabelColor))
               } else if let progress = contentState.progress {
@@ -312,7 +233,10 @@ import WidgetKit
 
         if !effectiveStretch {
           if let date = contentState.timerEndDateInMilliseconds {
-            ProgressView(timerInterval: Date.toTimerInterval(miliseconds: date))
+            ProgressView(
+              timerInterval: Date.toTimerInterval(miliseconds: date),
+              countsDown: Date.timerIntervalCountsDown(miliseconds: date)
+            )
               .tint(progressViewTint)
               .modifier(ConditionalForegroundViewModifier(color: attributes.progressViewLabelColor))
           } else if let progress = contentState.progress {

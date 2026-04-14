@@ -1,3 +1,4 @@
+import { useAppNow } from '@/contexts/AppClockContext';
 import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,42 +7,10 @@ import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
-import { formatDuration, roundDateToNearest5Minutes, roundTimeStringToNearest5 } from '@/utils/formatTime';
-import type { ConfidenceLevel, NapRecommendationPayload, RestOfDayScheduleEvent } from '@/types/domain';
-
-/** Reduce schedule to concise lines: only naps (start–end with cap) and bedtime. */
-function getConciseScheduleLines(
-  events: RestOfDayScheduleEvent[],
-  napsCompletedToday: number,
-  refDate: Date
-): string[] {
-  const lines: string[] = [];
-  let napNum = 1 + napsCompletedToday;
-  let i = 0;
-  while (i < events.length) {
-    const evt = events[i];
-    if (evt.event === 'nap_start') {
-      const next = events[i + 1];
-      const startStr = roundTimeStringToNearest5(evt.time, refDate);
-      const capSuffix = evt.cap_minutes ? ` (cap ${formatDuration(evt.cap_minutes)})` : '';
-      if (next?.event === 'nap_end') {
-        const endStr = roundTimeStringToNearest5(next.time, refDate);
-        lines.push(`Nap ${napNum}: ${startStr} – ${endStr}${capSuffix}`);
-        i += 2;
-      } else {
-        lines.push(`Nap ${napNum}: ${startStr}${capSuffix}`);
-        i += 1;
-      }
-      napNum += 1;
-    } else if (evt.event === 'bedtime') {
-      lines.push(`Bedtime: ${roundTimeStringToNearest5(evt.time, refDate)}`);
-      i += 1;
-    } else {
-      i += 1;
-    }
-  }
-  return lines;
-}
+import { formatDuration, roundDateToNearest5Minutes } from '@/utils/formatTime';
+import { WhyRecommendationBlock, RestOfDayScheduleList } from '@/components/today/RecommendationDetailBlocks';
+import type { ConfidenceLevel, NapRecommendationPayload } from '@/types/domain';
+import { parseRestOfDaySchedule } from '@/utils/restOfDaySchedule';
 
 export interface StatusAndRecommendationCardProps {
   awakeMinutes: number;
@@ -77,6 +46,7 @@ export function StatusAndRecommendationCard({
   onWhy,
   onRefresh,
 }: StatusAndRecommendationCardProps) {
+  const appNow = useAppNow();
   const colors = useThemeColors();
   const gradients = useThemeGradients();
   const [showMore, setShowMore] = useState(false);
@@ -85,9 +55,7 @@ export function StatusAndRecommendationCard({
   const isOverdue = awakeMinutes > recommendedWakeWindow;
 
   const hasRecommendation = napPayload != null && !loading;
-  const hasExplanation =
-    hasRecommendation &&
-    (Boolean(napPayload?.explanation?.trim()) || Boolean(napPayload?.reasoning?.trim()));
+  const hasReasoning = hasRecommendation && Boolean(napPayload?.reasoning?.trim());
 
   const windowStartDate = hasRecommendation
     ? roundDateToNearest5Minutes(new Date(napPayload!.startWindowBegin))
@@ -95,26 +63,18 @@ export function StatusAndRecommendationCard({
   const windowEndDate = hasRecommendation
     ? roundDateToNearest5Minutes(new Date(napPayload!.startWindowEnd))
     : null;
-  const targetDate = hasRecommendation
-    ? roundDateToNearest5Minutes(new Date(napPayload!.expectedBedtime))
-    : null;
-  const scheduleLines = useMemo(() => {
+  const scheduleRows = useMemo(() => {
     if (!hasRecommendation || !Array.isArray(napPayload?.restOfDaySchedule) || napPayload!.restOfDaySchedule!.length === 0)
       return [];
-    return getConciseScheduleLines(
-      napPayload!.restOfDaySchedule as RestOfDayScheduleEvent[],
-      napsCompletedToday,
-      new Date()
-    );
-  }, [hasRecommendation, napPayload?.restOfDaySchedule, napsCompletedToday]);
-  const hasSchedule = scheduleLines.length > 0;
-  const hasExpandableContent = hasExplanation || hasSchedule;
+    return parseRestOfDaySchedule(napPayload!.restOfDaySchedule!, napsCompletedToday, appNow);
+  }, [hasRecommendation, napPayload, napsCompletedToday, appNow]);
+  const hasSchedule = scheduleRows.length > 0;
+  const hasExpandableContent = hasReasoning || hasSchedule;
 
   const windowText =
     windowStartDate && windowEndDate
       ? `${format(windowStartDate, 'h:mm a')} – ${format(windowEndDate, 'h:mm a')}`
       : null;
-  const targetText = targetDate ? format(targetDate, 'h:mm a') : null;
 
   return (
     <Card style={styles.card} padding="none">
@@ -238,33 +198,18 @@ export function StatusAndRecommendationCard({
           </>
         )}
 
-        {/* Expandable: cap, explanation, schedule */}
+        {/* Expandable: cap (bedtime), reasoning, schedule */}
         {showMore && hasRecommendation && napPayload && (
           <View style={[styles.moreSection, { borderTopColor: colors.border }]}>
-            {!isBedtime && (
-              <Text style={[Typography.small, { color: colors.textSecondary, marginBottom: Spacing.sm }]}>
-                Cap: {napPayload.shouldCapNap === false ? 'No cap' : formatDuration(napPayload.recommendedCapMinutes)}
-              </Text>
-            )}
-            {napPayload.explanation?.trim() && (
-              <Text style={[Typography.body, { color: colors.textSecondary, marginBottom: Spacing.sm }]}>
-                {napPayload.explanation.trim()}
-              </Text>
-            )}
-            {napPayload.reasoning?.trim() && (
-              <Text style={[Typography.small, { color: colors.textTertiary, marginBottom: Spacing.sm }]}>
-                {napPayload.reasoning.trim()}
-              </Text>
-            )}
-            {hasSchedule && (
-              <View style={styles.scheduleList}>
-                {scheduleLines.map((line, i) => (
-                  <Text key={i} style={[Typography.small, { color: colors.text }]}>
-                    {line}
-                  </Text>
-                ))}
-              </View>
-            )}
+            <View style={styles.moreInner}>
+              {isBedtime && (
+                <Text style={[Typography.small, { color: colors.textSecondary, marginBottom: Spacing.md }]}>
+                  Cap: {napPayload.shouldCapNap === false ? 'No cap' : formatDuration(napPayload.recommendedCapMinutes)}
+                </Text>
+              )}
+              <WhyRecommendationBlock reasoning={napPayload.reasoning} />
+              {hasSchedule && <RestOfDayScheduleList rows={scheduleRows} />}
+            </View>
           </View>
         )}
 
@@ -354,9 +299,8 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     borderTopWidth: 1,
   },
-  scheduleList: {
-    flexDirection: 'column',
-    gap: 6,
+  moreInner: {
+    gap: Spacing.lg,
   },
   confidenceRow: {
     flexDirection: 'row',

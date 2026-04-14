@@ -15,6 +15,7 @@ import {
 } from '@/utils/wakeWindowCalculator';
 import { formatDuration, roundToNearest5, roundDateToNearest5Minutes } from '@/utils/formatTime';
 import { format, addMinutes, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns';
+import { getAppNow } from '@/lib/appClock';
 import { supabase } from '@/lib/supabase';
 import { getPremiumAccessErrorFromResponse } from '@/services/subscription';
 import { isPremiumAccessRequiredError } from '@/types/subscription';
@@ -138,7 +139,7 @@ export function isNighttimeWake(lastWakeTime: Date, lastSessionType?: 'nap' | 'n
 export async function getNextNapRecommendation(
   baby: Baby,
   events: SleepEvent[],
-  now: Date = new Date(),
+  now: Date = getAppNow(),
   memories?: string[]
 ): Promise<AIRecommendation> {
   try {
@@ -168,8 +169,9 @@ async function fetchRemoteRecommendation(
     .sort((a, b) => new Date(b.end!).getTime() - new Date(a.end!).getTime());
   const lastWakeTime = endedEvents.length > 0 ? endedEvents[0].end : null;
 
+  /** Enough sessions for 30-day cohort analysis on the server (was 20, too thin). */
   const sleepHistory = endedEvents
-    .slice(0, 20)
+    .slice(0, 400)
     .map((e) => ({
       type: e.type,
       start_time: e.start,
@@ -199,8 +201,12 @@ async function fetchRemoteRecommendation(
         bedtime_target_time: baby.preferences.bedtimeTargetTime ?? undefined,
         last_wake_window_minutes: baby.preferences.lastWakeWindowMinutes ?? undefined,
         target_nap_count: baby.preferences.targetNapCount ?? undefined,
-        prefer_longer_naps: baby.preferences.preferLongerNaps,
-        prefer_earlier_bedtime: baby.preferences.preferEarlierBedtime,
+        ...(baby.preferences.preferLongerNaps != null
+          ? { prefer_longer_naps: baby.preferences.preferLongerNaps }
+          : {}),
+        ...(baby.preferences.preferEarlierBedtime != null
+          ? { prefer_earlier_bedtime: baby.preferences.preferEarlierBedtime }
+          : {}),
       },
       memories: memories && memories.length > 0 ? memories : undefined,
     }),
@@ -411,6 +417,9 @@ function parseAgenticMeta(raw: unknown): AgenticScheduleMeta | undefined {
     stillOkayUntil: typeof a.stillOkayUntil === 'string' ? a.stillOkayUntil : undefined,
     softCapAt: typeof a.softCapAt === 'string' ? a.softCapAt : undefined,
     hardCapAt: typeof a.hardCapAt === 'string' ? a.hardCapAt : undefined,
+    sleepEngine: a.sleepEngine != null && typeof a.sleepEngine === 'object'
+      ? (a.sleepEngine as Record<string, unknown>)
+      : undefined,
   };
 }
 
@@ -503,7 +512,7 @@ const LAST_WINDOW_AFTER_HOUR = 16;
 export function getLocalNapRecommendation(
   baby: Baby,
   events: SleepEvent[],
-  now: Date = new Date()
+  now: Date = getAppNow()
 ): AIRecommendation {
   const ageDays = calculateAgeDays(baby.birthdate);
   const prefs = baby.preferences;
@@ -748,7 +757,7 @@ export function shouldCapNap(
   baby: Baby,
   events: SleepEvent[],
   activeNap: SleepEvent,
-  now: Date = new Date()
+  now: Date = getAppNow()
 ): { capAt: string; reason: string } | null {
   const ageDays = calculateAgeDays(baby.birthdate);
   const napStart = new Date(activeNap.start);
@@ -774,7 +783,7 @@ export function getSuggestedNapCap(
   baby: Baby,
   events: SleepEvent[],
   activeNap: SleepEvent,
-  now: Date = new Date()
+  now: Date = getAppNow()
 ): { capAt: string; reason: string; explanation: string } | null {
   if (activeNap.type !== 'nap') return null;
 
