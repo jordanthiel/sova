@@ -64,6 +64,10 @@ export default function LandingPage() {
           Get Sova
         </Link>
         <nav className="landing-footer-legal" aria-label="Legal">
+          <Link to="/support">Support</Link>
+          <span className="landing-footer-sep" aria-hidden="true">
+            ·
+          </span>
           <Link to="/privacy">Privacy</Link>
           <span className="landing-footer-sep" aria-hidden="true">
             ·

@@ -93,3 +93,84 @@
   color: var(--accent) !important;
   font-weight: var(--font-weight-medium);
 }
+
+.legal-muted {
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-md);
+}
+
+.legal-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92em;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.legal-ordered {
+  margin: 0 0 var(--space-md);
+  padding-left: var(--space-lg);
+  color: var(--text-secondary);
+}
+
+.legal-ordered li {
+  margin-bottom: var(--space-sm);
+}
+
+.legal-ordered li:last-child {
+  margin-bottom: 0;
+}
+
+.legal-callout {
+  margin: 0 0 var(--space-md);
+  padding: var(--space-md);
+  background: color-mix(in srgb, var(--nap) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nap) 28%, var(--border));
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+}
+
+.legal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin: var(--space-sm) 0 var(--space-lg);
+}
+
+.legal-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-xl);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-body);
+  text-decoration: none !important;
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-align: center;
+}
+
+.legal-action-link:hover {
+  transform: translateY(-1px);
+}
+
+.legal-action-link--primary {
+  background: var(--gradient-accent);
+  color: var(--bg) !important;
+  box-shadow: 0 4px 16px rgba(78, 205, 196, 0.25);
+}
+
+.legal-action-link--primary:hover {
+  box-shadow: 0 6px 20px rgba(78, 205, 196, 0.35);
+}
+
+.legal-action-link--danger {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 45%, var(--border));
+  color: #fecaca !important;
+}
+
+.legal-action-link--danger:hover {
+  border-color: color-mix(in srgb, var(--error) 60%, var(--border));
+}
