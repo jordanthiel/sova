@@ -8,75 +8,74 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { Button } from '@/components/ui/Button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { PREMIUM_FEATURE_LABELS, type PremiumFeatureKey } from '@/constants/subscription';
+import {
+  PREMIUM_FEATURE_LABELS,
+  PRO_SUBSCRIPTION_PRODUCT_IDS,
+  SOVA_ANNUAL,
+  SOVA_MONTHLY,
+  type PremiumFeatureKey,
+} from '@/constants/subscription';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
+import { isUserCancelledError } from '@/services/iapService';
 import { getTrialDaysRemaining } from '@/services/subscription';
 import { track } from '@/services/analytics/track';
-import type { RevenueCatPackage } from '@/types/subscription';
+import type { IapSubscriptionDisplay } from '@/services/iapService';
 
-function getPackageLabel(pkg: RevenueCatPackage): string {
-  const rawType = String((pkg as any)?.packageType ?? '').toLowerCase();
-  const identifier = String((pkg as any)?.identifier ?? '').toLowerCase();
-
-  if (rawType.includes('annual') || identifier.includes('annual') || identifier.includes('year')) {
-    return 'Annual';
-  }
-  if (rawType.includes('monthly') || identifier.includes('month')) {
-    return 'Monthly';
-  }
-  return (pkg as any)?.product?.title ?? 'Plan';
-}
-
-function getPackageSubtitle(pkg: RevenueCatPackage): string | null {
-  const product = (pkg as any)?.product;
-  if (!product) return null;
-  return product.description || null;
-}
-
-function getPackagePrice(pkg: RevenueCatPackage): string {
-  return (pkg as any)?.product?.priceString ?? '';
-}
-
-function sortPackages(packages: RevenueCatPackage[]): RevenueCatPackage[] {
-  const score = (pkg: RevenueCatPackage) => {
-    const label = getPackageLabel(pkg).toLowerCase();
-    if (label.includes('annual')) return 0;
-    if (label.includes('monthly')) return 1;
+function sortSubscriptionProducts(products: IapSubscriptionDisplay[]): IapSubscriptionDisplay[] {
+  const rank = (id: string) => {
+    if (id === SOVA_ANNUAL) return 0;
+    if (id === SOVA_MONTHLY) return 1;
     return 2;
   };
-  return [...packages].sort((a, b) => score(a) - score(b));
+  return [...products].sort((a, b) => rank(a.productId) - rank(b.productId));
+}
+
+function planShortLabel(productId: string): string {
+  if (productId === SOVA_ANNUAL) return 'Annual';
+  if (productId === SOVA_MONTHLY) return 'Monthly';
+  return 'Plan';
 }
 
 export default function PaywallScreen() {
   const { feature } = useLocalSearchParams<{ feature?: PremiumFeatureKey }>();
+  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const gradients = useThemeGradients();
   const {
-    availablePackages,
-    billingConfigured,
+    subscriptionProducts,
+    iapReady,
     isLoading,
-    offeringsLoading,
+    subscriptionsLoading,
     refresh,
-    restorePurchases,
-    purchasePackage,
+    restore,
+    purchase,
     trialEndsAt,
   } = useSubscription();
 
-  const [selectedIdentifier, setSelectedIdentifier] = useState<string | null>(null);
   const [restoreLoading, setRestoreLoading] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   const trialDaysRemaining = getTrialDaysRemaining(trialEndsAt);
-  const packages = useMemo(() => sortPackages(availablePackages), [availablePackages]);
-  const selectedPackage =
-    packages.find((pkg) => (pkg as any)?.identifier === selectedIdentifier) ?? packages[0] ?? null;
+  const sortedProducts = useMemo(() => sortSubscriptionProducts(subscriptionProducts), [subscriptionProducts]);
+
+  useEffect(() => {
+    if (sortedProducts.length === 0) return;
+    setSelectedProductId((prev) => {
+      if (prev && sortedProducts.some((p) => p.productId === prev)) return prev;
+      return sortedProducts[0]!.productId;
+    });
+  }, [sortedProducts]);
+
+  const selectedProduct =
+    sortedProducts.find((p) => p.productId === selectedProductId) ?? sortedProducts[0] ?? null;
   const featureLabel = feature ? PREMIUM_FEATURE_LABELS[feature] : 'premium AI tools';
   const isTrialEndingSoon = trialDaysRemaining != null && trialDaysRemaining > 0 && trialDaysRemaining <= 3;
   const heroTitle = isTrialEndingSoon
@@ -91,19 +90,19 @@ export default function PaywallScreen() {
     trialDaysRemaining == null
       ? null
       : trialDaysRemaining > 0
-      ? `${trialDaysRemaining} day${trialDaysRemaining === 1 ? '' : 's'} left in your 7-day free trial`
-      : 'Your 7-day free trial has ended';
-  const noPlansAvailable = billingConfigured && !offeringsLoading && packages.length === 0;
+        ? `${trialDaysRemaining} day${trialDaysRemaining === 1 ? '' : 's'} left in your 7-day free trial`
+        : 'Your 7-day free trial has ended';
+  const noPlansAvailable = iapReady && !subscriptionsLoading && subscriptionProducts.length === 0;
 
   useEffect(() => {
-    if (!billingConfigured) return;
-    if (availablePackages.length > 0) return;
-    void refresh({ loadOfferings: true, syncPurchases: false });
-  }, [billingConfigured, availablePackages.length, refresh]);
+    if (!iapReady) return;
+    if (subscriptionProducts.length > 0) return;
+    void refresh({ loadSubscriptions: true });
+  }, [iapReady, subscriptionProducts.length, refresh]);
 
   const handleContinue = async () => {
     if (noPlansAvailable) {
-      await refresh({ loadOfferings: true, syncPurchases: false });
+      await refresh({ loadSubscriptions: true });
       Alert.alert(
         'Plans unavailable',
         'No subscription plans are available right now. Please try again in a moment.'
@@ -115,18 +114,18 @@ export default function PaywallScreen() {
   };
 
   const handlePurchase = async () => {
-    if (!selectedPackage) return;
+    if (!selectedProduct) return;
     track('subscription_purchase_started', {
       feature: feature ?? 'generic',
-      packageIdentifier: (selectedPackage as any)?.identifier ?? null,
+      productIdentifier: selectedProduct.productId,
     });
 
     try {
-      await purchasePackage(selectedPackage);
+      await purchase(selectedProduct.productId);
       Alert.alert('Subscription active', 'Your premium access is now unlocked.');
       router.back();
     } catch (error) {
-      if ((error as { userCancelled?: boolean } | null)?.userCancelled) {
+      if (isUserCancelledError(error)) {
         return;
       }
       Alert.alert('Purchase failed', error instanceof Error ? error.message : 'Please try again.');
@@ -137,7 +136,7 @@ export default function PaywallScreen() {
     setRestoreLoading(true);
     track('subscription_restore_started', { feature: feature ?? 'generic' });
     try {
-      await restorePurchases();
+      await restore();
       Alert.alert('Purchases restored', 'Your subscription status has been refreshed.');
       router.back();
     } catch (error) {
@@ -152,8 +151,13 @@ export default function PaywallScreen() {
       <LinearGradient colors={[...gradients.screenBackground]} style={StyleSheet.absoluteFill} />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Spacing.xxl + insets.bottom + Spacing.lg },
+        ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <TouchableOpacity
           onPress={() => router.back()}
@@ -168,9 +172,7 @@ export default function PaywallScreen() {
           <View style={[styles.heroBadge, { backgroundColor: colors.accentSoft }]}>
             <IconSymbol name="sparkles" size={28} color={colors.accent} />
           </View>
-          <Text style={[Typography.h1, { color: colors.text, textAlign: 'center' }]}>
-            {heroTitle}
-          </Text>
+          <Text style={[Typography.h1, { color: colors.text, textAlign: 'center' }]}>{heroTitle}</Text>
           <Text
             style={[
               Typography.body,
@@ -208,14 +210,15 @@ export default function PaywallScreen() {
           ))}
         </View>
 
-        {!billingConfigured ? (
+        {!iapReady ? (
           <View style={[styles.errorCard, { borderColor: colors.borderLight }]}>
-            <Text style={[Typography.bodySemiBold, { color: colors.text }]}>Billing isn&apos;t configured yet</Text>
+            <Text style={[Typography.bodySemiBold, { color: colors.text }]}>Store isn&apos;t available</Text>
             <Text style={[Typography.body, { color: colors.textSecondary, marginTop: Spacing.xs }]}>
-              Add your RevenueCat public API keys to the app environment before testing purchases.
+              In-App Purchases require a physical iOS device with StoreKit. If you are on a simulator, use a real device
+              with a Sandbox Apple ID to test subscriptions.
             </Text>
           </View>
-        ) : offeringsLoading ? (
+        ) : subscriptionsLoading ? (
           <View style={styles.loadingCard}>
             <ActivityIndicator size="small" color={colors.accent} />
             <Text style={[Typography.body, { color: colors.textSecondary, marginTop: Spacing.sm }]}>
@@ -226,21 +229,18 @@ export default function PaywallScreen() {
           <View style={[styles.errorCard, { borderColor: colors.borderLight }]}>
             <Text style={[Typography.bodySemiBold, { color: colors.text }]}>Plans unavailable</Text>
             <Text style={[Typography.body, { color: colors.textSecondary, marginTop: Spacing.xs }]}>
-              We couldn&apos;t load any subscription options right now. Try again shortly, or restore purchases if you already subscribed.
+              We couldn&apos;t load any subscription options right now. Confirm{' '}
+              <Text style={{ fontWeight: '600' }}>{PRO_SUBSCRIPTION_PRODUCT_IDS.join(', ')}</Text> exist in App Store
+              Connect, then try again or restore purchases if you already subscribed.
             </Text>
           </View>
-        ) : (
+        ) : sortedProducts.length > 0 ? (
           <View style={styles.planList}>
-            {packages.map((pkg) => {
-              const identifier = String((pkg as any)?.identifier ?? '');
-              const selected = selectedPackage === pkg;
-              const subtitle = getPackageSubtitle(pkg);
-              const price = getPackagePrice(pkg);
-              const label = getPackageLabel(pkg);
-
+            {sortedProducts.map((product) => {
+              const selected = selectedProduct?.productId === product.productId;
               return (
                 <TouchableOpacity
-                  key={identifier || label}
+                  key={product.productId}
                   activeOpacity={0.8}
                   style={[
                     styles.planCard,
@@ -249,18 +249,20 @@ export default function PaywallScreen() {
                       backgroundColor: selected ? colors.accentSoft : 'rgba(255,255,255,0.03)',
                     },
                   ]}
-                  onPress={() => setSelectedIdentifier(identifier)}
+                  onPress={() => setSelectedProductId(product.productId)}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={[Typography.bodySemiBold, { color: colors.text }]}>{label}</Text>
-                    {subtitle ? (
+                    <Text style={[Typography.bodySemiBold, { color: colors.text }]}>
+                      {planShortLabel(product.productId)}
+                    </Text>
+                    {product.description ? (
                       <Text style={[Typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
-                        {subtitle}
+                        {product.description}
                       </Text>
                     ) : null}
                   </View>
                   <View style={{ alignItems: 'flex-end', marginLeft: Spacing.md }}>
-                    <Text style={[Typography.bodySemiBold, { color: colors.text }]}>{price}</Text>
+                    <Text style={[Typography.bodySemiBold, { color: colors.text }]}>{product.localizedPrice}</Text>
                     {selected ? (
                       <Text style={[Typography.caption, { color: colors.accent, marginTop: 4 }]}>Selected</Text>
                     ) : null}
@@ -269,14 +271,12 @@ export default function PaywallScreen() {
               );
             })}
           </View>
-        )}
+        ) : null}
 
         <Button
-          title={
-            isLoading ? 'Processing...' : noPlansAvailable ? 'Reload plans' : 'Continue'
-          }
+          title={isLoading ? 'Processing...' : noPlansAvailable ? 'Reload plans' : 'Subscribe'}
           onPress={handleContinue}
-          disabled={!billingConfigured || offeringsLoading || isLoading}
+          disabled={!iapReady || subscriptionsLoading || isLoading || !selectedProduct}
           loading={isLoading}
           variant="gradient"
           fullWidth
@@ -286,7 +286,7 @@ export default function PaywallScreen() {
         <Button
           title={restoreLoading ? 'Restoring...' : 'Restore purchases'}
           onPress={handleRestore}
-          disabled={!billingConfigured || restoreLoading}
+          disabled={!iapReady || restoreLoading}
           loading={restoreLoading}
           variant="ghost"
           fullWidth
@@ -302,9 +302,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0D0918',
   },
-  content: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing.xxl,
+  scroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  scrollContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
   },
   closeButton: {
     alignSelf: 'flex-end',

@@ -7,10 +7,11 @@ import {
   PanResponder,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { Colors, Spacing, Typography, Radius, ChartTypography } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
+import { getExtendedDayBounds } from '@/utils/dateUtils';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { SleepEvent } from '@/types/domain';
@@ -20,15 +21,8 @@ const TOTAL_HOURS = 24;
 const TIMELINE_HEIGHT = HOUR_HEIGHT * TOTAL_HOURS;
 const LABEL_WIDTH = 40;
 
-/** Extended day: 6am of date through 6am of next day (24h). */
-function getDayStart6am(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(6, 0, 0, 0);
-  return d;
-}
-
 const TIME_LABELS_2H: { offsetHours: number; label: string }[] = [
-  { offsetHours: 0, label: '6 AM' },
+  { offsetHours: 0, label: '7 AM' },
   { offsetHours: 2, label: '8 AM' },
   { offsetHours: 4, label: '10 AM' },
   { offsetHours: 6, label: '12 PM' },
@@ -73,8 +67,7 @@ export function LogDayTimeline({
   const [draftStart, setDraftStart] = useState<Date | null>(null);
   const [draftEnd, setDraftEnd] = useState<Date | null>(null);
 
-  const dayStart = getDayStart6am(date);
-  const dayEnd = addDays(dayStart, 1);
+  const { start: dayStart, end: dayEnd } = getExtendedDayBounds(date);
   const dayStartRef = useRef(dayStart);
   const dayEndRef = useRef(dayEnd);
   dayStartRef.current = dayStart;

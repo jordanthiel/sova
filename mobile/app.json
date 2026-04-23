@@ -9,6 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "deploymentTarget": "15.1",
       "supportsTablet": true,
       "bundleIdentifier": "com.jordanthiel.sova",
       "infoPlist": {
@@ -33,6 +34,7 @@
     },
     "plugins": [
       "expo-router",
+      "react-native-iap",
       "expo-notifications",
       [
         "expo-live-activity",

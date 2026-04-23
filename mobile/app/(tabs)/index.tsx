@@ -88,7 +88,7 @@ const DEFAULT_PREFS: BabyPreferences = {
 };
 
 function getGreeting(hour: number): { text: string; icon: 'moon.fill' | 'sun.max.fill' } {
-  if (hour < 6) return { text: 'Good Night', icon: 'moon.fill' };
+  if (hour < 7) return { text: 'Good Night', icon: 'moon.fill' };
   if (hour < 12) return { text: 'Good Morning', icon: 'sun.max.fill' };
   if (hour < 17) return { text: 'Good Afternoon', icon: 'sun.max.fill' };
   if (hour < 21) return { text: 'Good Evening', icon: 'sun.max.fill' };
@@ -132,13 +132,26 @@ export default function TodayScreen() {
   const colors = useThemeColors();
   const gradients = useThemeGradients();
   const { hasPremiumAccess, showPaywall } = usePremiumGate();
-  const { isReady: subscriptionReady, isTrialActive, trialEndsAt } = useSubscription();
+  const {
+    isReady: subscriptionReady,
+    isTrialActive,
+    trialEndsAt,
+    hasSubscriptionAccess,
+    isPro,
+  } = useSubscription();
   const trialPaywallShownRef = useRef<number | null>(null);
   const trialDaysRemaining = getTrialDaysRemaining(trialEndsAt);
-  const shouldShowTrialBanner = isTrialActive && trialDaysRemaining != null && trialDaysRemaining > 0;
+  /** Trial window can overlap an active sub in DB (`trial_ends_at` still future); chip is trial-only. */
+  const inPaidSubscription = hasSubscriptionAccess || isPro;
+  const shouldShowTrialBanner =
+    isTrialActive &&
+    !inPaidSubscription &&
+    trialDaysRemaining != null &&
+    trialDaysRemaining > 0;
   const shouldAutoShowTrialPaywall =
     subscriptionReady &&
     isTrialActive &&
+    !inPaidSubscription &&
     trialDaysRemaining != null &&
     trialDaysRemaining > 0 &&
     trialDaysRemaining <= 3;
@@ -221,6 +234,7 @@ export default function TodayScreen() {
 
   const hasMountedRef = useRef(false);
   const lastTimezoneRef = useRef<string | null>(null);
+  const endingSessionInProgressRef = useRef(false);
   useFocusEffect(
     useCallback(() => {
       track('view_today', { babyId: currentBabyId });
@@ -524,7 +538,14 @@ export default function TodayScreen() {
     track('refresh_recommendation', { babyId: domainBaby.id });
   }, [domainBaby, activeSession, hasPremiumAccess, sessionDataKey, memoryStrings, showPaywall, eventsForRecommendation]);
 
-  const isBedtimeRec = recommendation?.type === 'bedtime';
+  /** Local heuristic wins when API/stored target still says "next nap" but it's clearly bedtime (e.g. last nap slot, clock). */
+  const localBedtimeHint = useMemo(() => {
+    if (!domainBaby || activeSession || !hasAnyEndedSessions) return false;
+    return getLocalNapRecommendation(domainBaby, eventsForRecommendation, getAppNow()).type === 'bedtime';
+  }, [domainBaby, activeSession, hasAnyEndedSessions, eventsForRecommendation, appClockMinute]);
+
+  const isBedtimeRec =
+    recommendation?.type === 'bedtime' || (recommendation?.type === 'next_nap' && localBedtimeHint);
   const napPayload =
     recommendation?.type === 'next_nap' || recommendation?.type === 'bedtime'
       ? (recommendation.payload as NapRecommendationPayload)
@@ -582,7 +603,6 @@ export default function TodayScreen() {
       return;
     }
     const config = notificationConfig;
-    const isBedtime = recommendation?.type === 'bedtime';
 
     let cancelled = false;
     const run = async () => {
@@ -590,20 +610,20 @@ export default function TodayScreen() {
       if (cancelled || !napPayload) return;
       const windowStart = new Date(napPayload.startWindowBegin);
 
-      if (config.napWindowSoon && !isBedtime) {
+      if (config.napWindowSoon && !isBedtimeRec) {
         const remindAt = addMinutes(windowStart, -15);
         if (remindAt.getTime() > Date.now()) {
           await scheduleNapWindowReminder(remindAt.toISOString(), currentBabyId);
         }
       }
-      if (config.bedtimeReminder && isBedtime) {
+      if (config.bedtimeReminder && isBedtimeRec) {
         if (windowStart.getTime() > Date.now()) {
           await scheduleBedtimeReminder(napPayload.startWindowBegin, currentBabyId);
         }
       }
       if (
         config.wakeWindowAlert &&
-        !isBedtime &&
+        !isBedtimeRec &&
         lastWakeTime != null &&
         typeof displayWakeWindow === 'number'
       ) {
@@ -618,7 +638,7 @@ export default function TodayScreen() {
   }, [
     currentBabyId,
     activeSession,
-    recommendation?.type,
+    isBedtimeRec,
     napPayload?.startWindowBegin,
     notificationConfig.napWindowSoon,
     notificationConfig.bedtimeReminder,
@@ -631,8 +651,7 @@ export default function TodayScreen() {
   const handleStartNap = async () => {
     if (!currentBabyId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const isBedtime = recommendation?.type === 'bedtime';
-    track(isBedtime ? 'log_night_start' : 'log_nap_start', { babyId: currentBabyId });
+    track(isBedtimeRec ? 'log_night_start' : 'log_nap_start', { babyId: currentBabyId });
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -642,7 +661,7 @@ export default function TodayScreen() {
         .from('sleep_sessions')
         .insert({
           baby_id: currentBabyId,
-          type: isBedtime ? 'night' : 'nap',
+          type: isBedtimeRec ? 'night' : 'nap',
           start_time: new Date().toISOString(),
           logged_by: user.id,
         })
@@ -651,7 +670,7 @@ export default function TodayScreen() {
 
       if (error) throw error;
 
-      if (data && domainBaby && !isBedtime) {
+      if (data && domainBaby && !isBedtimeRec) {
         const cap = shouldCapNap(
           domainBaby,
           allSessions.map(sessionToSleepEvent),
@@ -674,7 +693,7 @@ export default function TodayScreen() {
       if (isNetworkError) {
         const { data: { user: u } } = await supabase.auth.getUser();
         if (u) {
-          await queueInsert(currentBabyId, isBedtime ? 'night' : 'nap', new Date().toISOString(), u.id);
+          await queueInsert(currentBabyId, isBedtimeRec ? 'night' : 'nap', new Date().toISOString(), u.id);
           Alert.alert(
             "You're offline",
             "Sleep session saved locally and will sync when you're back online. You can still use the app — wake window recommendations use local data."
@@ -689,21 +708,32 @@ export default function TodayScreen() {
 
   const handleEndNap = async () => {
     if (!activeSession) return;
+    if (endingSessionInProgressRef.current) return;
+    endingSessionInProgressRef.current = true;
+    const sessionId = activeSession.id;
+    const sessionStart = activeSession.start_time;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    track('log_nap_end', { babyId: currentBabyId, sessionId: activeSession.id });
+    track('log_nap_end', { babyId: currentBabyId, sessionId });
 
     try {
       const now = new Date().toISOString();
       const dur = Math.round(
-        (new Date(now).getTime() - new Date(activeSession.start_time).getTime()) / 60000
+        (new Date(now).getTime() - new Date(sessionStart).getTime()) / 60000
       );
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('sleep_sessions')
         .update({ end_time: now, duration_minutes: dur })
-        .eq('id', activeSession.id);
+        .eq('id', sessionId)
+        .is('end_time', null)
+        .select('id')
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) {
+        await refetchSessions?.();
+        return;
+      }
       await refetchSessions?.();
       const { data: { user } } = await supabase.auth.getUser();
       if (currentBabyId && user) {
@@ -718,9 +748,9 @@ export default function TodayScreen() {
       if (isNetworkError) {
         const now = new Date().toISOString();
         const dur = Math.round(
-          (new Date(now).getTime() - new Date(activeSession.start_time).getTime()) / 60000
+          (new Date(now).getTime() - new Date(sessionStart).getTime()) / 60000
         );
-        await queueUpdate(activeSession.id, now, dur);
+        await queueUpdate(sessionId, now, dur);
         Alert.alert(
           "You're offline",
           "Session end saved locally and will sync when you're back online."
@@ -729,6 +759,8 @@ export default function TodayScreen() {
       } else {
         Alert.alert('Error', err.message);
       }
+    } finally {
+      endingSessionInProgressRef.current = false;
     }
   };
 
@@ -1036,10 +1068,12 @@ export default function TodayScreen() {
         {/* Caregiver indicator */}
         
 
-        {/* Summary stats — one line */}
+       
+
+        {/* Day Timeline: Today's Sessions */}
         <View style={styles.section}>
-          <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.xs }]}>
-            {`Today's Summary`}
+          <Text style={[Typography.h3, { color: colors.text }]}>
+            {`Today's Sessions`}
           </Text>
           <View style={styles.summaryStats}>
             <View style={styles.summaryStatRow}>
@@ -1057,13 +1091,6 @@ export default function TodayScreen() {
               <Text style={[styles.summaryStat, { color: colors.text }]}> {nightCount} Night</Text>
             </View>
           </View>
-        </View>
-
-        {/* Day Timeline: Today's Sessions */}
-        <View style={styles.section}>
-          <Text style={[Typography.h3, { color: colors.text, marginBottom: Spacing.md }]}>
-            {`Today's Sessions`}
-          </Text>
           {todaySessions.length === 0 ? (
             <DarkPanel padding="lg" shadow="sm">
               <View style={styles.emptySessions}>
@@ -1146,6 +1173,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'nowrap',
+    paddingVertical: Spacing.sm,
   },
   summaryStat: {
     ...Typography.bodyMedium,

@@ -22,9 +22,9 @@ function effectiveDuration(s: NightScoreSession): number {
   return s.duration_minutes ?? 0;
 }
 
-/** 6am on the calendar day after dateKey (yyyy-MM-dd). Used to cap last segment so we don't count sleep past 6am toward that night. */
-function get6amCutoffNextDay(dateKey: string): number {
-  const d = new Date(dateKey + 'T06:00:00');
+/** Extended-day start on the calendar day after dateKey (yyyy-MM-dd). Caps last segment so morning sleep rolls to the next day. */
+function getExtendedDayCutoffNextDay(dateKey: string): number {
+  const d = new Date(dateKey + 'T07:00:00');
   d.setDate(d.getDate() + 1);
   return d.getTime();
 }
@@ -260,13 +260,13 @@ function mergeRunsIntoOneNight(runs: NightScoreSession[][], dateKey: string): Ni
   if (runs.length === 0) {
     return { dateKey, totalSleepMinutes: 0, wakeupCount: 0, totalAwakeMinutes: 0, segmentCount: 0, lastSegmentEndTime: '' };
   }
-  const cap6am = get6amCutoffNextDay(dateKey);
+  const capDayEnd = getExtendedDayCutoffNextDay(dateKey);
   const flat: TimeIntervalMs[] = [];
   for (const run of runs) {
     flat.push(...mergeOverlappingIntervals(intervalsFromSessions(run)));
   }
   const merged = mergeOverlappingIntervals(flat);
-  const { totalSleepMinutes, totalAwakeMinutes, wakeupCount } = totalSleepAndAwakeFromMerged(merged, cap6am);
+  const { totalSleepMinutes, totalAwakeMinutes, wakeupCount } = totalSleepAndAwakeFromMerged(merged, capDayEnd);
   const allSegs = runs.flat();
   return {
     dateKey,

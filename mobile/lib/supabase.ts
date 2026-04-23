@@ -18,7 +18,7 @@ export type Database = {
           trial_started_at: string | null;
           trial_ends_at: string | null;
           subscription_status: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
-          subscription_provider: 'revenuecat' | null;
+          subscription_provider: 'revenuecat' | 'apple' | null;
           subscription_product_id: string | null;
           subscription_expires_at: string | null;
           subscription_updated_at: string | null;
@@ -38,7 +38,7 @@ export type Database = {
           trial_started_at?: string | null;
           trial_ends_at?: string | null;
           subscription_status?: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
-          subscription_provider?: 'revenuecat' | null;
+          subscription_provider?: 'revenuecat' | 'apple' | null;
           subscription_product_id?: string | null;
           subscription_expires_at?: string | null;
           subscription_updated_at?: string | null;
@@ -58,7 +58,7 @@ export type Database = {
           trial_started_at?: string | null;
           trial_ends_at?: string | null;
           subscription_status?: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
-          subscription_provider?: 'revenuecat' | null;
+          subscription_provider?: 'revenuecat' | 'apple' | null;
           subscription_product_id?: string | null;
           subscription_expires_at?: string | null;
           subscription_updated_at?: string | null;
@@ -107,7 +107,7 @@ export type Database = {
           trial_started_at: string | null;
           trial_ends_at: string | null;
           subscription_status: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
-          subscription_provider: 'revenuecat' | null;
+          subscription_provider: 'revenuecat' | 'apple' | null;
           subscription_product_id: string | null;
           subscription_expires_at: string | null;
           subscription_updated_at: string | null;
@@ -123,7 +123,7 @@ export type Database = {
           trial_started_at?: string | null;
           trial_ends_at?: string | null;
           subscription_status?: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
-          subscription_provider?: 'revenuecat' | null;
+          subscription_provider?: 'revenuecat' | 'apple' | null;
           subscription_product_id?: string | null;
           subscription_expires_at?: string | null;
           subscription_updated_at?: string | null;
@@ -139,7 +139,7 @@ export type Database = {
           trial_started_at?: string | null;
           trial_ends_at?: string | null;
           subscription_status?: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
-          subscription_provider?: 'revenuecat' | null;
+          subscription_provider?: 'revenuecat' | 'apple' | null;
           subscription_product_id?: string | null;
           subscription_expires_at?: string | null;
           subscription_updated_at?: string | null;

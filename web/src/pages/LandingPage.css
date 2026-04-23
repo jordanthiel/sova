@@ -155,6 +155,10 @@
 
 .landing-footer {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
 }
 
 .footer-cta {
@@ -167,4 +171,27 @@
 
 .footer-cta:hover {
   text-decoration: underline !important;
+}
+
+.landing-footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-caption);
+}
+
+.landing-footer-legal a {
+  color: var(--text-secondary) !important;
+  font-weight: var(--font-weight-medium);
+}
+
+.landing-footer-legal a:hover {
+  color: var(--accent) !important;
+}
+
+.landing-footer-sep {
+  color: var(--text-tertiary);
+  user-select: none;
 }

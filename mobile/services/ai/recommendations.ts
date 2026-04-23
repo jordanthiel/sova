@@ -16,6 +16,7 @@ import {
 import { formatDuration, roundToNearest5, roundDateToNearest5Minutes } from '@/utils/formatTime';
 import { format, addMinutes, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns';
 import { getAppNow } from '@/lib/appClock';
+import { getExtendedDayKey } from '@/utils/dateUtils';
 import { supabase } from '@/lib/supabase';
 import { getPremiumAccessErrorFromResponse } from '@/services/subscription';
 import { isPremiumAccessRequiredError } from '@/types/subscription';
@@ -539,9 +540,13 @@ export function getLocalNapRecommendation(
 
   const minutesUntilBedtime = (bedtimeEstimate.getTime() - now.getTime()) / 60000;
 
-  // Today's nap stats (computed early — needed for nap position)
+  // Today's nap stats (extended day — same anchor as the rest of the app)
+  const todayKey = getExtendedDayKey(now);
   const todayNaps = events.filter(
-    (e) => e.type === 'nap' && e.end != null && new Date(e.start).toDateString() === now.toDateString()
+    (e) =>
+      e.type === 'nap' &&
+      e.end != null &&
+      getExtendedDayKey(new Date(e.start)) === todayKey
   );
   const totalNapMinutes = todayNaps.reduce((sum, e) => sum + (e.durationMinutes || 0), 0);
 

@@ -24,7 +24,7 @@ import type { CareEvent } from '@/services/repositories/careEventsRepo';
 import { careEventsRepo } from '@/services/repositories/careEventsRepo';
 import { eventsRepo } from '@/services/repositories/eventsRepo';
 import type { EventLogType, SleepEvent } from '@/types/domain';
-import { getExtendedDayCalendarDate } from '@/utils/dateUtils';
+import { getExtendedDayBounds, getExtendedDayCalendarDate, getExtendedDayKey } from '@/utils/dateUtils';
 import { formatDuration } from '@/utils/formatTime';
 import { getNightSummaries } from '@/utils/nightSleepScore';
 import { addDays, addWeeks, format, startOfWeek, subDays, subWeeks } from 'date-fns';
@@ -359,18 +359,10 @@ export default function LogScreen() {
     }
   };
 
-  // Extended day (6am–6am) for selected date — used for daily-view stats and care events.
-  const dayStart6am = (() => {
-    const d = new Date(selectedDate);
-    d.setHours(6, 0, 0, 0);
-    return d.getTime();
-  })();
-  const dayEnd6am = (() => {
-    const d = new Date(selectedDate);
-    d.setHours(6, 0, 0, 0);
-    d.setDate(d.getDate() + 1);
-    return d.getTime();
-  })();
+  // Extended day (7am–7am) for selected date — used for daily-view stats and care events.
+  const { start: dayStartExtended, end: dayEndExtended } = getExtendedDayBounds(selectedDate);
+  const dayStartMs = dayStartExtended.getTime();
+  const dayEndMs = dayEndExtended.getTime();
 
   // In daily view, use realtime sessions as the single source of truth for stat totals.
   // This avoids brief mismatches caused by async eventsRepo fetch updates.
@@ -390,9 +382,9 @@ export default function LogScreen() {
       .filter((e) => {
         const st = new Date(e.start).getTime();
         const et = e.end ? new Date(e.end).getTime() : Date.now();
-        return st < dayEnd6am && et > dayStart6am;
+        return st < dayEndMs && et > dayStartMs;
       });
-  }, [viewMode, allSessions, dayStart6am, dayEnd6am]);
+  }, [viewMode, allSessions, dayStartMs, dayEndMs]);
 
   // In daily view, use dailyStatsEvents; otherwise use loaded events.
   const eventsForStats =
@@ -400,13 +392,13 @@ export default function LogScreen() {
       ? dailyStatsEvents
       : events;
 
-  // For daily stats, count only the minutes that overlap the selected 6am–6am window.
+  // For daily stats, count only the minutes that overlap the selected extended day window.
   const overlapMinutesInSelectedDay = (e: SleepEvent): number => {
     if (!e.end) return 0;
     const st = new Date(e.start).getTime();
     const et = new Date(e.end).getTime();
-    const overlapStart = Math.max(st, dayStart6am);
-    const overlapEnd = Math.min(et, dayEnd6am);
+    const overlapStart = Math.max(st, dayStartMs);
+    const overlapEnd = Math.min(et, dayEndMs);
     if (overlapEnd <= overlapStart) return 0;
     return Math.round((overlapEnd - overlapStart) / 60000);
   };
@@ -462,29 +454,16 @@ export default function LogScreen() {
       });
   }, [listEventsByDay]);
 
-  // Extended day key (6am–6am) using local date parts.
-  const getExtendedDayKey = (start: Date): string => {
-    const y = start.getFullYear();
-    const m = start.getMonth();
-    const d = start.getDate();
-    const sixAm = new Date(y, m, d, 6, 0, 0, 0);
-    if (start.getTime() < sixAm.getTime()) {
-      const prev = new Date(y, m, d - 1);
-      return format(prev, 'yyyy-MM-dd');
-    }
-    return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-  };
-
-  // In daily view, care events are filtered to the extended day (6am–6am)
+  // In daily view, care events are filtered to the extended day (7am–7am)
   const displayCareEvents =
     viewMode === 'daily'
       ? careEvents.filter((ce) => {
           const t = new Date(ce.timestamp).getTime();
-          return t >= dayStart6am && t < dayEnd6am;
+          return t >= dayStartMs && t < dayEndMs;
         })
       : careEvents;
 
-  // Group events by extended day (6am–6am) for weekly view
+  // Group events by extended day for weekly view
   const eventsByDay = useMemo(() => {
     if (viewMode !== 'weekly') return {};
     const groups: Record<string, SleepEvent[]> = {};

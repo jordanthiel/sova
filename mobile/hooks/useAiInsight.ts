@@ -23,6 +23,15 @@ interface AiInsightResult<T = Record<string, unknown>> {
 
 const CACHE_PREFIX = 'ai_insight_';
 
+/** Edge/proxy may wrap JSON; keep insights UI parsing simple. */
+function unwrapAiInsightBody(body: unknown): unknown {
+  if (body == null || typeof body !== 'object') return body;
+  let o = body as Record<string, unknown>;
+  if (o.data != null && typeof o.data === 'object') o = o.data as Record<string, unknown>;
+  if (o.result != null && typeof o.result === 'object') o = o.result as Record<string, unknown>;
+  return o;
+}
+
 export function useAiInsight<T = Record<string, unknown>>(
   mode: Mode,
   babyId: string | null,
@@ -59,8 +68,10 @@ export function useAiInsight<T = Record<string, unknown>>(
         if (cached) {
           const { data: cachedData, ts } = JSON.parse(cached);
           if (getAppNowMs() - ts < cacheTtlMs) {
-            setData(cachedData);
-            return cachedData;
+            const normalized =
+              mode === 'insights_bundle' ? (unwrapAiInsightBody(cachedData) as T) : (cachedData as T);
+            setData(normalized);
+            return normalized;
           }
         }
       } catch { /* cache miss, proceed */ }
@@ -96,7 +107,10 @@ export function useAiInsight<T = Record<string, unknown>>(
           throw new Error((errBody as any).error || `Request failed (${res.status})`);
         }
 
-        const result = (await res.json()) as T;
+        let result = (await res.json()) as T;
+        if (mode === 'insights_bundle') {
+          result = unwrapAiInsightBody(result) as T;
+        }
         setData(result);
 
         // Write to cache

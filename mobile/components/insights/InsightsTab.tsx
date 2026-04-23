@@ -167,9 +167,9 @@ export function InsightsTab() {
       {/* Quick AI insight chips */}
       
 
-      {/* AI Discoveries - clickable to start coach conversation */}
+      {/* AI Discoveries */}
       <View style={styles.section}>
-        <InsightsBundleCard babyId={currentBabyId} onInsightPress={openCoachWithMessage} />
+        <InsightsBundleCard babyId={currentBabyId} />
       </View>
 
       {/* Today's schedule & forecast */}

@@ -20,7 +20,7 @@ import { track } from '@/services/analytics/track';
 import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 
-type TabId = 'trends' | 'insights';
+type TabId = 'explore' | 'insights';
 
 export default function InsightsScreen() {
   const { babies, loading: babiesLoading } = useBabies();
@@ -28,7 +28,7 @@ export default function InsightsScreen() {
   const { baby, ageDays } = useSleepData({ babyId: currentBabyId });
   const { sessions: allSessions } = useRealtimeSleepSessions(currentBabyId);
   const { caregivers } = useRealtimeCaregivers(currentBabyId);
-  const [activeTab, setActiveTab] = useState<TabId>('trends');
+  const [activeTab, setActiveTab] = useState<TabId>('explore');
   const colors = useThemeColors();
   const gradients = useThemeGradients();
   const premiumGate = usePremiumGate();
@@ -94,17 +94,17 @@ export default function InsightsScreen() {
       {/* Tab bar */}
       <View style={styles.tabBar}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'trends' && styles.tabActive]}
-          onPress={() => setActiveTab('trends')}
+          style={[styles.tab, activeTab === 'explore' && styles.tabActive]}
+          onPress={() => setActiveTab('explore')}
           activeOpacity={0.7}
         >
           <Text
             style={[
               Typography.captionMedium,
-              { color: activeTab === 'trends' ? colors.background : colors.textSecondary },
+              { color: activeTab === 'explore' ? colors.background : colors.textSecondary },
             ]}
           >
-            Trends
+            Explore
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -124,7 +124,7 @@ export default function InsightsScreen() {
       </View>
 
       {/* Tab content */}
-      {activeTab === 'trends' ? (
+      {activeTab === 'explore' ? (
         currentBabyId && baby ? (
           <TrendsTab sessions={allSessions} ageMonths={ageMonths} caregivers={caregivers} />
         ) : (

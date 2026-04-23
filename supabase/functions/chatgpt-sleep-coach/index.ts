@@ -89,7 +89,7 @@ interface EntitlementStatusRow {
   trial_started_at: string | null;
   trial_ends_at: string | null;
   subscription_status: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
-  subscription_provider: 'revenuecat' | null;
+  subscription_provider: 'revenuecat' | 'apple' | null;
   subscription_product_id: string | null;
   subscription_expires_at: string | null;
 }
@@ -1710,6 +1710,141 @@ function stripMarkdownJsonFence(text: string): string {
   return t;
 }
 
+/** Strip ``` fences even when they do not wrap the entire string (common LLM drift). */
+function stripJsonFencesLoose(text: string): string {
+  let t = text.trim();
+  t = t.replace(/^```(?:json)?\s*\r?\n?/i, '');
+  t = t.replace(/\r?\n?```\s*$/i, '');
+  return t.trim();
+}
+
+function stripAllMarkdownFences(text: string): string {
+  let t = text.trim();
+  for (let n = 0; n < 8; n++) {
+    const next = t.replace(/^```(?:json)?\s*\r?\n?/i, '').replace(/\r?\n```\s*$/i, '').trim();
+    if (next === t) break;
+    t = next;
+  }
+  return t;
+}
+
+function sanitizeLlMJsonText(s: string): string {
+  return s.replace(/^\uFEFF/, '').replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'");
+}
+
+function repairTrailingCommas(json: string): string {
+  return json.replace(/,(\s*[\]\}])/g, '$1');
+}
+
+/** Slice one balanced `{...}` or `[...]` from position `start`, respecting JSON string rules. */
+function sliceFirstJsonValue(text: string, start: number): string | null {
+  const open = text[start];
+  if (open !== '{' && open !== '[') return null;
+  const close = open === '{' ? '}' : ']';
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (esc) {
+        esc = false;
+        continue;
+      }
+      if (c === '\\') {
+        esc = true;
+        continue;
+      }
+      if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+      continue;
+    }
+    if (c === open) depth++;
+    else if (c === close) {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+function tryParseInsightsArrayOnly(blob: string): unknown[] | null {
+  const t = sanitizeLlMJsonText(stripAllMarkdownFences(stripMarkdownJsonFence(blob)));
+  const key = '"insights"';
+  const idx = t.indexOf(key);
+  if (idx < 0) return null;
+  let i = idx + key.length;
+  while (i < t.length && /\s/.test(t[i])) i++;
+  if (t[i] !== ':') return null;
+  i++;
+  while (i < t.length && /\s/.test(t[i])) i++;
+  if (t[i] !== '[') return null;
+  const slice = sliceFirstJsonValue(t, i);
+  if (!slice) return null;
+  for (const cand of [slice, repairTrailingCommas(slice)]) {
+    try {
+      const arr = JSON.parse(cand) as unknown;
+      return Array.isArray(arr) ? arr : null;
+    } catch {
+      /* continue */
+    }
+  }
+  return null;
+}
+
+/** Parse model output: fenced JSON, JSON with leading/trailing noise, or truncated fences. */
+function parseJsonLenient(raw: string): unknown | null {
+  const base = sanitizeLlMJsonText(stripAllMarkdownFences(stripMarkdownJsonFence(raw)));
+  const candidates = [
+    base,
+    stripJsonFencesLoose(base),
+    repairTrailingCommas(base),
+    repairTrailingCommas(stripJsonFencesLoose(sanitizeLlMJsonText(raw.trim()))),
+  ];
+  for (const c of candidates) {
+    if (!c) continue;
+    try {
+      return JSON.parse(c);
+    } catch {
+      /* continue */
+    }
+  }
+  let t = stripAllMarkdownFences(sanitizeLlMJsonText(raw.trim()));
+  for (const c of [t, repairTrailingCommas(t)]) {
+    try {
+      return JSON.parse(c);
+    } catch {
+      /* continue */
+    }
+  }
+  const iObj = t.indexOf('{');
+  const iArr = t.indexOf('[');
+  let start = -1;
+  if (iObj >= 0 && (iArr < 0 || iObj <= iArr)) start = iObj;
+  else if (iArr >= 0) start = iArr;
+  else {
+    const arr = tryParseInsightsArrayOnly(raw);
+    return arr ? { insights: arr } : null;
+  }
+  const slice = sliceFirstJsonValue(t, start);
+  if (!slice) {
+    const arr = tryParseInsightsArrayOnly(raw);
+    return arr ? { insights: arr } : null;
+  }
+  for (const cand of [slice, repairTrailingCommas(slice)]) {
+    try {
+      return JSON.parse(cand);
+    } catch {
+      /* continue */
+    }
+  }
+  const arr = tryParseInsightsArrayOnly(raw);
+  return arr ? { insights: arr } : null;
+}
+
 type InsightBundleItem = { title: string; insight: string; icon: string };
 
 function normalizeInsightsBundlePayload(parsed: unknown, fallbackText: string): { insights: InsightBundleItem[] } {
@@ -1731,21 +1866,35 @@ function normalizeInsightsBundlePayload(parsed: unknown, fallbackText: string): 
         else if (inner && typeof inner === 'object' && Array.isArray((inner as Record<string, unknown>).insights)) {
           raw = (inner as { insights: unknown[] }).insights;
         } else {
-          return { insights: [{ title: 'Analysis', insight: raw, icon: '💡' }] };
+          return { insights: [{ title: 'Analysis', insight: String(raw), icon: '💡' }] };
         }
       } catch {
-        return { insights: [{ title: 'Analysis', insight: raw, icon: '💡' }] };
+        return { insights: [{ title: 'Analysis', insight: String(raw), icon: '💡' }] };
       }
     } else {
       return { insights: [{ title: 'Analysis', insight: fallbackText, icon: '💡' }] };
     }
   }
-  const insights: InsightBundleItem[] = (raw as unknown[]).map((item, i) => {
+  const insights: InsightBundleItem[] = (raw as unknown[]).flatMap((item, i) => {
     if (typeof item === 'string') {
-      return { title: `Insight ${i + 1}`, insight: item, icon: '💡' };
+      const s = item.trim();
+      if ((s.startsWith('{') || s.startsWith('[')) && s.length > 2) {
+        try {
+          const inner = JSON.parse(s) as unknown;
+          if (Array.isArray(inner)) {
+            return normalizeInsightsBundlePayload({ insights: inner }, fallbackText).insights;
+          }
+          if (inner && typeof inner === 'object' && Array.isArray((inner as Record<string, unknown>).insights)) {
+            return normalizeInsightsBundlePayload(inner as Record<string, unknown>, fallbackText).insights;
+          }
+        } catch {
+          /* fall through */
+        }
+      }
+      return [{ title: `Insight ${i + 1}`, insight: item, icon: '💡' }];
     }
     if (!item || typeof item !== 'object') {
-      return { title: 'Insight', insight: String(item), icon: '💡' };
+      return [{ title: 'Insight', insight: String(item), icon: '💡' }];
     }
     const o = item as Record<string, unknown>;
     const title =
@@ -1756,8 +1905,40 @@ function normalizeInsightsBundlePayload(parsed: unknown, fallbackText: string): 
     else if (typeof o.summary === 'string') insightStr = o.summary;
     else if (typeof o.text === 'string') insightStr = o.text;
     else if (typeof o.description === 'string') insightStr = o.description;
+    else if (typeof o.content === 'string') insightStr = o.content;
+    else if (typeof o.message === 'string') insightStr = o.message;
+    const t = insightStr.trim();
+    if (t.startsWith('{') || t.startsWith('[')) {
+      try {
+        const j = JSON.parse(t) as unknown;
+        if (typeof j === 'string') {
+          insightStr = j;
+        } else if (Array.isArray(j)) {
+          const expanded = normalizeInsightsBundlePayload({ insights: j }, t).insights;
+          if (expanded.length > 0) return expanded;
+        } else if (j && typeof j === 'object') {
+          const jo = j as Record<string, unknown>;
+          if (Array.isArray(jo.insights)) {
+            const expanded = normalizeInsightsBundlePayload(jo, t).insights;
+            if (expanded.length > 0) return expanded;
+          }
+          const pick = (k: string) => (typeof jo[k] === 'string' ? (jo[k] as string) : '');
+          const extracted =
+            pick('insight') ||
+            pick('body') ||
+            pick('summary') ||
+            pick('text') ||
+            pick('content') ||
+            pick('description') ||
+            pick('message');
+          if (extracted.trim()) insightStr = extracted;
+        }
+      } catch {
+        /* keep insightStr */
+      }
+    }
     const icon = typeof o.icon === 'string' ? o.icon : '💡';
-    return { title, insight: insightStr.trim() || title, icon };
+    return [{ title, insight: insightStr.trim() || title, icon }];
   }).filter((x) => x.insight.trim().length > 0);
 
   if (insights.length === 0) {
@@ -1819,14 +2000,12 @@ Return ONLY valid JSON. If there's insufficient data, still return 2-3 insights 
     { maxTokens: 800, temperature: 0.6, json: true }
   );
 
-  try {
-    const cleaned = stripMarkdownJsonFence(responseText);
-    const parsed = JSON.parse(cleaned);
+  const parsed = parseJsonLenient(responseText);
+  if (parsed != null) {
     const normalized = normalizeInsightsBundlePayload(parsed, responseText);
     return { insights_bundle: normalized };
-  } catch {
-    return { insights_bundle: { insights: [{ title: 'Analysis', insight: responseText, icon: '💡' }] } };
   }
+  return { insights_bundle: { insights: [{ title: 'Analysis', insight: responseText, icon: '💡' }] } };
 }
 
 // ─── Main Handler ────────────────────────────────────────────────

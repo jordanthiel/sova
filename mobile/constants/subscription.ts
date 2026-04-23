@@ -1,5 +1,11 @@
-export const PREMIUM_ENTITLEMENT_ID = 'premium_ai';
-export const DEFAULT_OFFERING_ID = 'default';
+/** Auto-renewable subscription product IDs in App Store Connect (sandbox + production). */
+export const SOVA_MONTHLY = 'sova_monthly';
+export const SOVA_ANNUAL = 'sova_annual';
+
+/** Default SKU when calling `purchase()` without an argument. */
+export const PRO_SUBSCRIPTION_PRODUCT_ID = SOVA_MONTHLY;
+
+export const PRO_SUBSCRIPTION_PRODUCT_IDS = [SOVA_MONTHLY, SOVA_ANNUAL] as const;
 
 export const PREMIUM_FEATURE_LABELS = {
   coach: 'AI Coach',

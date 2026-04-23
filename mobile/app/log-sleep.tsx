@@ -337,6 +337,7 @@ export default function LogSleepScreen() {
         .from('sleep_sessions')
         .update({ end_time: now.toISOString(), duration_minutes: dur, type })
         .eq('id', sessionId)
+        .is('end_time', null)
         .then(({ error }) => {
           if (!error) void pingLiveActivitySync();
         });

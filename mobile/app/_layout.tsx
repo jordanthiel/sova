@@ -112,8 +112,7 @@ export default function RootLayout() {
                 name="paywall"
                 options={{
                   headerShown: false,
-                  presentation: 'formSheet',
-                  sheetAllowedDetents: [0.95],
+                  presentation: 'modal',
                 }}
               />
               <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />

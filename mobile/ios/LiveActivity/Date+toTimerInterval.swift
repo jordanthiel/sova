@@ -10,7 +10,9 @@ extension Date {
     if anchor > now {
       return now ... anchor
     }
-    return anchor ... now
+    // Count-up: `anchor ... Date()` is entirely in the past a moment later, so the timer
+    // freezes until the next ActivityKit update. Keep the range end in the future.
+    return anchor ... .distantFuture
   }
 
   /// `true` if the anchor timestamp is still in the future (countdown UI).
