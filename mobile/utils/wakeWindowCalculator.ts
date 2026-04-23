@@ -1,3 +1,4 @@
+import { getAppNow } from '@/lib/appClock';
 import type { BabyPreferences, SleepEvent } from '@/types/domain';
 
 /**
@@ -43,7 +44,7 @@ export function calculateNextNapTime(lastWakeTime: Date, ageDays: number): Date 
  */
 export function calculateAgeDays(birthDate: string): number {
   const birth = new Date(birthDate);
-  const now = new Date();
+  const now = getAppNow();
   const diffTime = Math.abs(now.getTime() - birth.getTime());
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   return diffDays;
@@ -112,7 +113,7 @@ export function getObservedWakeWindowsForPosition(
   napPosition: number,
   limitDays = 21
 ): number[] {
-  const cutoff = new Date();
+  const cutoff = getAppNow();
   cutoff.setDate(cutoff.getDate() - limitDays);
 
   // Group completed naps by calendar day
@@ -173,8 +174,8 @@ export function getObservedDailyNapCount(
   events: SleepEvent[],
   limitDays = 14
 ): number | null {
-  const today = new Date().toDateString();
-  const cutoff = new Date();
+  const today = getAppNow().toDateString();
+  const cutoff = getAppNow();
   cutoff.setDate(cutoff.getDate() - limitDays);
 
   const byDay: Record<string, number> = {};

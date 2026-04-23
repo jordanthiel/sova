@@ -2,6 +2,7 @@ import type {
   Baby,
   SleepEvent,
   AIRecommendation,
+  AgenticScheduleMeta,
   NapRecommendationPayload,
   RestOfDayScheduleEvent,
 } from '@/types/domain';
@@ -14,6 +15,8 @@ import {
 } from '@/utils/wakeWindowCalculator';
 import { formatDuration, roundToNearest5, roundDateToNearest5Minutes } from '@/utils/formatTime';
 import { format, addMinutes, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns';
+import { getAppNow } from '@/lib/appClock';
+import { getExtendedDayKey } from '@/utils/dateUtils';
 import { supabase } from '@/lib/supabase';
 import { getPremiumAccessErrorFromResponse } from '@/services/subscription';
 import { isPremiumAccessRequiredError } from '@/types/subscription';
@@ -137,7 +140,7 @@ export function isNighttimeWake(lastWakeTime: Date, lastSessionType?: 'nap' | 'n
 export async function getNextNapRecommendation(
   baby: Baby,
   events: SleepEvent[],
-  now: Date = new Date(),
+  now: Date = getAppNow(),
   memories?: string[]
 ): Promise<AIRecommendation> {
   try {
@@ -167,8 +170,9 @@ async function fetchRemoteRecommendation(
     .sort((a, b) => new Date(b.end!).getTime() - new Date(a.end!).getTime());
   const lastWakeTime = endedEvents.length > 0 ? endedEvents[0].end : null;
 
+  /** Enough sessions for 30-day cohort analysis on the server (was 20, too thin). */
   const sleepHistory = endedEvents
-    .slice(0, 20)
+    .slice(0, 400)
     .map((e) => ({
       type: e.type,
       start_time: e.start,
@@ -186,6 +190,7 @@ async function fetchRemoteRecommendation(
     body: JSON.stringify({
       baby_id: baby.id,
       mode: 'next_sleep',
+      request_source: 'schedule_card',
       sleep_history: sleepHistory,
       baby_age_days: ageDays,
       current_time: now.toISOString(),
@@ -197,6 +202,12 @@ async function fetchRemoteRecommendation(
         bedtime_target_time: baby.preferences.bedtimeTargetTime ?? undefined,
         last_wake_window_minutes: baby.preferences.lastWakeWindowMinutes ?? undefined,
         target_nap_count: baby.preferences.targetNapCount ?? undefined,
+        ...(baby.preferences.preferLongerNaps != null
+          ? { prefer_longer_naps: baby.preferences.preferLongerNaps }
+          : {}),
+        ...(baby.preferences.preferEarlierBedtime != null
+          ? { prefer_earlier_bedtime: baby.preferences.preferEarlierBedtime }
+          : {}),
       },
       memories: memories && memories.length > 0 ? memories : undefined,
     }),
@@ -211,6 +222,8 @@ async function fetchRemoteRecommendation(
   const data = await res.json();
   const nextSleep = data?.next_sleep;
   if (!nextSleep) return null;
+
+  const agenticMeta = parseAgenticMeta(data?.agentic);
 
   const recTime = parseRecommendedTime(nextSleep.recommended_time ?? '', now);
 
@@ -341,10 +354,11 @@ async function fetchRemoteRecommendation(
     recommendedCapMinutes: cap,
     shouldCapNap: nextSleep.should_cap_nap !== false,
     expectedBedtime: roundedBedtime.toISOString(),
-    explanation: nextSleep.summary ?? null,
-    reasoning: nextSleep.reasoning ?? null,
+    explanation: agenticMaybeExplain(agenticMeta, nextSleep.summary),
+    reasoning: agenticMaybeReason(agenticMeta, nextSleep.reasoning),
     restOfDaySchedule: scheduleRounded.length > 0 ? scheduleRounded : undefined,
     recommendedWakeWindowMinutes: effectiveWakeWindow,
+    ...(agenticMeta ? { agentic: agenticMeta } : {}),
   };
 
   const confidenceMap: Record<string, 'low' | 'medium' | 'high'> = {
@@ -358,14 +372,68 @@ async function fetchRemoteRecommendation(
   const isBedtime =
     nextSleep.sleep_type === 'bedtime' && (minutesSinceWake > 120 || !lastWake);
 
+  const numericConf = agenticMeta?.confidence;
+  const agenticConfidenceLevel: 'low' | 'medium' | 'high' | undefined =
+    numericConf != null
+      ? numericConf >= 0.72
+        ? 'high'
+        : numericConf >= 0.45
+          ? 'medium'
+          : 'low'
+      : undefined;
+
   return {
     id: `rec_remote_${Date.now()}`,
     babyId: baby.id,
     createdAt: now.toISOString(),
     type: isBedtime ? 'bedtime' : 'next_nap',
     payload,
-    confidence: confidenceMap[nextSleep.urgency] || 'medium',
+    confidence: agenticConfidenceLevel ?? confidenceMap[nextSleep.urgency] ?? 'medium',
+    ...(numericConf != null ? { confidenceNumeric: numericConf } : {}),
+    ...(agenticMeta?.dataQualityScore != null ? { dataQualityScore: agenticMeta.dataQualityScore } : {}),
   };
+}
+
+function parseAgenticMeta(raw: unknown): AgenticScheduleMeta | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const a = raw as Record<string, unknown>;
+  const fallback = a.fallbackAction;
+  const ideal = a.idealWakeRange;
+  return {
+    requestType: typeof a.requestType === 'string' ? a.requestType : undefined,
+    confidence: typeof a.confidence === 'number' ? a.confidence : undefined,
+    dataQualityScore: typeof a.dataQualityScore === 'number' ? a.dataQualityScore : undefined,
+    reasoningSummary: typeof a.reasoningSummary === 'string' ? a.reasoningSummary : undefined,
+    watchFors: Array.isArray(a.watchFors) ? a.watchFors.filter((x): x is string => typeof x === 'string') : undefined,
+    parentFacingResponse: typeof a.parentFacingResponse === 'string' ? a.parentFacingResponse : undefined,
+    fallbackAction:
+      fallback && typeof fallback === 'object'
+        ? (fallback as AgenticScheduleMeta['fallbackAction'])
+        : undefined,
+    idealWakeRange:
+      ideal && typeof ideal === 'object' && 'startAt' in ideal && 'endAt' in ideal
+        ? { startAt: String((ideal as { startAt: unknown }).startAt), endAt: String((ideal as { endAt: unknown }).endAt) }
+        : undefined,
+    preferredWakeAt: typeof a.preferredWakeAt === 'string' ? a.preferredWakeAt : undefined,
+    stillOkayUntil: typeof a.stillOkayUntil === 'string' ? a.stillOkayUntil : undefined,
+    softCapAt: typeof a.softCapAt === 'string' ? a.softCapAt : undefined,
+    hardCapAt: typeof a.hardCapAt === 'string' ? a.hardCapAt : undefined,
+    sleepEngine: a.sleepEngine != null && typeof a.sleepEngine === 'object'
+      ? (a.sleepEngine as Record<string, unknown>)
+      : undefined,
+  };
+}
+
+function agenticMaybeExplain(meta: AgenticScheduleMeta | undefined, fallback: string | null): string | null {
+  const p = meta?.parentFacingResponse?.trim();
+  if (p) return p;
+  return fallback ?? null;
+}
+
+function agenticMaybeReason(meta: AgenticScheduleMeta | undefined, fallback: string | null): string | null {
+  const r = meta?.reasoningSummary?.trim();
+  if (r) return r;
+  return fallback ?? null;
 }
 
 /**
@@ -445,7 +513,7 @@ const LAST_WINDOW_AFTER_HOUR = 16;
 export function getLocalNapRecommendation(
   baby: Baby,
   events: SleepEvent[],
-  now: Date = new Date()
+  now: Date = getAppNow()
 ): AIRecommendation {
   const ageDays = calculateAgeDays(baby.birthdate);
   const prefs = baby.preferences;
@@ -472,9 +540,13 @@ export function getLocalNapRecommendation(
 
   const minutesUntilBedtime = (bedtimeEstimate.getTime() - now.getTime()) / 60000;
 
-  // Today's nap stats (computed early — needed for nap position)
+  // Today's nap stats (extended day — same anchor as the rest of the app)
+  const todayKey = getExtendedDayKey(now);
   const todayNaps = events.filter(
-    (e) => e.type === 'nap' && e.end != null && new Date(e.start).toDateString() === now.toDateString()
+    (e) =>
+      e.type === 'nap' &&
+      e.end != null &&
+      getExtendedDayKey(new Date(e.start)) === todayKey
   );
   const totalNapMinutes = todayNaps.reduce((sum, e) => sum + (e.durationMinutes || 0), 0);
 
@@ -690,7 +762,7 @@ export function shouldCapNap(
   baby: Baby,
   events: SleepEvent[],
   activeNap: SleepEvent,
-  now: Date = new Date()
+  now: Date = getAppNow()
 ): { capAt: string; reason: string } | null {
   const ageDays = calculateAgeDays(baby.birthdate);
   const napStart = new Date(activeNap.start);
@@ -716,7 +788,7 @@ export function getSuggestedNapCap(
   baby: Baby,
   events: SleepEvent[],
   activeNap: SleepEvent,
-  now: Date = new Date()
+  now: Date = getAppNow()
 ): { capAt: string; reason: string; explanation: string } | null {
   if (activeNap.type !== 'nap') return null;
 

@@ -14,9 +14,9 @@ export function useRealtimeSleepSessions(babyId: string | null) {
   const fetchSessions = useCallback(async () => {
     if (!babyIdRef.current) return;
     try {
-      // Fetch last 30 days; limit 300 so a full night (e.g. 6pm–6am, 4+ segments) is never truncated
+      // Match longest insights range (1y) + margin; limit 300 rows
       const since = new Date();
-      since.setDate(since.getDate() - 30);
+      since.setDate(since.getDate() - 400);
 
       const { data, error: fetchError } = await supabase
         .from('sleep_sessions')

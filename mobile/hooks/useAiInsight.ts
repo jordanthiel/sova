@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAppNow, getAppNowMs } from '@/lib/appClock';
 import { supabase } from '@/lib/supabase';
 import { getPremiumAccessErrorFromResponse } from '@/services/subscription';
 
@@ -21,6 +22,15 @@ interface AiInsightResult<T = Record<string, unknown>> {
 }
 
 const CACHE_PREFIX = 'ai_insight_';
+
+/** Edge/proxy may wrap JSON; keep insights UI parsing simple. */
+function unwrapAiInsightBody(body: unknown): unknown {
+  if (body == null || typeof body !== 'object') return body;
+  let o = body as Record<string, unknown>;
+  if (o.data != null && typeof o.data === 'object') o = o.data as Record<string, unknown>;
+  if (o.result != null && typeof o.result === 'object') o = o.result as Record<string, unknown>;
+  return o;
+}
 
 export function useAiInsight<T = Record<string, unknown>>(
   mode: Mode,
@@ -57,9 +67,11 @@ export function useAiInsight<T = Record<string, unknown>>(
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           const { data: cachedData, ts } = JSON.parse(cached);
-          if (Date.now() - ts < cacheTtlMs) {
-            setData(cachedData);
-            return cachedData;
+          if (getAppNowMs() - ts < cacheTtlMs) {
+            const normalized =
+              mode === 'insights_bundle' ? (unwrapAiInsightBody(cachedData) as T) : (cachedData as T);
+            setData(normalized);
+            return normalized;
           }
         }
       } catch { /* cache miss, proceed */ }
@@ -82,7 +94,7 @@ export function useAiInsight<T = Record<string, unknown>>(
           body: JSON.stringify({
             baby_id: babyId,
             mode,
-            current_time: new Date().toISOString(),
+            current_time: getAppNow().toISOString(),
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             ...params,
           }),
@@ -95,12 +107,15 @@ export function useAiInsight<T = Record<string, unknown>>(
           throw new Error((errBody as any).error || `Request failed (${res.status})`);
         }
 
-        const result = (await res.json()) as T;
+        let result = (await res.json()) as T;
+        if (mode === 'insights_bundle') {
+          result = unwrapAiInsightBody(result) as T;
+        }
         setData(result);
 
         // Write to cache
         try {
-          await AsyncStorage.setItem(cacheKey, JSON.stringify({ data: result, ts: Date.now() }));
+          await AsyncStorage.setItem(cacheKey, JSON.stringify({ data: result, ts: getAppNowMs() }));
         } catch { /* cache write failure is non-critical */ }
 
         return result;

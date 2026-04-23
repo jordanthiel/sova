@@ -1,3 +1,5 @@
+import { useAppClock } from '@/contexts/AppClockContext';
+import { getAppNowMs } from '@/lib/appClock';
 import { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +18,7 @@ interface ActiveSessionCardProps {
 }
 
 export function ActiveSessionCard({ sessionId, babyId, startTime, type, capSuggestion }: ActiveSessionCardProps) {
+  const { revision: appClockRevision } = useAppClock();
   const [duration, setDuration] = useState('00:00:00');
   const [whyExpanded, setWhyExpanded] = useState(false);
   const colors = useThemeColors();
@@ -23,7 +26,7 @@ export function ActiveSessionCard({ sessionId, babyId, startTime, type, capSugge
 
   useEffect(() => {
     const updateTimer = () => {
-      const diff = Date.now() - startTime.getTime();
+      const diff = getAppNowMs() - startTime.getTime();
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
       const s = Math.floor((diff % 60000) / 1000);
@@ -34,7 +37,7 @@ export function ActiveSessionCard({ sessionId, babyId, startTime, type, capSugge
     updateTimer();
     const id = setInterval(updateTimer, 1000);
     return () => clearInterval(id);
-  }, [startTime]);
+  }, [startTime, appClockRevision]);
 
   const isNap = type === 'nap';
   const gradientColors = gradients.cardBackground;

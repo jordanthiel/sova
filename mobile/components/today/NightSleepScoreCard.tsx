@@ -1,40 +1,22 @@
-import { useMemo } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from '@/components/ui/Card';
 import { SleepScoreRing } from '@/components/ui/SleepScoreRing';
-import { Spacing, Typography, ChartTypography } from '@/constants/theme';
-import { chartConfig } from '@/constants/chartConfig';
+import { Spacing, Typography } from '@/constants/theme';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { formatDuration } from '@/utils/formatTime';
 import type { NightSleepScoreResult } from '@/utils/nightSleepScore';
-import { LineChart } from 'react-native-gifted-charts';
 
-const CHART_HEIGHT = 44;
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CHART_WIDTH = SCREEN_WIDTH - Spacing.md * 4;
 const RING_SIZE = 76;
-
-export interface NightScoreTrendPoint {
-  dateKey: string;
-  score: number;
-}
 
 interface NightSleepScoreCardProps {
   /** Previous night's score; null when no completed night has been logged. */
   result: NightSleepScoreResult | null;
-  /** Recent nights' scores for trend (oldest to newest). Shown as a small line chart when length >= 2. */
-  trendData?: NightScoreTrendPoint[];
 }
 
-export function NightSleepScoreCard({ result, trendData = [] }: NightSleepScoreCardProps) {
+export function NightSleepScoreCard({ result }: NightSleepScoreCardProps) {
   const colors = useThemeColors();
   const gradients = useThemeGradients();
-
-  const lineData = useMemo(() => {
-    if (trendData.length < 2) return [];
-    return trendData.map((p) => ({ value: p.score }));
-  }, [trendData]);
 
   const statsLine = result
     ? [
@@ -69,48 +51,12 @@ export function NightSleepScoreCard({ result, trendData = [] }: NightSleepScoreC
                 ) : null}
               </View>
             </View>
-            {lineData.length >= 2 && (
-              <View style={[styles.trendSection, { borderTopColor: colors.border }]}>
-                <Text style={[Typography.small, { color: colors.textTertiary, marginBottom: Spacing.sm }]}>
-                  Trend
-                </Text>
-                <LineChart
-                  data={lineData}
-                  width={CHART_WIDTH}
-                  height={CHART_HEIGHT}
-                  spacing={(CHART_WIDTH - 40) / Math.max(1, lineData.length - 1)}
-                  initialSpacing={chartConfig.initialSpacing}
-                  endSpacing={chartConfig.endSpacing}
-                  maxValue={100}
-                  noOfSections={2}
-                  hideRules={chartConfig.hideRules}
-                  hideYAxisText
-                  yAxisThickness={0}
-                  xAxisThickness={0}
-                  hideDataPoints={lineData.length > 7}
-                  dataPointsRadius={3}
-                  thickness={2}
-                  color={colors.accent}
-                  dataPointsColor={colors.accent}
-                  xAxisLabelTextStyle={{ ...ChartTypography.axisLabelSmall, color: colors.textTertiary }}
-                  curved
-                  isAnimated
-                  animationDuration={500}
-                  startFillColor={colors.accent}
-                  endFillColor={colors.accent}
-                  startOpacity={0.2}
-                  endOpacity={0}
-                />
-              </View>
-            )}
           </>
         ) : (
           <View style={styles.emptyState}>
-            <Text style={[styles.heroLabel, { color: colors.textTertiary }]}>
-              Last night's score
-            </Text>
+            <Text style={[styles.heroLabel, { color: colors.textTertiary }]}>Last night score</Text>
             <Text style={[Typography.body, { color: colors.textSecondary, marginTop: Spacing.sm }]}>
-              Log last night's sleep to see your score
+              Log last night sleep to see your score
             </Text>
           </View>
         )}
@@ -140,11 +86,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     letterSpacing: 0.3,
-  },
-  trendSection: {
-    marginTop: Spacing.lg,
-    paddingTop: Spacing.lg,
-    borderTopWidth: 1,
   },
   emptyState: {
     paddingVertical: Spacing.sm,

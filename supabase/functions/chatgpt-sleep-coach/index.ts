@@ -1,5 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import {
+  agenticResponseToLegacyNextSleep,
+  clampLegacyNextSleepToTargetNapPlan,
+} from './ai/legacyNextSleepMap.ts';
+import { runScheduleRecommendationOrchestrator } from './ai/orchestrators/scheduleRecommendationOrchestrator.ts';
+import { getChildProfile } from './ai/services/childProfileService.ts';
 
 // ─── Environment ─────────────────────────────────────────────────
 
@@ -26,7 +32,17 @@ interface ChatMessage {
 }
 
 type Provider = 'anthropic' | 'openai' | 'gemini';
-type Mode = 'next_sleep' | 'chat' | 'recommendation' | 'nap_evaluation' | 'micro_insight' | 'daily_schedule' | 'forecast' | 'insights_bundle';
+type Mode =
+  | 'next_sleep'
+  | 'max_nap_duration'
+  | 'chat'
+  | 'chat_memory_extract'
+  | 'recommendation'
+  | 'nap_evaluation'
+  | 'micro_insight'
+  | 'daily_schedule'
+  | 'forecast'
+  | 'insights_bundle';
 
 interface RequestBody {
   baby_id: string;
@@ -40,12 +56,26 @@ interface RequestBody {
   timezone?: string;
   last_wake_time?: string | null;
   baby_name?: string;
+  /** Agentic routing: schedule card vs chat vs generic API */
+  request_source?: 'schedule_card' | 'chat' | 'api';
+  /** Optional user text for LLM classifier (chat-style asks on schedule topics) */
+  user_message?: string;
+  /** When true, `agentic` includes debug.facts, candidates, stage timings */
+  include_ai_debug?: boolean;
+  /** Escape hatch to monolithic one-shot next_sleep (set USE_LEGACY_NEXT_SLEEP=true) */
+  use_legacy_next_sleep?: boolean;
+  /** When true, chat handler skips the follow-up memory-extraction LLM (client may call chat_memory_extract). */
+  skip_memory_extraction?: boolean;
+  /** Assistant reply text for mode chat_memory_extract (pair with message). */
+  memory_assistant_reply?: string;
   user_preferences?: {
     bedtime_type?: 'target' | 'flexible';
     bedtime_target_time?: string | null;
     last_wake_window_minutes?: number | null;
     target_nap_count?: number | null;
     naps_per_day?: number | null;
+    prefer_longer_naps?: boolean;
+    prefer_earlier_bedtime?: boolean;
   };
   memories?: string[];
 }
@@ -59,14 +89,16 @@ interface EntitlementStatusRow {
   trial_started_at: string | null;
   trial_ends_at: string | null;
   subscription_status: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
-  subscription_provider: 'revenuecat' | null;
+  subscription_provider: 'revenuecat' | 'apple' | null;
   subscription_product_id: string | null;
   subscription_expires_at: string | null;
 }
 
 const PREMIUM_LOCKED_MODES = new Set<Mode>([
   'next_sleep',
+  'max_nap_duration',
   'chat',
+  'chat_memory_extract',
   'recommendation',
   'nap_evaluation',
   'micro_insight',
@@ -869,6 +901,16 @@ function buildPreferencesBlock(body: RequestBody): string {
     if (prefs.naps_per_day != null) {
       parts.push(`Baby's profile naps/day setting: ${prefs.naps_per_day}`);
     }
+    if (prefs.prefer_longer_naps === true) {
+      parts.push('Parent prefers longer naps when feasible.');
+    } else if (prefs.prefer_longer_naps === false) {
+      parts.push('Parent prefers more frequent / shorter naps when feasible.');
+    }
+    if (prefs.prefer_earlier_bedtime === true) {
+      parts.push('Parent prefers an earlier bedtime when schedule tradeoffs arise.');
+    } else if (prefs.prefer_earlier_bedtime === false) {
+      parts.push('Parent is open to a slightly later bedtime when tradeoffs arise.');
+    }
   }
   if (memories?.length) {
     parts.push(`Coach memories from past conversations:\n${memories.map((m) => `  - ${m}`).join('\n')}`);
@@ -1015,7 +1057,109 @@ async function handleNextSleep(
   sleepData: SleepSession[],
   babyName: string,
   babyAgeDays: number,
-  provider: Provider
+  provider: Provider,
+) {
+  const useLegacy =
+    body.use_legacy_next_sleep === true || Deno.env.get('USE_LEGACY_NEXT_SLEEP') === 'true';
+  if (!useLegacy) {
+    try {
+      const orchestrator = await runScheduleRecommendationOrchestrator({
+        body: {
+          ...body,
+          request_source: body.request_source ?? 'schedule_card',
+          user_message: body.user_message ?? body.message,
+        },
+        sleepData,
+        babyName,
+        babyAgeDays,
+        callLLM: (messages, options) => callLLM(provider, messages, options ?? {}),
+        includeDebug: body.include_ai_debug === true,
+      });
+      const nowIso = body.current_time ?? new Date().toISOString();
+      const profileForLegacy = getChildProfile(
+        {
+          baby_id: body.baby_id,
+          baby_name: babyName,
+          baby_age_days: babyAgeDays,
+          timezone: body.timezone,
+          user_preferences: body.user_preferences,
+          memories: body.memories,
+        },
+        babyName,
+        babyAgeDays,
+      );
+      const legacyNext = agenticResponseToLegacyNextSleep(
+        orchestrator.response,
+        orchestrator.selectedCandidate,
+        orchestrator.facts,
+        nowIso,
+        profileForLegacy,
+      );
+      sanitizeNextSleepSchedule(
+        legacyNext,
+        body,
+        nowIso,
+        body.timezone ?? 'UTC',
+        babyAgeDays,
+        getWakeWindowForAge(babyAgeDays),
+      );
+      clampLegacyNextSleepToTargetNapPlan(legacyNext, orchestrator.facts, profileForLegacy, nowIso);
+      return {
+        next_sleep: legacyNext,
+        agentic: orchestrator.response,
+        provider,
+        ...(body.include_ai_debug
+          ? {
+            classifier: orchestrator.classifier,
+            ranked_candidates: orchestrator.rankedCandidates.slice(0, 5),
+          }
+          : {}),
+      };
+    } catch (e) {
+      console.error('[next_sleep] agentic orchestrator failed, falling back to legacy', e);
+    }
+  }
+  return runLegacyNextSleep(body, sleepData, babyName, babyAgeDays, provider);
+}
+
+async function handleMaxNapDuration(
+  body: RequestBody,
+  sleepData: SleepSession[],
+  babyName: string,
+  babyAgeDays: number,
+  provider: Provider,
+) {
+  const orchestrator = await runScheduleRecommendationOrchestrator({
+    body: {
+      ...body,
+      request_source: body.request_source ?? 'api',
+      user_message: body.user_message ?? body.message,
+      force_request_type: 'MAX_NAP_DURATION_RECOMMENDATION',
+    },
+    sleepData,
+    babyName,
+    babyAgeDays,
+    callLLM: (messages, options) => callLLM(provider, messages, options ?? {}),
+    includeDebug: body.include_ai_debug === true,
+  });
+  return {
+    agentic: orchestrator.response,
+    provider,
+    ...(body.include_ai_debug
+      ? {
+        classifier: orchestrator.classifier,
+        ranked_candidates: orchestrator.rankedCandidates.slice(0, 5),
+      }
+      : {}),
+  };
+}
+
+async function runLegacyNextSleep(
+  body: RequestBody,
+  sleepData: SleepSession[],
+  babyName: string,
+  babyAgeDays: number,
+  provider: Provider,
 ) {
   const {
     current_time = new Date().toISOString(),
@@ -1253,6 +1397,66 @@ Return ONLY valid JSON.`;
   }
 }
 
+// ─── Chat: memory extraction (second LLM; can be called separately from mobile for progress UI) ─
+
+async function extractSuggestedMemoriesFromChatTurn(
+  provider: Provider,
+  userMessage: string,
+  assistantResponse: string,
+): Promise<string[]> {
+  const trimmedUser = userMessage.trim();
+  const trimmedAsst = assistantResponse.trim();
+  if (!trimmedUser || !trimmedAsst) return [];
+
+  const memoryText = await callLLM(
+    provider,
+    [
+      {
+        role: 'system',
+        content: `You are a memory extractor for a baby sleep coach app. Only suggest memories when ONE of these is true:
+1) The assistant suggested a specific change or recommendation (schedule, routine, timing, etc.) and the user agreed or indicated they will follow it.
+2) The user explicitly asked to remember something, stated a preference to save, or said something like "we're doing X" / "remember that" / "note that".
+
+Do NOT suggest memories for: general Q&A, casual chat, one-off questions, or when the user merely shared info without the assistant recommending a change and without the user asking to remember. In those cases return {"memories": []}.
+
+When you do suggest memories: extract 0-3 short sentences — only what the parent stated or clearly agreed to. Return JSON: {"memories": ["memory 1"]}. No other text.`,
+      },
+      {
+        role: 'user',
+        content: `User: "${trimmedUser}"\n\nAssistant: "${trimmedAsst.slice(0, 600)}"`,
+      },
+    ],
+    { temperature: 0.2, maxTokens: 200, json: true },
+  );
+  try {
+    const parsed = JSON.parse(memoryText);
+    if (Array.isArray(parsed.memories)) {
+      return parsed.memories
+        .filter((m: unknown) => typeof m === 'string' && m.trim().length > 0)
+        .map((m: string) => m.trim())
+        .slice(0, 5);
+    }
+  } catch (_e) { /* ignore */ }
+  return [];
+}
+
+async function handleChatMemoryExtract(
+  body: RequestBody,
+  _sleepData: SleepSession[],
+  _babyName: string,
+  _babyAgeDays: number,
+  _userId: string | null,
+  provider: Provider,
+) {
+  const user = body.message?.trim() ?? '';
+  const assistant = body.memory_assistant_reply?.trim() ?? '';
+  const suggested_memories = await extractSuggestedMemoriesFromChatTurn(provider, user, assistant);
+  return {
+    provider,
+    ...(suggested_memories.length > 0 ? { suggested_memories } : {}),
+  };
+}
+
 // ─── Chat Handler ────────────────────────────────────────────────
 
 async function handleChat(
@@ -1269,6 +1473,7 @@ async function handleChat(
     current_time = new Date().toISOString(),
     timezone = 'UTC',
     last_wake_time = null,
+    skip_memory_extraction = false,
   } = body;
 
   const ctx = buildSleepContext(sleepData, current_time, last_wake_time, babyAgeDays, babyName, timezone);
@@ -1294,38 +1499,9 @@ Be conversational, supportive, and practical. Keep responses concise but helpful
 
   const responseText = await callLLM(provider, messages, { maxTokens: 600 });
 
-  // Extract memories only when the assistant suggested a change/recommendation or the user asked to remember something
   let suggested_memories: string[] = [];
-  if (message && responseText) {
-    const memoryText = await callLLM(
-      provider,
-      [
-        {
-          role: 'system',
-          content: `You are a memory extractor for a baby sleep coach app. Only suggest memories when ONE of these is true:
-1) The assistant suggested a specific change or recommendation (schedule, routine, timing, etc.) and the user agreed or indicated they will follow it.
-2) The user explicitly asked to remember something, stated a preference to save, or said something like "we're doing X" / "remember that" / "note that".
-
-Do NOT suggest memories for: general Q&A, casual chat, one-off questions, or when the user merely shared info without the assistant recommending a change and without the user asking to remember. In those cases return {"memories": []}.
-
-When you do suggest memories: extract 0-3 short sentences — only what the parent stated or clearly agreed to. Return JSON: {"memories": ["memory 1"]}. No other text.`,
-        },
-        {
-          role: 'user',
-          content: `User: "${message}"\n\nAssistant: "${responseText.slice(0, 600)}"`,
-        },
-      ],
-      { temperature: 0.2, maxTokens: 200, json: true }
-    );
-    try {
-      const parsed = JSON.parse(memoryText);
-      if (Array.isArray(parsed.memories)) {
-        suggested_memories = parsed.memories
-          .filter((m: unknown) => typeof m === 'string' && m.trim().length > 0)
-          .map((m: string) => m.trim())
-          .slice(0, 5);
-      }
-    } catch (_e) { /* ignore */ }
+  if (!skip_memory_extraction && message && responseText) {
+    suggested_memories = await extractSuggestedMemoriesFromChatTurn(provider, message, responseText);
   }
 
   return {
@@ -1527,6 +1703,250 @@ async function handleNapEvaluation(
   return { evaluation: responseText, provider };
 }
 
+function stripMarkdownJsonFence(text: string): string {
+  const t = text.trim();
+  const m = t.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
+  if (m) return m[1].trim();
+  return t;
+}
+
+/** Strip ``` fences even when they do not wrap the entire string (common LLM drift). */
+function stripJsonFencesLoose(text: string): string {
+  let t = text.trim();
+  t = t.replace(/^```(?:json)?\s*\r?\n?/i, '');
+  t = t.replace(/\r?\n?```\s*$/i, '');
+  return t.trim();
+}
+
+function stripAllMarkdownFences(text: string): string {
+  let t = text.trim();
+  for (let n = 0; n < 8; n++) {
+    const next = t.replace(/^```(?:json)?\s*\r?\n?/i, '').replace(/\r?\n```\s*$/i, '').trim();
+    if (next === t) break;
+    t = next;
+  }
+  return t;
+}
+
+function sanitizeLlMJsonText(s: string): string {
+  return s.replace(/^\uFEFF/, '').replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'");
+}
+
+function repairTrailingCommas(json: string): string {
+  return json.replace(/,(\s*[\]\}])/g, '$1');
+}
+
+/** Slice one balanced `{...}` or `[...]` from position `start`, respecting JSON string rules. */
+function sliceFirstJsonValue(text: string, start: number): string | null {
+  const open = text[start];
+  if (open !== '{' && open !== '[') return null;
+  const close = open === '{' ? '}' : ']';
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (esc) {
+        esc = false;
+        continue;
+      }
+      if (c === '\\') {
+        esc = true;
+        continue;
+      }
+      if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+      continue;
+    }
+    if (c === open) depth++;
+    else if (c === close) {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+function tryParseInsightsArrayOnly(blob: string): unknown[] | null {
+  const t = sanitizeLlMJsonText(stripAllMarkdownFences(stripMarkdownJsonFence(blob)));
+  const key = '"insights"';
+  const idx = t.indexOf(key);
+  if (idx < 0) return null;
+  let i = idx + key.length;
+  while (i < t.length && /\s/.test(t[i])) i++;
+  if (t[i] !== ':') return null;
+  i++;
+  while (i < t.length && /\s/.test(t[i])) i++;
+  if (t[i] !== '[') return null;
+  const slice = sliceFirstJsonValue(t, i);
+  if (!slice) return null;
+  for (const cand of [slice, repairTrailingCommas(slice)]) {
+    try {
+      const arr = JSON.parse(cand) as unknown;
+      return Array.isArray(arr) ? arr : null;
+    } catch {
+      /* continue */
+    }
+  }
+  return null;
+}
+
+/** Parse model output: fenced JSON, JSON with leading/trailing noise, or truncated fences. */
+function parseJsonLenient(raw: string): unknown | null {
+  const base = sanitizeLlMJsonText(stripAllMarkdownFences(stripMarkdownJsonFence(raw)));
+  const candidates = [
+    base,
+    stripJsonFencesLoose(base),
+    repairTrailingCommas(base),
+    repairTrailingCommas(stripJsonFencesLoose(sanitizeLlMJsonText(raw.trim()))),
+  ];
+  for (const c of candidates) {
+    if (!c) continue;
+    try {
+      return JSON.parse(c);
+    } catch {
+      /* continue */
+    }
+  }
+  let t = stripAllMarkdownFences(sanitizeLlMJsonText(raw.trim()));
+  for (const c of [t, repairTrailingCommas(t)]) {
+    try {
+      return JSON.parse(c);
+    } catch {
+      /* continue */
+    }
+  }
+  const iObj = t.indexOf('{');
+  const iArr = t.indexOf('[');
+  let start = -1;
+  if (iObj >= 0 && (iArr < 0 || iObj <= iArr)) start = iObj;
+  else if (iArr >= 0) start = iArr;
+  else {
+    const arr = tryParseInsightsArrayOnly(raw);
+    return arr ? { insights: arr } : null;
+  }
+  const slice = sliceFirstJsonValue(t, start);
+  if (!slice) {
+    const arr = tryParseInsightsArrayOnly(raw);
+    return arr ? { insights: arr } : null;
+  }
+  for (const cand of [slice, repairTrailingCommas(slice)]) {
+    try {
+      return JSON.parse(cand);
+    } catch {
+      /* continue */
+    }
+  }
+  const arr = tryParseInsightsArrayOnly(raw);
+  return arr ? { insights: arr } : null;
+}
+
+type InsightBundleItem = { title: string; insight: string; icon: string };
+
+function normalizeInsightsBundlePayload(parsed: unknown, fallbackText: string): { insights: InsightBundleItem[] } {
+  if (parsed == null || typeof parsed !== 'object') {
+    return { insights: [{ title: 'Analysis', insight: fallbackText, icon: '💡' }] };
+  }
+  let root = parsed as Record<string, unknown>;
+  if (root.insights_bundle != null && typeof root.insights_bundle === 'object') {
+    root = root.insights_bundle as Record<string, unknown>;
+  }
+  let raw = root.insights;
+  if (!Array.isArray(raw)) {
+    if (raw != null && typeof raw === 'object') {
+      raw = [raw];
+    } else if (typeof raw === 'string') {
+      try {
+        const inner = JSON.parse(raw) as unknown;
+        if (Array.isArray(inner)) raw = inner;
+        else if (inner && typeof inner === 'object' && Array.isArray((inner as Record<string, unknown>).insights)) {
+          raw = (inner as { insights: unknown[] }).insights;
+        } else {
+          return { insights: [{ title: 'Analysis', insight: String(raw), icon: '💡' }] };
+        }
+      } catch {
+        return { insights: [{ title: 'Analysis', insight: String(raw), icon: '💡' }] };
+      }
+    } else {
+      return { insights: [{ title: 'Analysis', insight: fallbackText, icon: '💡' }] };
+    }
+  }
+  const insights: InsightBundleItem[] = (raw as unknown[]).flatMap((item, i) => {
+    if (typeof item === 'string') {
+      const s = item.trim();
+      if ((s.startsWith('{') || s.startsWith('[')) && s.length > 2) {
+        try {
+          const inner = JSON.parse(s) as unknown;
+          if (Array.isArray(inner)) {
+            return normalizeInsightsBundlePayload({ insights: inner }, fallbackText).insights;
+          }
+          if (inner && typeof inner === 'object' && Array.isArray((inner as Record<string, unknown>).insights)) {
+            return normalizeInsightsBundlePayload(inner as Record<string, unknown>, fallbackText).insights;
+          }
+        } catch {
+          /* fall through */
+        }
+      }
+      return [{ title: `Insight ${i + 1}`, insight: item, icon: '💡' }];
+    }
+    if (!item || typeof item !== 'object') {
+      return [{ title: 'Insight', insight: String(item), icon: '💡' }];
+    }
+    const o = item as Record<string, unknown>;
+    const title =
+      typeof o.title === 'string' && o.title.trim() ? o.title.trim() : `Insight ${i + 1}`;
+    let insightStr = '';
+    if (typeof o.insight === 'string') insightStr = o.insight;
+    else if (typeof o.body === 'string') insightStr = o.body;
+    else if (typeof o.summary === 'string') insightStr = o.summary;
+    else if (typeof o.text === 'string') insightStr = o.text;
+    else if (typeof o.description === 'string') insightStr = o.description;
+    else if (typeof o.content === 'string') insightStr = o.content;
+    else if (typeof o.message === 'string') insightStr = o.message;
+    const t = insightStr.trim();
+    if (t.startsWith('{') || t.startsWith('[')) {
+      try {
+        const j = JSON.parse(t) as unknown;
+        if (typeof j === 'string') {
+          insightStr = j;
+        } else if (Array.isArray(j)) {
+          const expanded = normalizeInsightsBundlePayload({ insights: j }, t).insights;
+          if (expanded.length > 0) return expanded;
+        } else if (j && typeof j === 'object') {
+          const jo = j as Record<string, unknown>;
+          if (Array.isArray(jo.insights)) {
+            const expanded = normalizeInsightsBundlePayload(jo, t).insights;
+            if (expanded.length > 0) return expanded;
+          }
+          const pick = (k: string) => (typeof jo[k] === 'string' ? (jo[k] as string) : '');
+          const extracted =
+            pick('insight') ||
+            pick('body') ||
+            pick('summary') ||
+            pick('text') ||
+            pick('content') ||
+            pick('description') ||
+            pick('message');
+          if (extracted.trim()) insightStr = extracted;
+        }
+      } catch {
+        /* keep insightStr */
+      }
+    }
+    const icon = typeof o.icon === 'string' ? o.icon : '💡';
+    return [{ title, insight: insightStr.trim() || title, icon }];
+  }).filter((x) => x.insight.trim().length > 0);
+
+  if (insights.length === 0) {
+    return { insights: [{ title: 'Analysis', insight: fallbackText, icon: '💡' }] };
+  }
+  return { insights };
+}
+
 async function handleInsightsBundle(
   body: RequestBody,
   sleepData: SleepSession[],
@@ -1580,12 +2000,12 @@ Return ONLY valid JSON. If there's insufficient data, still return 2-3 insights 
     { maxTokens: 800, temperature: 0.6, json: true }
   );
 
-  try {
-    const parsed = JSON.parse(responseText);
-    return { insights_bundle: parsed };
-  } catch {
-    return { insights_bundle: { insights: [{ title: 'Analysis', insight: responseText, icon: '💡' }] } };
+  const parsed = parseJsonLenient(responseText);
+  if (parsed != null) {
+    const normalized = normalizeInsightsBundlePayload(parsed, responseText);
+    return { insights_bundle: normalized };
   }
+  return { insights_bundle: { insights: [{ title: 'Analysis', insight: responseText, icon: '💡' }] } };
 }
 
 // ─── Main Handler ────────────────────────────────────────────────
@@ -1677,7 +2097,7 @@ Deno.serve(async (req: Request) => {
           .select('type, start_time, end_time, duration_minutes')
           .eq('baby_id', baby_id)
           .order('start_time', { ascending: false })
-          .limit(30);
+          .limit(500);
 
         if (sessions) {
           sleepData = sessions.map((s: any) => ({
@@ -1697,8 +2117,14 @@ Deno.serve(async (req: Request) => {
       case 'next_sleep':
         result = await handleNextSleep(body, sleepData, babyName, babyAgeDays, provider);
         break;
+      case 'max_nap_duration':
+        result = await handleMaxNapDuration(body, sleepData, babyName, babyAgeDays, provider);
+        break;
       case 'chat':
         result = await handleChat(body, sleepData, babyName, babyAgeDays, userId, provider);
+        break;
+      case 'chat_memory_extract':
+        result = await handleChatMemoryExtract(body, sleepData, babyName, babyAgeDays, userId, provider);
         break;
       case 'recommendation':
         result = await handleRecommendation(body, sleepData, babyName, babyAgeDays, provider);

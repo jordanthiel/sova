@@ -1,23 +1,27 @@
+import { getAppNow } from '@/lib/appClock';
 import { addDays, format, parse } from 'date-fns';
 
+/** Local hour (0–23) when the extended “day” rolls over (e.g. 7 = 7am–7am). */
+export const EXTENDED_DAY_START_HOUR = 7;
+
 /**
- * Extended "day" is 6am–6am (e.g. "today" = 6am today through 6am tomorrow).
+ * Extended "day" is 7am–7am (e.g. "today" = 7am today through 7am tomorrow).
  * Used consistently for daily stats, averages, and logs.
  */
 
-/** 6am on the given calendar date (local time). */
+/** Start of extended day on the given calendar date (local time). */
 export function getDayStart6am(date: Date): Date {
   const d = new Date(date);
-  d.setHours(6, 0, 0, 0);
+  d.setHours(EXTENDED_DAY_START_HOUR, 0, 0, 0);
   return d;
 }
 
-/** 6am on the day after the given calendar date (start of next extended day). */
+/** Start of the next extended day after the given calendar date. */
 export function getDayEnd6am(date: Date): Date {
   return addDays(getDayStart6am(date), 1);
 }
 
-/** Bounds for the extended day that contains the given calendar date: [6am, 6am next day). */
+/** Bounds for the extended day for the given calendar date: [start, end). */
 export function getExtendedDayBounds(date: Date): { start: Date; end: Date } {
   const start = getDayStart6am(date);
   const end = getDayEnd6am(date);
@@ -26,14 +30,14 @@ export function getExtendedDayBounds(date: Date): { start: Date; end: Date } {
 
 /**
  * Extended day key (yyyy-MM-dd) for a timestamp.
- * Times before 6am on a calendar day belong to the previous calendar day's extended day.
+ * Times before 7am on a calendar day belong to the previous calendar day's extended day.
  */
 export function getExtendedDayKey(date: Date): string {
   const y = date.getFullYear();
   const m = date.getMonth();
   const d = date.getDate();
-  const sixAm = new Date(y, m, d, 6, 0, 0, 0);
-  if (date.getTime() < sixAm.getTime()) {
+  const boundary = new Date(y, m, d, EXTENDED_DAY_START_HOUR, 0, 0, 0);
+  if (date.getTime() < boundary.getTime()) {
     const prev = new Date(y, m, d - 1);
     return format(prev, 'yyyy-MM-dd');
   }
@@ -58,6 +62,6 @@ export function sessionOverlapsExtendedDay(
     ? typeof sessionEnd === 'string'
       ? new Date(sessionEnd)
       : sessionEnd
-    : new Date();
+    : getAppNow();
   return st.getTime() < dayEnd.getTime() && et.getTime() > dayStart.getTime();
 }

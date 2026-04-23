@@ -52,6 +52,13 @@ function formatDateTimeCompact(date: Date): string {
   return format(date, 'MMM d, h:mm a');
 }
 
+/** Expo Router may pass `string | string[]`; DB expects a single id string. */
+function coerceRouteParam(v: string | string[] | undefined): string | null {
+  if (v == null) return null;
+  const s = Array.isArray(v) ? v[0] : v;
+  return typeof s === 'string' && s.length > 0 ? s : null;
+}
+
 // ─── Types ────────────────────────────────────────────────────
 
 type Mode = 'idle' | 'live' | 'stopped';
@@ -63,21 +70,21 @@ const CIRCLE_ICON_COLOR = '#FFFFFF';
 
 export default function LogSleepScreen() {
   const params = useLocalSearchParams<{
-    babyId?: string;
-    sessionId?: string;
-    startTime?: string;
-    endTime?: string;
+    babyId?: string | string[];
+    sessionId?: string | string[];
+    startTime?: string | string[];
+    endTime?: string | string[];
   }>();
-  const babyId = params.babyId || null;
-  const existingSessionId = params.sessionId || null;
+  const babyId = coerceRouteParam(params.babyId);
+  const existingSessionId = coerceRouteParam(params.sessionId);
 
   const pingLiveActivitySync = useCallback(async () => {
     if (!babyId) return;
     const { data: { user } } = await supabase.auth.getUser();
     void requestLiveActivityRefreshForCaregivers(babyId, user?.id ?? null);
   }, [babyId]);
-  const paramStartTime = params.startTime || null;
-  const paramEndTime = params.endTime || null;
+  const paramStartTime = coerceRouteParam(params.startTime);
+  const paramEndTime = coerceRouteParam(params.endTime);
 
   const { sessions: allSessions } = useRealtimeSleepSessions(babyId);
   const colors = useThemeColors();
@@ -330,6 +337,7 @@ export default function LogSleepScreen() {
         .from('sleep_sessions')
         .update({ end_time: now.toISOString(), duration_minutes: dur, type })
         .eq('id', sessionId)
+        .is('end_time', null)
         .then(({ error }) => {
           if (!error) void pingLiveActivitySync();
         });
@@ -421,15 +429,16 @@ export default function LogSleepScreen() {
   };
 
   const handleDiscard = () => {
-    const title = sessionId ? 'Delete Session' : 'Discard';
+    const targetSessionId = sessionId ?? existingSessionId;
+    const title = targetSessionId ? 'Delete Session' : 'Discard';
     Alert.alert(title, 'Are you sure? This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          if (sessionId) {
-            const { error } = await supabase.from('sleep_sessions').delete().eq('id', sessionId);
+          if (targetSessionId) {
+            const { error } = await supabase.from('sleep_sessions').delete().eq('id', targetSessionId);
             if (error) {
               Alert.alert('Could not delete', error.message);
               return;
@@ -671,7 +680,9 @@ export default function LogSleepScreen() {
 
         {/* Secondary actions */}
         <View style={styles.secondaryRow}>
-          {(mode === 'live' || mode === 'stopped') && (
+          {(mode === 'live' ||
+            mode === 'stopped' ||
+            (mode === 'idle' && (sessionId ?? existingSessionId) && endTime)) && (
             <TouchableOpacity onPress={handleDiscard} hitSlop={8}>
               <Text style={[styles.secondaryAction, { color: colors.error }]}>
                 {mode === 'live' ? 'Discard' : 'Delete'}

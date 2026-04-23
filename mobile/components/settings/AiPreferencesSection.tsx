@@ -48,11 +48,6 @@ export function AiPreferencesSection({
   const effectiveNapCount = targetNapCount ?? napRec.typical;
   const transitionInsight = getNapTransitionInsight(ageDays, effectiveNapCount);
 
-  const handleToggle = (key: keyof BabyPreferences, value: boolean) => {
-    track('change_ai_preference', { key, value });
-    onUpdate({ [key]: value });
-  };
-
   const bedtimeType = preferences.bedtimeType ?? 'flexible';
   const bedtimeTargetTime = preferences.bedtimeTargetTime ?? null;
 
@@ -62,11 +57,6 @@ export function AiPreferencesSection({
       bedtimeType: type,
       bedtimeTargetTime: type === 'flexible' ? null : (preferences.bedtimeTargetTime || '19:30'),
     });
-  };
-
-  const setBedtimeTargetTime = (raw: string) => {
-    const t = timeTo24h(raw);
-    if (t !== null) onUpdate({ bedtimeTargetTime: t });
   };
 
   const setTargetNapCount = (n: number | null) => {
@@ -86,12 +76,24 @@ export function AiPreferencesSection({
       </Text>
 
       <DarkPanel padding="md" style={styles.card} shadow="sm">
-        <PreferenceToggle
+        <TriPreferenceRow
           label="Nap preference"
-          optionA="Longer naps"
-          optionB="More frequent"
-          isA={preferences.preferLongerNaps}
-          onToggle={(val) => handleToggle('preferLongerNaps', val)}
+          leftLabel="Longer naps"
+          middleLabel="No preference"
+          rightLabel="More frequent"
+          value={
+            preferences.preferLongerNaps === true
+              ? 'left'
+              : preferences.preferLongerNaps === false
+                ? 'right'
+                : 'middle'
+          }
+          onChange={(v) => {
+            const key = 'preferLongerNaps' as const;
+            const next = v === 'left' ? true : v === 'right' ? false : null;
+            track('change_ai_preference', { key, value: next });
+            onUpdate({ preferLongerNaps: next });
+          }}
         />
       </DarkPanel>
 
@@ -203,72 +205,79 @@ export function AiPreferencesSection({
       ) : null}
 
       <DarkPanel padding="md" style={styles.card} shadow="sm">
-        <PreferenceToggle
+        <TriPreferenceRow
           label="Schedule style"
-          optionA="Strict"
-          optionB="Flexible"
-          isA={preferences.strictSchedule}
-          onToggle={(val) => handleToggle('strictSchedule', val)}
+          leftLabel="Strict"
+          middleLabel="No preference"
+          rightLabel="Flexible"
+          value={
+            preferences.strictSchedule === true
+              ? 'left'
+              : preferences.strictSchedule === false
+                ? 'right'
+                : 'middle'
+          }
+          onChange={(v) => {
+            const key = 'strictSchedule' as const;
+            const next = v === 'left' ? true : v === 'right' ? false : null;
+            track('change_ai_preference', { key, value: next });
+            onUpdate({ strictSchedule: next });
+          }}
         />
       </DarkPanel>
     </View>
   );
 }
 
-function PreferenceToggle({
+type TriSide = 'left' | 'middle' | 'right';
+
+function TriPreferenceRow({
   label,
-  optionA,
-  optionB,
-  isA,
-  onToggle,
+  leftLabel,
+  middleLabel,
+  rightLabel,
+  value,
+  onChange,
 }: {
   label: string;
-  optionA: string;
-  optionB: string;
-  isA: boolean;
-  onToggle: (isA: boolean) => void;
+  leftLabel: string;
+  middleLabel: string;
+  rightLabel: string;
+  value: TriSide;
+  onChange: (v: TriSide) => void;
 }) {
   const colors = useThemeColors();
 
+  const chip = (side: TriSide, text: string) => {
+    const active = value === side;
+    return (
+      <TouchableOpacity
+        style={[styles.triChip, active && styles.toggleOptionActive]}
+        onPress={() => onChange(side)}
+        activeOpacity={0.7}
+      >
+        <Text
+          style={[
+            Typography.captionMedium,
+            { color: active ? '#0B1426' : colors.textSecondary, textAlign: 'center' },
+          ]}
+          numberOfLines={2}
+        >
+          {text}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View>
-      <Text
-        style={[
-          Typography.captionMedium,
-          { color: colors.textSecondary, marginBottom: Spacing.sm },
-        ]}
-      >
+      <Text style={[Typography.captionMedium, { color: colors.textSecondary, marginBottom: Spacing.sm }]}>
         {label}
       </Text>
-      <View style={styles.toggleRow}>
-        <TouchableOpacity
-          style={[styles.toggleOption, isA && styles.toggleOptionActive]}
-          onPress={() => onToggle(true)}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              Typography.captionMedium,
-              { color: isA ? '#0B1426' : colors.textSecondary },
-            ]}
-          >
-            {optionA}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.toggleOption, !isA && styles.toggleOptionActive]}
-          onPress={() => onToggle(false)}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              Typography.captionMedium,
-              { color: !isA ? '#0B1426' : colors.textSecondary },
-            ]}
-          >
-            {optionB}
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.triRow}>
+        {chip('left', leftLabel)}
+        {chip('middle', middleLabel)}
+        {chip('right', rightLabel)}
       </View>
     </View>
   );
@@ -281,6 +290,23 @@ const styles = StyleSheet.create({
   toggleRow: {
     flexDirection: 'row',
     gap: Spacing.xs,
+  },
+  triRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    alignItems: 'stretch',
+  },
+  triChip: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   toggleOption: {
     flex: 1,

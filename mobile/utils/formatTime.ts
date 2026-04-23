@@ -2,7 +2,7 @@
  * Centralized time/duration formatting for the entire app.
  *
  * Rules:
- *  - >= 60 minutes → "1h 36m" (or "2h" if 0 remaining minutes)
+ *  - >= 60 minutes → clock-style "H:MM" (e.g. 96 → "1:36", 120 → "2:00")
  *  - < 60 minutes  → "45m"
  *  - 0 or negative → "0m"
  */
@@ -51,17 +51,14 @@ function parseTimeStringToDate(timeStr: string, refDate: Date): Date | null {
 export function formatDuration(minutes: number): string {
   const rounded = roundToNearest5(minutes);
   if (rounded <= 0) return '0m';
+  if (rounded < 60) return `${rounded}m`;
   const h = Math.floor(rounded / 60);
   const m = rounded % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
+  return `${h}:${m.toString().padStart(2, '0')}`;
 }
 
 /**
- * Format a "time until" value.
- * Same h/m rules as formatDuration but reads naturally in context
- * ("1h 12m" or "45m").
+ * Format a "time until" value — same rules as {@link formatDuration}.
  */
 export function formatTimeUntil(minutes: number): string {
   if (minutes <= 0) return '0m';

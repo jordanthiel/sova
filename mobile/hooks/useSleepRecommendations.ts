@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getAppNow } from '@/lib/appClock';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/supabase';
 
@@ -53,7 +54,7 @@ export function useSleepRecommendations({
           mode: 'recommendation',
           sleep_history: sleepHistory,
           baby_age_days: babyAgeDays,
-          current_time: new Date().toISOString(),
+          current_time: getAppNow().toISOString(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           last_wake_time: lastWakeTime,
           memories: memories.length > 0 ? memories : undefined,

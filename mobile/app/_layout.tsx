@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 
 import { registerLiveActivityBackgroundPushTask } from '@/registerLiveActivityBackgroundTask';
 import { Colors, Gradients, Typography, Spacing } from '@/constants/theme';
+import { AppClockProvider } from '@/contexts/AppClockContext';
 import { CurrentBabyProvider } from '@/contexts/CurrentBabyContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { supabase } from '@/lib/supabase';
@@ -87,6 +88,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={SovaDarkTheme}>
+        <AppClockProvider>
         <CurrentBabyProvider>
           <SubscriptionProvider>
             <Stack
@@ -110,8 +112,7 @@ export default function RootLayout() {
                 name="paywall"
                 options={{
                   headerShown: false,
-                  presentation: 'formSheet',
-                  sheetAllowedDetents: [0.95],
+                  presentation: 'modal',
                 }}
               />
               <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
@@ -126,6 +127,7 @@ export default function RootLayout() {
             </Stack>
           </SubscriptionProvider>
         </CurrentBabyProvider>
+        </AppClockProvider>
         <StatusBar style="light" />
       </ThemeProvider>
     </GestureHandlerRootView>

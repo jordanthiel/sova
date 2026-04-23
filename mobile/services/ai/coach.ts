@@ -1,4 +1,5 @@
 import type { ChatMessage, SleepEvent, Baby, AIRecommendation } from '@/types/domain';
+import { getAppNow } from '@/lib/appClock';
 import { calculateAgeDays, getWakeWindowForAge } from '@/utils/wakeWindowCalculator';
 import { formatDuration } from '@/utils/formatTime';
 import { supabase } from '@/lib/supabase';
@@ -32,21 +33,33 @@ export interface ChatResult {
   suggested_memories?: string[];
 }
 
+/** Sub-steps for remote coach (not the schedule agentic orchestrator — that is `next_sleep` on the server). */
+export type CoachChatPhase = 'drafting' | 'memories';
+
+export interface CoachChatOptions {
+  /** Fired when the remote coach moves to the main reply vs memory-extraction LLM. */
+  onProgress?: (phase: CoachChatPhase) => void;
+  /** If true, skip the second LLM (memory suggestions). Used for one-shot explain prompts. */
+  skipMemorySuggestion?: boolean;
+}
+
 /**
  * Send a message to the AI coach.
  * Tries the Supabase edge function (real AI) first, falls back to local stub.
  */
 export async function chat(
   thread: ChatMessage[],
-  context: CoachContext
+  context: CoachContext,
+  options?: CoachChatOptions
 ): Promise<ChatResult> {
   try {
-    const remote = await remoteChat(thread, context);
+    const remote = await remoteChat(thread, context, options);
     if (remote) return remote;
   } catch (err) {
     if (isPremiumAccessRequiredError(err)) throw err;
     console.warn('[coach] Remote chat failed, using local stub:', err);
   }
+  options?.onProgress?.('drafting');
   const localMessage = await localChat(thread, context);
   return { message: localMessage };
 }
@@ -67,7 +80,7 @@ export async function explain(
   };
 
   try {
-    const remote = await remoteChat([explainMessage], context);
+    const remote = await remoteChat([explainMessage], context, { skipMemorySuggestion: true });
     if (remote) return remote.message;
   } catch (err) {
     if (isPremiumAccessRequiredError(err)) throw err;
@@ -78,7 +91,8 @@ export async function explain(
 
 async function remoteChat(
   thread: ChatMessage[],
-  context: CoachContext
+  context: CoachContext,
+  options?: CoachChatOptions
 ): Promise<ChatResult | null> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) return null;
@@ -97,39 +111,49 @@ async function remoteChat(
   }));
 
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54421';
+  const chatPayload = {
+    baby_id: context.baby.id,
+    mode: 'chat' as const,
+    message: lastMessage?.content || '',
+    chat_history: chatHistory,
+    skip_memory_extraction: true,
+    sleep_history: context.recentEvents
+      .filter((e) => e.end != null)
+      .slice(0, 10)
+      .map((e) => ({
+        type: e.type,
+        start_time: e.start,
+        end_time: e.end,
+        duration_minutes: e.durationMinutes,
+      })),
+    baby_age_days: ageDays,
+    baby_name: context.baby.name,
+    current_time: getAppNow().toISOString(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    last_wake_time: lastWakeTime,
+    user_preferences: {
+      bedtime_type: context.baby.preferences.bedtimeType ?? undefined,
+      bedtime_target_time: context.baby.preferences.bedtimeTargetTime ?? undefined,
+      last_wake_window_minutes: context.baby.preferences.lastWakeWindowMinutes ?? undefined,
+      target_nap_count: context.baby.preferences.targetNapCount ?? undefined,
+      ...(context.baby.preferences.preferLongerNaps != null
+        ? { prefer_longer_naps: context.baby.preferences.preferLongerNaps }
+        : {}),
+      ...(context.baby.preferences.preferEarlierBedtime != null
+        ? { prefer_earlier_bedtime: context.baby.preferences.preferEarlierBedtime }
+        : {}),
+    },
+    memories: context.memories ?? [],
+  };
+
+  options?.onProgress?.('drafting');
   const res = await fetch(`${supabaseUrl}/functions/v1/chatgpt-sleep-coach`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({
-      baby_id: context.baby.id,
-      mode: 'chat',
-      message: lastMessage?.content || '',
-      chat_history: chatHistory,
-      sleep_history: context.recentEvents
-        .filter((e) => e.end != null)
-        .slice(0, 10)
-        .map((e) => ({
-          type: e.type,
-          start_time: e.start,
-          end_time: e.end,
-          duration_minutes: e.durationMinutes,
-        })),
-      baby_age_days: ageDays,
-      baby_name: context.baby.name,
-      current_time: new Date().toISOString(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      last_wake_time: lastWakeTime,
-      user_preferences: {
-        bedtime_type: context.baby.preferences.bedtimeType ?? undefined,
-        bedtime_target_time: context.baby.preferences.bedtimeTargetTime ?? undefined,
-        last_wake_window_minutes: context.baby.preferences.lastWakeWindowMinutes ?? undefined,
-        target_nap_count: context.baby.preferences.targetNapCount ?? undefined,
-      },
-      memories: context.memories ?? [],
-    }),
+    body: JSON.stringify(chatPayload),
   });
 
   if (!res.ok) {
@@ -152,7 +176,33 @@ async function remoteChat(
       extracted_preferences.prefer_longer_naps != null ||
       extracted_preferences.prefer_earlier_bedtime != null ||
       extracted_preferences.strict_schedule != null);
-  const suggested_memories = data?.suggested_memories as string[] | undefined;
+
+  let suggested_memories: string[] | undefined;
+  const userText = lastMessage?.content?.trim() ?? '';
+  const assistantText = String(content).trim();
+  if (!options?.skipMemorySuggestion && userText && assistantText) {
+    options?.onProgress?.('memories');
+    const memRes = await fetch(`${supabaseUrl}/functions/v1/chatgpt-sleep-coach`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        baby_id: context.baby.id,
+        mode: 'chat_memory_extract',
+        message: userText,
+        memory_assistant_reply: assistantText,
+        memories: context.memories ?? [],
+      }),
+    });
+    if (memRes.ok) {
+      const memData = await memRes.json();
+      const raw = memData?.suggested_memories as string[] | undefined;
+      if (Array.isArray(raw) && raw.length > 0) suggested_memories = raw;
+    }
+  }
+
   const hasSuggestedMemories = Array.isArray(suggested_memories) && suggested_memories.length > 0;
 
   return {

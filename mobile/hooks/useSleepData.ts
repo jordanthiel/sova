@@ -1,3 +1,5 @@
+import { useAppClock } from '@/contexts/AppClockContext';
+import { getAppNow } from '@/lib/appClock';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/supabase';
@@ -11,6 +13,7 @@ interface UseSleepDataProps {
 }
 
 export function useSleepData({ babyId }: UseSleepDataProps) {
+  const { revision: appClockRevision } = useAppClock();
   const [baby, setBaby] = useState<Baby | null>(null);
   const [sessions, setSessions] = useState<SleepSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,8 +60,8 @@ export function useSleepData({ babyId }: UseSleepDataProps) {
           setAgeDays(calculateAgeDays(babyData.birth_date));
         }
 
-        // Load today's sessions
-        const today = new Date();
+        // Load calendar-day sessions (midnight bounds; extended-day UI still filters client-side)
+        const today = getAppNow();
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -81,7 +84,7 @@ export function useSleepData({ babyId }: UseSleepDataProps) {
     };
 
     loadData();
-  }, [babyId]);
+  }, [babyId, appClockRevision]);
 
   return { baby, sessions, loading, ageDays };
 }

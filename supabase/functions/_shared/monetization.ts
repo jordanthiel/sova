@@ -20,7 +20,7 @@ export interface EntitlementStatusRow {
   trial_started_at: string | null;
   trial_ends_at: string | null;
   subscription_status: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
-  subscription_provider: 'revenuecat' | null;
+  subscription_provider: 'revenuecat' | 'apple' | null;
   subscription_product_id: string | null;
   subscription_expires_at: string | null;
 }
@@ -180,6 +180,63 @@ async function resolveFamilyIdForUser(
   }
 
   return familyRows as unknown as string;
+}
+
+const STOREKIT_SUBSCRIPTION_PRODUCT_IDS = new Set(['sova_monthly', 'sova_annual']);
+
+/**
+ * Applies an active StoreKit subscription to the user's family row so RPCs like
+ * `get_baby_entitlement_status` match device entitlements.
+ * Product id must be an allowed SKU; expiry must be in the future (from StoreKit).
+ */
+export async function applyStoreKitSubscriptionToFamily(params: {
+  appUserId: string;
+  babyId?: string | null;
+  productId: string;
+  subscriptionExpiresAtIso: string;
+}): Promise<EntitlementStatusRow> {
+  if (!STOREKIT_SUBSCRIPTION_PRODUCT_IDS.has(params.productId)) {
+    throw new Error('Unsupported StoreKit product id');
+  }
+  const exp = new Date(params.subscriptionExpiresAtIso);
+  if (Number.isNaN(exp.getTime()) || exp.getTime() <= Date.now()) {
+    throw new Error('subscription_expires_at must be a future ISO timestamp');
+  }
+
+  const supabase = createServiceRoleClient();
+  const familyId = await resolveFamilyIdForUser(supabase, params.appUserId, params.babyId);
+
+  await supabase.rpc('ensure_family_trial', { p_family_id: familyId });
+
+  const { error: updateError } = await supabase
+    .from('families')
+    .update({
+      subscription_status: 'active',
+      subscription_provider: 'apple',
+      subscription_product_id: params.productId,
+      subscription_expires_at: params.subscriptionExpiresAtIso,
+      subscription_updated_at: new Date().toISOString(),
+    })
+    .eq('id', familyId);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+
+  const { data: statusRows, error: statusError } = await supabase.rpc('get_family_entitlement_status', {
+    p_family_id: familyId,
+  });
+
+  if (statusError) {
+    throw new Error(statusError.message);
+  }
+
+  const status = Array.isArray(statusRows) ? (statusRows[0] as EntitlementStatusRow | undefined) : undefined;
+  if (!status) {
+    throw new Error('Failed to resolve entitlement status');
+  }
+
+  return status;
 }
 
 export async function syncRevenueCatSubscriberToFamily(

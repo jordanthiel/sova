@@ -1,3 +1,4 @@
+import { getAppNow } from '@/lib/appClock';
 import { supabase } from '@/lib/supabase';
 
 export interface SleepSettings {
@@ -113,7 +114,7 @@ export function isNightTime(hour: number, settings: SleepSettings): boolean {
  * Returns the auto-detected sleep type for the current time.
  */
 export function getAutoSleepType(settings: SleepSettings): 'nap' | 'night' {
-  return isNightTime(new Date().getHours(), settings) ? 'night' : 'nap';
+  return isNightTime(getAppNow().getHours(), settings) ? 'night' : 'nap';
 }
 
 /** Format an hour (0-23) to a display string like "7:00 PM" */

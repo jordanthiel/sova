@@ -1,4 +1,5 @@
 import type { PremiumFeatureKey } from '@/constants/subscription';
+import type { IapSubscriptionDisplay } from '@/services/iapService';
 
 export type AccessSource = 'subscription' | 'trial' | 'none';
 
@@ -11,26 +12,30 @@ export interface EntitlementStatus {
   trialStartedAt: string | null;
   trialEndsAt: string | null;
   subscriptionStatus: 'inactive' | 'active' | 'canceled' | 'past_due' | 'expired';
-  subscriptionProvider: 'revenuecat' | null;
+  subscriptionProvider: 'apple' | 'revenuecat' | null;
   subscriptionProductId: string | null;
   subscriptionExpiresAt: string | null;
 }
 
 export interface PremiumAccessContextValue extends EntitlementStatus {
+  /** StoreKit reports an active subscription for the configured product IDs. */
+  isPro: boolean;
   isReady: boolean;
   isLoading: boolean;
-  offeringsLoading: boolean;
-  billingConfigured: boolean;
-  availablePackages: RevenueCatPackage[];
+  subscriptionsLoading: boolean;
+  /** iOS StoreKit session initialized without a hard failure. */
+  iapReady: boolean;
+  subscriptionProducts: IapSubscriptionDisplay[];
   refresh: (options?: RefreshSubscriptionOptions) => Promise<EntitlementStatus>;
-  purchasePackage: (pkg: RevenueCatPackage) => Promise<void>;
-  restorePurchases: () => Promise<void>;
+  /** Subscribe to the default monthly product (or pass an explicit App Store product id). */
+  purchase: (productId?: string) => Promise<void>;
+  restore: () => Promise<void>;
   showPaywall: (feature?: PremiumFeatureKey) => void;
 }
 
 export interface RefreshSubscriptionOptions {
-  loadOfferings?: boolean;
-  syncPurchases?: boolean;
+  /** Refetch subscription product metadata from the App Store. */
+  loadSubscriptions?: boolean;
 }
 
 export interface PaywallRouteParams {
@@ -51,25 +56,4 @@ export class PremiumAccessRequiredError extends Error {
 
 export function isPremiumAccessRequiredError(error: unknown): error is PremiumAccessRequiredError {
   return error instanceof PremiumAccessRequiredError;
-}
-
-export interface RevenueCatCustomerInfo {
-  entitlements?: {
-    active?: Record<string, unknown>;
-  };
-}
-
-export interface RevenueCatPackage {
-  identifier: string;
-  packageType?: string;
-  product?: {
-    identifier?: string;
-    title?: string;
-    description?: string;
-    priceString?: string;
-  };
-}
-
-export interface RevenueCatOffering {
-  availablePackages: RevenueCatPackage[];
 }

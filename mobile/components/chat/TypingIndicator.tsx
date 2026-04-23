@@ -1,10 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View, Animated, Text } from 'react-native';
 import { Avatar } from '@/components/ui/Avatar';
-import { Spacing, Radius } from '@/constants/theme';
+import { Spacing, Radius, Typography } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-color';
 
-export function TypingIndicator() {
+type TypingIndicatorProps = {
+  /** Short line under the dots (e.g. coach sub-step). */
+  statusLabel?: string;
+};
+
+export function TypingIndicator({ statusLabel }: TypingIndicatorProps) {
   const colors = useThemeColors();
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
@@ -56,10 +61,17 @@ export function TypingIndicator() {
   return (
     <View style={styles.container}>
       <Avatar name="SC" size={30} backgroundColor={colors.accentSoft} textColor={colors.accent} />
-      <View style={[styles.bubble, { backgroundColor: colors.chatAssistant }]}>
-        <Animated.View style={[styles.dot, { backgroundColor: colors.textTertiary }, dotStyle(dot1)]} />
-        <Animated.View style={[styles.dot, { backgroundColor: colors.textTertiary }, dotStyle(dot2)]} />
-        <Animated.View style={[styles.dot, { backgroundColor: colors.textTertiary }, dotStyle(dot3)]} />
+      <View style={styles.bubbleCol}>
+        <View style={[styles.bubble, { backgroundColor: colors.chatAssistant }]}>
+          <Animated.View style={[styles.dot, { backgroundColor: colors.textTertiary }, dotStyle(dot1)]} />
+          <Animated.View style={[styles.dot, { backgroundColor: colors.textTertiary }, dotStyle(dot2)]} />
+          <Animated.View style={[styles.dot, { backgroundColor: colors.textTertiary }, dotStyle(dot3)]} />
+        </View>
+        {statusLabel ? (
+          <Text style={[Typography.small, { color: colors.textSecondary, marginTop: 4, marginLeft: 2 }]} numberOfLines={2}>
+            {statusLabel}
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -73,6 +85,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     marginVertical: Spacing.xs,
   },
+  bubbleCol: {
+    flexShrink: 1,
+    maxWidth: '88%',
+  },
   bubble: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -81,6 +97,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm + 4,
     borderRadius: Radius.lg,
     borderBottomLeftRadius: 4,
+    alignSelf: 'flex-start',
   },
   dot: {
     width: 7,

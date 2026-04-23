@@ -7,44 +7,45 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		08915FB0C1EF4B2DBBA305BE /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFDCE0FCBE34E9FA260512A /* LiveActivityWidget.swift */; };
+		108FD4337E3540FFB65058E2 /* LiveActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE42A9AF820844BFA6043CAE /* LiveActivityView.swift */; };
+		10AFA31FF1E8414CA1EFDA27 /* LiveActivityWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2170026A118405B9CC59C39 /* LiveActivityWidgetBundle.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		155D446A97BE82BABD3EF2EA /* libPods-Sova.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 36198EB976DEDB036FD63218 /* libPods-Sova.a */; };
+		25C194782F906E0200F2B612 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25C194772F906E0200F2B612 /* StoreKit.framework */; };
+		3B74E5DC2A214AF39139CDD2 /* ViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8CA87D4E85745D99339A33C /* ViewHelpers.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		3F704631D3814766AE673F9A /* ViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A0CC09139342EE8CEB94EE /* ViewHelpers.swift */; };
-		3F7D77EFF6964194862A3F80 /* LiveActivityWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B21D2614C1A4468B73C4286 /* LiveActivityWidgetBundle.swift */; };
-		408BE242873747A291A01147 /* Image+dynamic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CFCE187A08B4F4688E9FB3D /* Image+dynamic.swift */; };
-		48ECAF6415AA4FDC91663AB8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5D6EF2B427224F63AF3C1C11 /* Assets.xcassets */; };
-		490487E9515F939EC28B4119 /* libPods-Sova.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2C8CE1BD5914775B29754DD6 /* libPods-Sova.a */; };
-		61F1CD408EAE4996B5052710 /* LiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 75DEA110AA434B23A6C9D620 /* LiveActivity.appex */; };
-		7432746B69F0424AA4071396 /* View+applyIfPresent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87721FE6E1C34E279998AD9D /* View+applyIfPresent.swift */; };
-		80E8D36B25E041B093BEEEB2 /* Color+hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA69E3BA7CBB4C5EAE865004 /* Color+hex.swift */; };
-		87E3ADED51B94460B9FDAFF3 /* Date+toTimerInterval.swift in Sources */ = {isa = PBXBuildFile; fileRef = A62D4EC3FC7746BEB8A58698 /* Date+toTimerInterval.swift */; };
-		902F5A8653717F96B79A0A1B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A64D4FC658F0336A6059F0B2 /* ExpoModulesProvider.swift */; };
-		A8CD541E4C9B5A73B663DB95 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7F4B7676B1D51650DE37CCF3 /* PrivacyInfo.xcprivacy */; };
-		AAC8BA3364B64160AF29CB75 /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03FA74E534E488FAB6E71B2 /* LiveActivityWidget.swift */; };
-		B3A8E77F8E4B439B8EE19422 /* View+applyWidgetURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8815D3EE1CA42F1BE39548E /* View+applyWidgetURL.swift */; };
+		5608F4671E52C2EA6C30A7E9 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D031C683D2705DC1F4C6BB4 /* ExpoModulesProvider.swift */; };
+		5A266DDAA43B4D4CA842CED1 /* Color+hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAAD0CA638B94F77A46C170D /* Color+hex.swift */; };
+		69CD25A422520E48AA387C19 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4520DC4280A5E73CB565157A /* PrivacyInfo.xcprivacy */; };
+		774480F345AF495BAF8D97A2 /* Image+dynamic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07467B5545E144B0A6A229AD /* Image+dynamic.swift */; };
+		8C2C3FB5B7D14FD7BF205E2D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A433E590E5DC4A01888FE75D /* Assets.xcassets */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		C4EDED96E0B3484F95791271 /* LiveActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C097C84CFA64BC29EAD7496 /* LiveActivityView.swift */; };
+		D8C1976BA45343269B79DF25 /* LiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6D96BA9FA4D5467498F7C670 /* LiveActivity.appex */; };
+		E4229E53FD2647A39040AA23 /* View+applyIfPresent.swift in Sources */ = {isa = PBXBuildFile; fileRef = D86309BE0B0F4961ADFA0F1E /* View+applyIfPresent.swift */; };
+		EB497CE46800484FAC10C483 /* Date+toTimerInterval.swift in Sources */ = {isa = PBXBuildFile; fileRef = 052D0100DBA04C179949E0DE /* Date+toTimerInterval.swift */; };
+		EB49A6BB76704752B2711EC8 /* View+applyWidgetURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8E74D0B043549FEBC94E0A8 /* View+applyWidgetURL.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		035F747923B74E5A9F8628B5 /* PBXContainerItemProxy */ = {
+		C232121D913A4475AF17FF47 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 48894470E7E04AEA83F64F9D;
+			remoteGlobalIDString = 488336ADC64F49BFA36189F4;
 			remoteInfo = LiveActivity;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		D19C9FDB0F58491F98FC49E3 /* Embed Foundation Extensions */ = {
+		9E2EC974F68B4CE28C5F5C7C /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				61F1CD408EAE4996B5052710 /* LiveActivity.appex in Embed Foundation Extensions */,
+				D8C1976BA45343269B79DF25 /* LiveActivity.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -52,32 +53,33 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0F9AAF13A4A54236AA2B5DB1 /* Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		04B849FD7C329624C6178793 /* Pods-Sova.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sova.debug.xcconfig"; path = "Target Support Files/Pods-Sova/Pods-Sova.debug.xcconfig"; sourceTree = "<group>"; };
+		052D0100DBA04C179949E0DE /* Date+toTimerInterval.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Date+toTimerInterval.swift"; sourceTree = "<group>"; };
+		07467B5545E144B0A6A229AD /* Image+dynamic.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Image+dynamic.swift"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* Sova.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sova.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Sova/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sova/Info.plist; sourceTree = "<group>"; };
-		2C8CE1BD5914775B29754DD6 /* libPods-Sova.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Sova.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		3E6C050C3F0D401CAA72968C /* LiveActivity.entitlements */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; path = LiveActivity.entitlements; sourceTree = "<group>"; };
-		44945988B9717E4230B66B7F /* Pods-Sova.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sova.debug.xcconfig"; path = "Target Support Files/Pods-Sova/Pods-Sova.debug.xcconfig"; sourceTree = "<group>"; };
-		4CFCE187A08B4F4688E9FB3D /* Image+dynamic.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Image+dynamic.swift"; sourceTree = "<group>"; };
-		5D6EF2B427224F63AF3C1C11 /* Assets.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		75DEA110AA434B23A6C9D620 /* LiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 9; includeInIndex = 0; path = LiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		7C097C84CFA64BC29EAD7496 /* LiveActivityView.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityView.swift; sourceTree = "<group>"; };
-		7F4B7676B1D51650DE37CCF3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Sova/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		87721FE6E1C34E279998AD9D /* View+applyIfPresent.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "View+applyIfPresent.swift"; sourceTree = "<group>"; };
-		8B21D2614C1A4468B73C4286 /* LiveActivityWidgetBundle.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityWidgetBundle.swift; sourceTree = "<group>"; };
-		8C0572AAC0DFB092EBF466A7 /* Pods-Sova.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sova.release.xcconfig"; path = "Target Support Files/Pods-Sova/Pods-Sova.release.xcconfig"; sourceTree = "<group>"; };
-		A62D4EC3FC7746BEB8A58698 /* Date+toTimerInterval.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Date+toTimerInterval.swift"; sourceTree = "<group>"; };
-		A64D4FC658F0336A6059F0B2 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Sova/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		A8815D3EE1CA42F1BE39548E /* View+applyWidgetURL.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "View+applyWidgetURL.swift"; sourceTree = "<group>"; };
+		25C194772F906E0200F2B612 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		36198EB976DEDB036FD63218 /* libPods-Sova.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Sova.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		3D031C683D2705DC1F4C6BB4 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Sova/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		4520DC4280A5E73CB565157A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Sova/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		4C9E717E5CE047B780229381 /* LiveActivity.entitlements */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; path = LiveActivity.entitlements; sourceTree = "<group>"; };
+		5F2B43E2E31AAD691EB390A1 /* Pods-Sova.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sova.release.xcconfig"; path = "Target Support Files/Pods-Sova/Pods-Sova.release.xcconfig"; sourceTree = "<group>"; };
+		6D96BA9FA4D5467498F7C670 /* LiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 9; includeInIndex = 0; path = LiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0F467D4F423455384785A6C /* Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A433E590E5DC4A01888FE75D /* Assets.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Sova/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		CA69E3BA7CBB4C5EAE865004 /* Color+hex.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Color+hex.swift"; sourceTree = "<group>"; };
-		D7A0CC09139342EE8CEB94EE /* ViewHelpers.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = ViewHelpers.swift; sourceTree = "<group>"; };
-		E03FA74E534E488FAB6E71B2 /* LiveActivityWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
+		BE42A9AF820844BFA6043CAE /* LiveActivityView.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityView.swift; sourceTree = "<group>"; };
+		CCFDCE0FCBE34E9FA260512A /* LiveActivityWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
+		D86309BE0B0F4961ADFA0F1E /* View+applyIfPresent.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "View+applyIfPresent.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Sova/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Sova-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Sova-Bridging-Header.h"; path = "Sova/Sova-Bridging-Header.h"; sourceTree = "<group>"; };
+		F2170026A118405B9CC59C39 /* LiveActivityWidgetBundle.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityWidgetBundle.swift; sourceTree = "<group>"; };
+		F8CA87D4E85745D99339A33C /* ViewHelpers.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = ViewHelpers.swift; sourceTree = "<group>"; };
+		F8E74D0B043549FEBC94E0A8 /* View+applyWidgetURL.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "View+applyWidgetURL.swift"; sourceTree = "<group>"; };
+		FAAD0CA638B94F77A46C170D /* Color+hex.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Color+hex.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,11 +87,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				490487E9515F939EC28B4119 /* libPods-Sova.a in Frameworks */,
+				155D446A97BE82BABD3EF2EA /* libPods-Sova.a in Frameworks */,
+				25C194782F906E0200F2B612 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A6E5B311A6384388B3559D7B /* Frameworks */ = {
+		9A9B54E4D9D74F0AB43EC42B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -108,7 +111,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				7F4B7676B1D51650DE37CCF3 /* PrivacyInfo.xcprivacy */,
+				4520DC4280A5E73CB565157A /* PrivacyInfo.xcprivacy */,
 			);
 			name = Sova;
 			sourceTree = "<group>";
@@ -116,37 +119,20 @@
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				25C194772F906E0200F2B612 /* StoreKit.framework */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				2C8CE1BD5914775B29754DD6 /* libPods-Sova.a */,
+				36198EB976DEDB036FD63218 /* libPods-Sova.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		3E9EF4F166304B23A105C0D9 /* LiveActivity */ = {
+		332F98B2B45FCE27D5F61976 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				CA69E3BA7CBB4C5EAE865004 /* Color+hex.swift */,
-				A62D4EC3FC7746BEB8A58698 /* Date+toTimerInterval.swift */,
-				4CFCE187A08B4F4688E9FB3D /* Image+dynamic.swift */,
-				7C097C84CFA64BC29EAD7496 /* LiveActivityView.swift */,
-				E03FA74E534E488FAB6E71B2 /* LiveActivityWidget.swift */,
-				8B21D2614C1A4468B73C4286 /* LiveActivityWidgetBundle.swift */,
-				87721FE6E1C34E279998AD9D /* View+applyIfPresent.swift */,
-				A8815D3EE1CA42F1BE39548E /* View+applyWidgetURL.swift */,
-				D7A0CC09139342EE8CEB94EE /* ViewHelpers.swift */,
-				0F9AAF13A4A54236AA2B5DB1 /* Info.plist */,
-				5D6EF2B427224F63AF3C1C11 /* Assets.xcassets */,
-				3E6C050C3F0D401CAA72968C /* LiveActivity.entitlements */,
+				04B849FD7C329624C6178793 /* Pods-Sova.debug.xcconfig */,
+				5F2B43E2E31AAD691EB390A1 /* Pods-Sova.release.xcconfig */,
 			);
-			path = LiveActivity;
-			sourceTree = "<group>";
-		};
-		453CD23C9DD3F9DD93997147 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				95C34C381EFEB936B1C1D153 /* Sova */,
-			);
-			name = ExpoModulesProviders;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -163,9 +149,9 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				3E9EF4F166304B23A105C0D9 /* LiveActivity */,
-				C81A87D732AA4BB5982247CD /* Pods */,
-				453CD23C9DD3F9DD93997147 /* ExpoModulesProviders */,
+				B41DB1653926439E80242BAA /* LiveActivity */,
+				332F98B2B45FCE27D5F61976 /* Pods */,
+				A448365E64DD810CEC002E47 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -176,17 +162,36 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* Sova.app */,
-				75DEA110AA434B23A6C9D620 /* LiveActivity.appex */,
+				6D96BA9FA4D5467498F7C670 /* LiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		95C34C381EFEB936B1C1D153 /* Sova */ = {
+		A448365E64DD810CEC002E47 /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				A64D4FC658F0336A6059F0B2 /* ExpoModulesProvider.swift */,
+				E95DF1E62A120CCF743A5322 /* Sova */,
 			);
-			name = Sova;
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
+		B41DB1653926439E80242BAA /* LiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				FAAD0CA638B94F77A46C170D /* Color+hex.swift */,
+				052D0100DBA04C179949E0DE /* Date+toTimerInterval.swift */,
+				07467B5545E144B0A6A229AD /* Image+dynamic.swift */,
+				BE42A9AF820844BFA6043CAE /* LiveActivityView.swift */,
+				CCFDCE0FCBE34E9FA260512A /* LiveActivityWidget.swift */,
+				F2170026A118405B9CC59C39 /* LiveActivityWidgetBundle.swift */,
+				D86309BE0B0F4961ADFA0F1E /* View+applyIfPresent.swift */,
+				F8E74D0B043549FEBC94E0A8 /* View+applyWidgetURL.swift */,
+				F8CA87D4E85745D99339A33C /* ViewHelpers.swift */,
+				A0F467D4F423455384785A6C /* Info.plist */,
+				A433E590E5DC4A01888FE75D /* Assets.xcassets */,
+				4C9E717E5CE047B780229381 /* LiveActivity.entitlements */,
+			);
+			path = LiveActivity;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -198,13 +203,12 @@
 			path = Sova/Supporting;
 			sourceTree = "<group>";
 		};
-		C81A87D732AA4BB5982247CD /* Pods */ = {
+		E95DF1E62A120CCF743A5322 /* Sova */ = {
 			isa = PBXGroup;
 			children = (
-				44945988B9717E4230B66B7F /* Pods-Sova.debug.xcconfig */,
-				8C0572AAC0DFB092EBF466A7 /* Pods-Sova.release.xcconfig */,
+				3D031C683D2705DC1F4C6BB4 /* ExpoModulesProvider.swift */,
 			);
-			path = Pods;
+			name = Sova;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -215,32 +219,32 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Sova" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				357CFC78AD1887EFCAED0441 /* [Expo] Configure project */,
+				704FBD770863C6A09D742542 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				D19C9FDB0F58491F98FC49E3 /* Embed Foundation Extensions */,
-				B1405E5B7EB8DE0E6D9777B4 /* [CP] Embed Pods Frameworks */,
+				9E2EC974F68B4CE28C5F5C7C /* Embed Foundation Extensions */,
+				3E480B377D474BC5779C104C /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				FF7539309845476EAA0D240C /* PBXTargetDependency */,
+				5A4D1FAE6221461894670268 /* PBXTargetDependency */,
 			);
 			name = Sova;
 			productName = Sova;
 			productReference = 13B07F961A680F5B00A75B9A /* Sova.app */;
 			productType = "com.apple.product-type.application";
 		};
-		48894470E7E04AEA83F64F9D /* LiveActivity */ = {
+		488336ADC64F49BFA36189F4 /* LiveActivity */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 4FFA6AF03FD840DD9E4078D0 /* Build configuration list for PBXNativeTarget "LiveActivity" */;
+			buildConfigurationList = AEF5DB54DFA94F828B900DBD /* Build configuration list for PBXNativeTarget "LiveActivity" */;
 			buildPhases = (
-				C0091F79C907438A9BF8DDC4 /* Sources */,
-				A6E5B311A6384388B3559D7B /* Frameworks */,
-				639141E76E8C40BA8D5D041E /* Resources */,
+				BF5427F5E6E7409AB7E0FB17 /* Sources */,
+				9A9B54E4D9D74F0AB43EC42B /* Frameworks */,
+				AE1FD7145ADC4653990EB43B /* Resources */,
 			);
 			buildRules = (
 			);
@@ -248,7 +252,7 @@
 			);
 			name = LiveActivity;
 			productName = LiveActivity;
-			productReference = 75DEA110AA434B23A6C9D620 /* LiveActivity.appex */;
+			productReference = 6D96BA9FA4D5467498F7C670 /* LiveActivity.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -262,7 +266,7 @@
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
 					};
-					48894470E7E04AEA83F64F9D = {
+					488336ADC64F49BFA36189F4 = {
 						LastSwiftMigration = 1250;
 					};
 				};
@@ -281,7 +285,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* Sova */,
-				48894470E7E04AEA83F64F9D /* LiveActivity */,
+				488336ADC64F49BFA36189F4 /* LiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -294,15 +298,15 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				A8CD541E4C9B5A73B663DB95 /* PrivacyInfo.xcprivacy in Resources */,
+				69CD25A422520E48AA387C19 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		639141E76E8C40BA8D5D041E /* Resources */ = {
+		AE1FD7145ADC4653990EB43B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				48ECAF6415AA4FDC91663AB8 /* Assets.xcassets in Resources */,
+				8C2C3FB5B7D14FD7BF205E2D /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -348,7 +352,25 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		357CFC78AD1887EFCAED0441 /* [Expo] Configure project */ = {
+		3E480B377D474BC5779C104C /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Sova/Pods-Sova-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Sova/Pods-Sova-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		704FBD770863C6A09D742542 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -383,16 +405,17 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXNotifications/ExpoNotifications_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXTaskManager/ExpoTaskManager_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/PurchasesHybridCommon/PurchasesHybridCommon.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RCT-Folly/RCT-Folly_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCat/RevenueCat.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCatUI/RevenueCat_RevenueCatUI.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/SDWebImage/SDWebImage.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/boost/boost_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/glog/glog_privacy.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
@@ -400,42 +423,21 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoTaskManager_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/PurchasesHybridCommon.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCT-Folly_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat_RevenueCatUI.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SDWebImage.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/boost_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/glog_privacy.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Sova/Pods-Sova-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		B1405E5B7EB8DE0E6D9777B4 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Sova/Pods-Sova-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Sova/Pods-Sova-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -446,40 +448,40 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				902F5A8653717F96B79A0A1B /* ExpoModulesProvider.swift in Sources */,
+				5608F4671E52C2EA6C30A7E9 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C0091F79C907438A9BF8DDC4 /* Sources */ = {
+		BF5427F5E6E7409AB7E0FB17 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				80E8D36B25E041B093BEEEB2 /* Color+hex.swift in Sources */,
-				87E3ADED51B94460B9FDAFF3 /* Date+toTimerInterval.swift in Sources */,
-				408BE242873747A291A01147 /* Image+dynamic.swift in Sources */,
-				C4EDED96E0B3484F95791271 /* LiveActivityView.swift in Sources */,
-				AAC8BA3364B64160AF29CB75 /* LiveActivityWidget.swift in Sources */,
-				3F7D77EFF6964194862A3F80 /* LiveActivityWidgetBundle.swift in Sources */,
-				7432746B69F0424AA4071396 /* View+applyIfPresent.swift in Sources */,
-				B3A8E77F8E4B439B8EE19422 /* View+applyWidgetURL.swift in Sources */,
-				3F704631D3814766AE673F9A /* ViewHelpers.swift in Sources */,
+				5A266DDAA43B4D4CA842CED1 /* Color+hex.swift in Sources */,
+				EB497CE46800484FAC10C483 /* Date+toTimerInterval.swift in Sources */,
+				774480F345AF495BAF8D97A2 /* Image+dynamic.swift in Sources */,
+				108FD4337E3540FFB65058E2 /* LiveActivityView.swift in Sources */,
+				08915FB0C1EF4B2DBBA305BE /* LiveActivityWidget.swift in Sources */,
+				10AFA31FF1E8414CA1EFDA27 /* LiveActivityWidgetBundle.swift in Sources */,
+				E4229E53FD2647A39040AA23 /* View+applyIfPresent.swift in Sources */,
+				EB49A6BB76704752B2711EC8 /* View+applyWidgetURL.swift in Sources */,
+				3B74E5DC2A214AF39139CDD2 /* ViewHelpers.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		FF7539309845476EAA0D240C /* PBXTargetDependency */ = {
+		5A4D1FAE6221461894670268 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 48894470E7E04AEA83F64F9D /* LiveActivity */;
-			targetProxy = 035F747923B74E5A9F8628B5 /* PBXContainerItemProxy */;
+			target = 488336ADC64F49BFA36189F4 /* LiveActivity */;
+			targetProxy = C232121D913A4475AF17FF47 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 44945988B9717E4230B66B7F /* Pods-Sova.debug.xcconfig */;
+			baseConfigurationReference = 04B849FD7C329624C6178793 /* Pods-Sova.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -516,7 +518,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 8C0572AAC0DFB092EBF466A7 /* Pods-Sova.release.xcconfig */;
+			baseConfigurationReference = 5F2B43E2E31AAD691EB390A1 /* Pods-Sova.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -544,28 +546,6 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
-		};
-		5D8920F1766246A294B8C7E8 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = LiveActivity/LiveActivity.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = GYURRL7F4B;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = LiveActivity/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = LiveActivity;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
-				MARKETING_VERSION = 1.0.0;
-				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.jordanthiel.sova.LiveActivity;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
 		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -685,7 +665,7 @@
 			};
 			name = Release;
 		};
-		E9B8B9BA97D745BA913608F6 /* Release */ = {
+		CE5B56AE2539446F8965C82C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
@@ -707,6 +687,28 @@
 			};
 			name = Release;
 		};
+		D2B57DF481CE4EC097DE8FBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = LiveActivity/LiveActivity.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = GYURRL7F4B;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LiveActivity;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = com.jordanthiel.sova.LiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -719,20 +721,20 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		4FFA6AF03FD840DD9E4078D0 /* Build configuration list for PBXNativeTarget "LiveActivity" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				5D8920F1766246A294B8C7E8 /* Debug */,
-				E9B8B9BA97D745BA913608F6 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "Sova" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AEF5DB54DFA94F828B900DBD /* Build configuration list for PBXNativeTarget "LiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2B57DF481CE4EC097DE8FBC /* Debug */,
+				CE5B56AE2539446F8965C82C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
