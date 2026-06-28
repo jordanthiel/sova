@@ -111,7 +111,7 @@ export default function SettingsScreen() {
     } finally {
       setLoadingDetails(false);
     }
-  }, [currentBabyId, babies]);
+  }, [currentBabyId, babies, caregivers]);
 
   useEffect(() => {
     loadDetails();

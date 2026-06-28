@@ -461,6 +461,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      sleep_import_codes: {
+        Row: {
+          code: string;
+          user_id: string;
+          baby_id: string;
+          created_at: string;
+        };
+        Insert: {
+          code: string;
+          user_id: string;
+          baby_id: string;
+          created_at?: string;
+        };
+        Update: {
+          code?: string;
+          user_id?: string;
+          baby_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       trainer_profiles: {
         Row: {
           user_id: string;
