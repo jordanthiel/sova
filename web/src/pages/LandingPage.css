@@ -161,12 +161,25 @@
   gap: var(--space-md);
 }
 
+.landing-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
 .footer-cta {
   display: inline-block;
   padding: var(--space-sm) var(--space-lg);
   color: var(--accent) !important;
   font-weight: var(--font-weight-semibold);
   text-decoration: none !important;
+}
+
+.footer-cta-secondary {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--accent-soft);
 }
 
 .footer-cta:hover {

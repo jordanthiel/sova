@@ -461,6 +461,222 @@ export type Database = {
         };
         Relationships: [];
       };
+      sleep_import_codes: {
+        Row: {
+          code: string;
+          user_id: string;
+          baby_id: string;
+          created_at: string;
+        };
+        Insert: {
+          code: string;
+          user_id: string;
+          baby_id: string;
+          created_at?: string;
+        };
+        Update: {
+          code?: string;
+          user_id?: string;
+          baby_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      trainer_profiles: {
+        Row: {
+          user_id: string;
+          display_name: string | null;
+          trainer_type: 'human' | 'ai_agent';
+          bio: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          display_name?: string | null;
+          trainer_type?: 'human' | 'ai_agent';
+          bio?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          display_name?: string | null;
+          trainer_type?: 'human' | 'ai_agent';
+          bio?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      trainer_client_assignments: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          family_id: string;
+          status: 'pending' | 'accepted' | 'declined' | 'revoked';
+          permissions: Record<string, unknown>;
+          invited_by: string | null;
+          invited_by_role: 'family_admin' | 'trainer';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          family_id: string;
+          status?: 'pending' | 'accepted' | 'declined' | 'revoked';
+          permissions?: Record<string, unknown>;
+          invited_by?: string | null;
+          invited_by_role?: 'family_admin' | 'trainer';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          family_id?: string;
+          status?: 'pending' | 'accepted' | 'declined' | 'revoked';
+          permissions?: Record<string, unknown>;
+          invited_by?: string | null;
+          invited_by_role?: 'family_admin' | 'trainer';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      sleep_session_comments: {
+        Row: {
+          id: string;
+          sleep_session_id: string;
+          baby_id: string;
+          author_id: string;
+          body: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          sleep_session_id: string;
+          baby_id?: string;
+          author_id: string;
+          body: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          sleep_session_id?: string;
+          baby_id?: string;
+          author_id?: string;
+          body?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      trainer_conversations: {
+        Row: {
+          id: string;
+          family_id: string;
+          baby_id: string | null;
+          trainer_id: string;
+          status: 'active' | 'archived';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          baby_id?: string | null;
+          trainer_id: string;
+          status?: 'active' | 'archived';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          baby_id?: string | null;
+          trainer_id?: string;
+          status?: 'active' | 'archived';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      trainer_messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          sender_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          sender_id: string;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          conversation_id?: string;
+          sender_id?: string;
+          body?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      sleep_plans: {
+        Row: {
+          id: string;
+          baby_id: string;
+          author_id: string;
+          author_type: 'trainer' | 'family' | 'ai_agent';
+          title: string;
+          summary: string | null;
+          instructions: unknown;
+          starts_on: string | null;
+          ends_on: string | null;
+          status: 'draft' | 'active' | 'archived';
+          client_visible: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          baby_id: string;
+          author_id: string;
+          author_type?: 'trainer' | 'family' | 'ai_agent';
+          title: string;
+          summary?: string | null;
+          instructions?: unknown;
+          starts_on?: string | null;
+          ends_on?: string | null;
+          status?: 'draft' | 'active' | 'archived';
+          client_visible?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          baby_id?: string;
+          author_id?: string;
+          author_type?: 'trainer' | 'family' | 'ai_agent';
+          title?: string;
+          summary?: string | null;
+          instructions?: unknown;
+          starts_on?: string | null;
+          ends_on?: string | null;
+          status?: 'draft' | 'active' | 'archived';
+          client_visible?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {};
     Functions: {
@@ -572,6 +788,43 @@ export type Database = {
           subscription_product_id: string | null;
           subscription_expires_at: string | null;
         }[];
+      };
+      is_family_member: {
+        Args: {
+          p_family_id: string;
+          p_user_id?: string;
+        };
+        Returns: boolean;
+      };
+      is_family_admin: {
+        Args: {
+          p_family_id: string;
+          p_user_id?: string;
+        };
+        Returns: boolean;
+      };
+      has_trainer_family_access: {
+        Args: {
+          p_family_id: string;
+          p_user_id?: string;
+          p_permission?: string | null;
+        };
+        Returns: boolean;
+      };
+      has_trainer_baby_access: {
+        Args: {
+          p_baby_id: string;
+          p_user_id?: string;
+          p_permission?: string | null;
+        };
+        Returns: boolean;
+      };
+      has_baby_read_access: {
+        Args: {
+          p_baby_id: string;
+          p_user_id?: string;
+        };
+        Returns: boolean;
       };
     };
     Enums: {};

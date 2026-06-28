@@ -106,6 +106,7 @@ export default function RootLayout() {
               <Stack.Screen name="baby-share" options={{ headerShown: true, title: 'Share Baby' }} />
               <Stack.Screen name="day-overview" options={{ headerShown: false }} />
               <Stack.Screen name="log-sleep" options={{ headerShown: false, presentation: 'modal' }} />
+              <Stack.Screen name="trainer-messages" options={{ headerShown: false }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="onboarding" options={{ headerShown: false }} />
               <Stack.Screen

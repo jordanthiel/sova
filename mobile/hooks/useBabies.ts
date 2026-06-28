@@ -26,7 +26,18 @@ export function useBabies() {
         .eq('user_id', user.id)
         .eq('status', 'accepted');
 
-      const familyIds = [...new Set((memberships || []).map((row) => row.family_id).filter(Boolean))];
+      const { data: trainerAssignments } = await supabase
+        .from('trainer_client_assignments')
+        .select('family_id')
+        .eq('trainer_id', user.id)
+        .eq('status', 'accepted');
+
+      const familyIds = [
+        ...new Set([
+          ...(memberships || []).map((row) => row.family_id).filter(Boolean),
+          ...(trainerAssignments || []).map((row) => row.family_id).filter(Boolean),
+        ]),
+      ];
       if (familyIds.length === 0) {
         setBabies([]);
         return;

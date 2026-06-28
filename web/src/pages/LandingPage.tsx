@@ -60,9 +60,14 @@ export default function LandingPage() {
         </div>
       </section>
       <footer className="landing-footer">
-        <Link to="/download" className="footer-cta">
-          Get Sova
-        </Link>
+        <div className="landing-footer-actions">
+          <Link to="/download" className="footer-cta">
+            Get Sova
+          </Link>
+          <Link to="/trainers" className="footer-cta footer-cta-secondary">
+            Sleep trainer controls
+          </Link>
+        </div>
         <nav className="landing-footer-legal" aria-label="Legal">
           <Link to="/support">Support</Link>
           <span className="landing-footer-sep" aria-hidden="true">

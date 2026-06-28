@@ -19,6 +19,7 @@ import { getSleepSettings, getAutoSleepType, isNightTime } from '@/lib/sleepSett
 import type { SleepSettings } from '@/lib/sleepSettings';
 import { Spacing, Typography, Radius, Fonts } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { SleepSessionCommentsPanel } from '@/components/sleep/SleepSessionCommentsPanel';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useRealtimeSleepSessions } from '@/hooks/useRealtimeSleepSessions';
 import { format, differenceInMinutes } from 'date-fns';
@@ -711,6 +712,8 @@ export default function LogSleepScreen() {
             />
           </View>
         )}
+
+        {sessionId ? <SleepSessionCommentsPanel sessionId={sessionId} /> : null}
 
         {/* Save button */}
         {canSave && (

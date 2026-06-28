@@ -1,0 +1,314 @@
+.trainer-page {
+  min-height: 100vh;
+  padding: var(--space-lg);
+  color: var(--text);
+}
+
+.trainer-page-center {
+  display: grid;
+  place-items: center;
+}
+
+.trainer-dashboard-header {
+  max-width: 1180px;
+  margin: 0 auto var(--space-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-lg);
+}
+
+.trainer-dashboard-header h1,
+.trainer-card h1,
+.trainer-card h2 {
+  margin: 0;
+}
+
+.trainer-dashboard-header p,
+.trainer-card p {
+  color: var(--text-secondary);
+  margin: var(--space-xs) 0 0;
+}
+
+.trainer-eyebrow {
+  margin: 0 0 var(--space-xs) !important;
+  color: var(--accent) !important;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.trainer-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.trainer-dashboard-grid {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-lg);
+}
+
+@media (min-width: 920px) {
+  .trainer-dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.trainer-card {
+  background: var(--gradient-glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
+}
+
+.trainer-auth-card {
+  width: min(100%, 420px);
+}
+
+.trainer-card-wide {
+  grid-column: 1 / -1;
+}
+
+.trainer-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.trainer-alert {
+  max-width: 1180px;
+  margin: 0 auto var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid rgba(252, 129, 129, 0.35);
+  border-radius: var(--radius-md);
+  background: rgba(252, 129, 129, 0.12);
+  color: var(--error);
+}
+
+.trainer-muted {
+  color: var(--text-secondary);
+}
+
+.trainer-code {
+  max-width: 260px;
+  overflow-wrap: anywhere;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.trainer-page label {
+  display: grid;
+  gap: var(--space-xs);
+  color: var(--text-secondary);
+  font-size: var(--font-size-caption);
+  margin-bottom: var(--space-sm);
+}
+
+.trainer-page input,
+.trainer-page select,
+.trainer-page textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text);
+  font: inherit;
+  padding: 12px 14px;
+}
+
+.trainer-page select {
+  color-scheme: dark;
+}
+
+.trainer-page textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.trainer-page input::placeholder,
+.trainer-page textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.trainer-primary,
+.trainer-secondary,
+.trainer-list-actions button,
+.trainer-list-item > button,
+.trainer-plan > button {
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--bg);
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  padding: 10px 14px;
+}
+
+.trainer-primary {
+  background: var(--gradient-accent);
+}
+
+.trainer-secondary,
+.trainer-list-actions button,
+.trainer-list-item > button,
+.trainer-plan > button {
+  border: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.trainer-primary:disabled,
+.trainer-page textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.trainer-inline-form {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: stretch;
+  margin-bottom: var(--space-md);
+}
+
+.trainer-inline-form input {
+  flex: 1;
+}
+
+.trainer-list,
+.trainer-comment-list,
+.trainer-message-list,
+.trainer-plan-list {
+  display: grid;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.trainer-list-item,
+.trainer-plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.trainer-list-item strong,
+.trainer-plan strong {
+  display: block;
+}
+
+.trainer-list-item span,
+.trainer-plan span {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-caption);
+}
+
+.trainer-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
+.trainer-pill {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  text-transform: capitalize;
+}
+
+.trainer-pill-accepted,
+.trainer-pill-active {
+  background: var(--accent-soft);
+  color: var(--accent) !important;
+}
+
+.trainer-pill-pending,
+.trainer-pill-draft {
+  background: rgba(246, 173, 85, 0.14);
+  color: var(--warning) !important;
+}
+
+.trainer-pill-declined,
+.trainer-pill-revoked,
+.trainer-pill-archived {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-tertiary) !important;
+}
+
+.trainer-comment,
+.trainer-message {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.trainer-comment p,
+.trainer-message p {
+  margin: 0;
+  color: var(--text);
+}
+
+.trainer-comment span,
+.trainer-message span {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-small);
+}
+
+.trainer-message {
+  max-width: 78%;
+}
+
+.trainer-message-own {
+  justify-self: end;
+  background: rgba(78, 205, 196, 0.22);
+}
+
+.trainer-plan-form {
+  display: grid;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+@media (max-width: 700px) {
+  .trainer-page {
+    padding: var(--space-md);
+  }
+
+  .trainer-dashboard-header,
+  .trainer-section-heading,
+  .trainer-list-item,
+  .trainer-plan,
+  .trainer-inline-form {
+    flex-direction: column;
+  }
+
+  .trainer-header-actions,
+  .trainer-list-actions {
+    width: 100%;
+  }
+
+  .trainer-primary,
+  .trainer-secondary,
+  .trainer-list-actions button,
+  .trainer-list-item > button,
+  .trainer-plan > button {
+    width: 100%;
+  }
+}

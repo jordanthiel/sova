@@ -5,6 +5,9 @@ import { BabyProfileSection } from '@/components/settings/BabyProfileSection';
 import { CaregiversSection } from '@/components/settings/CaregiversSection';
 import { CoachMemoriesSection } from '@/components/settings/CoachMemoriesSection';
 import { NotificationsSection } from '@/components/settings/NotificationsSection';
+import { SleepPlansSection } from '@/components/settings/SleepPlansSection';
+import { SleepTrainersSection } from '@/components/settings/SleepTrainersSection';
+import { TrainerClientsSection } from '@/components/settings/TrainerClientsSection';
 import { Button } from '@/components/ui/Button';
 import { DarkPanel } from '@/components/ui/DarkPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -14,12 +17,15 @@ import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
 import { useRealtimeCaregivers } from '@/hooks/useRealtimeCaregivers';
+import { useRealtimeTrainers } from '@/hooks/useRealtimeTrainers';
+import { useTrainerClientFamilies } from '@/hooks/useTrainerClientFamilies';
 import { loadNotificationConfigForBaby, saveNotificationConfigForBaby } from '@/lib/notificationSettings';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/services/analytics/track';
 import { importSleepSessions, pickAndReadCsv } from '@/services/importSleepCsv';
 import { babiesRepo } from '@/services/repositories/babiesRepo';
 import { caregiversRepo } from '@/services/repositories/caregiversRepo';
+import { trainersRepo } from '@/services/repositories/trainersRepo';
 import {
   DEFAULT_NOTIFICATION_CONFIG,
   type Baby,
@@ -49,6 +55,8 @@ export default function SettingsScreen() {
   const { currentBabyId, setCurrentBabyId, isHydrated } = useCurrentBaby();
   const [domainBaby, setDomainBaby] = useState<Baby | null>(null);
   const { caregivers, loading: caregiversLoading, refetch: refetchCaregivers } = useRealtimeCaregivers(currentBabyId);
+  const { trainers, loading: trainersLoading, refetch: refetchTrainers } = useRealtimeTrainers(currentBabyId);
+  const { clients: trainerClients, loading: trainerClientsLoading, refetch: refetchTrainerClients } = useTrainerClientFamilies();
   const [notificationConfig, setNotificationConfig] = useState<NotificationConfig>(DEFAULT_NOTIFICATION_CONFIG);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -71,6 +79,8 @@ export default function SettingsScreen() {
   const inboundDomain = process.env.EXPO_PUBLIC_SLEEP_IMPORT_INBOUND_DOMAIN ?? '';
   const supportEmail = process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? '';
   const importEmailAddress = inboundDomain && importCode ? `import+${importCode}@${inboundDomain}` : null;
+  const selectedBaby = babies.find((b) => b.id === currentBabyId);
+  const currentFamilyId = selectedBaby?.family_id ?? null;
 
   useEffect(() => {
     if (!isHydrated || babiesLoading || babies.length === 0) return;
@@ -107,7 +117,7 @@ export default function SettingsScreen() {
     } finally {
       setLoadingDetails(false);
     }
-  }, [currentBabyId, babies]);
+  }, [currentBabyId, babies, caregivers]);
 
   useEffect(() => {
     loadDetails();
@@ -202,14 +212,69 @@ export default function SettingsScreen() {
     await refetchCaregivers();
   };
 
+  const handleInviteTrainer = async (email: string) => {
+    if (!currentBabyId) return;
+    await trainersRepo.inviteTrainerByEmail(currentBabyId, email);
+    await refetchTrainers();
+  };
+
+  const handleRequestTrainerClientAccess = async (familyAccessCode: string) => {
+    await trainersRepo.requestClientAccess(familyAccessCode);
+    await refetchTrainerClients();
+  };
+
   const handleRemoveCaregiver = async (caregiver: Baby['caregivers'][number]) => {
     if (!currentBabyId) return;
     await caregiversRepo.remove(currentBabyId, caregiver);
     await refetchCaregivers();
   };
 
+  const handleRemoveTrainer = async (trainer: (typeof trainers)[number]) => {
+    await trainersRepo.removeAssignment(trainer.assignmentId);
+    await refetchTrainers();
+  };
+
+  const handleApproveTrainer = async (trainer: (typeof trainers)[number]) => {
+    await trainersRepo.approveAssignment(trainer.assignmentId);
+    await refetchTrainers();
+  };
+
+  const handleRejectTrainer = async (trainer: (typeof trainers)[number]) => {
+    await trainersRepo.rejectAssignment(trainer.assignmentId);
+    await refetchTrainers();
+  };
+
+  const handleMessageTrainer = (trainer: (typeof trainers)[number]) => {
+    if (!currentBabyId) return;
+    router.push({
+      pathname: '/trainer-messages',
+      params: { babyId: currentBabyId, trainerId: trainer.id, title: trainer.name },
+    });
+  };
+
+  const handleMessageClientFamily = (client: (typeof trainerClients)[number]) => {
+    const firstBaby = client.babies[0];
+    if (!firstBaby || !currentUserId) {
+      Alert.alert('No baby found', 'This client family does not have a baby available yet.');
+      return;
+    }
+    setCurrentBabyId(firstBaby.id);
+    router.push({
+      pathname: '/trainer-messages',
+      params: {
+        babyId: firstBaby.id,
+        trainerId: currentUserId,
+        title: client.familyName || firstBaby.name,
+      },
+    });
+  };
+
   const canRemoveCaregivers = Boolean(
     currentUserId && caregivers.some((member) => member.id === currentUserId && member.role === 'owner')
+  );
+  const canManageTrainers = canRemoveCaregivers;
+  const isCurrentUserFamilyMember = Boolean(
+    currentUserId && caregivers.some((member) => member.id === currentUserId)
   );
 
   const handleLogout = () => {
@@ -269,7 +334,14 @@ export default function SettingsScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchBabies(), loadDetails(), refetchCaregivers(), fetchOrCreateImportCode()]);
+    await Promise.all([
+      refetchBabies(),
+      loadDetails(),
+      refetchCaregivers(),
+      refetchTrainers(),
+      refetchTrainerClients(),
+      fetchOrCreateImportCode(),
+    ]);
     setRefreshing(false);
   };
 
@@ -403,12 +475,51 @@ export default function SettingsScreen() {
               )}
             </View>
 
+            {/* Sleep trainers */}
+            <View style={styles.section}>
+              {trainersLoading ? (
+                <SkeletonCard style={{ marginBottom: Spacing.sm }} />
+              ) : (
+                <SleepTrainersSection
+                  trainers={trainers}
+                  onInvite={handleInviteTrainer}
+                  onApprove={handleApproveTrainer}
+                  onReject={handleRejectTrainer}
+                  onRemove={handleRemoveTrainer}
+                  onMessage={handleMessageTrainer}
+                  canManage={canManageTrainers}
+                  familyAccessCode={currentFamilyId}
+                />
+              )}
+            </View>
+
+            {/* Trainer clients */}
+            <View style={styles.section}>
+              {trainerClientsLoading ? (
+                <SkeletonCard style={{ marginBottom: Spacing.sm }} />
+              ) : (
+                <TrainerClientsSection
+                  clients={trainerClients}
+                  onRequestAccess={handleRequestTrainerClientAccess}
+                  onMessageClient={handleMessageClientFamily}
+                />
+              )}
+            </View>
+
             {/* AI Preferences */}
             <View style={styles.section}>
               <AiPreferencesSection
                 preferences={domainBaby.preferences}
                 birthdate={domainBaby.birthdate}
                 onUpdate={handlePreferencesUpdate}
+              />
+            </View>
+
+            {/* Sleep plans */}
+            <View style={styles.section}>
+              <SleepPlansSection
+                babyId={currentBabyId!}
+                authorType={isCurrentUserFamilyMember ? 'family' : 'trainer'}
               />
             </View>
 
@@ -432,13 +543,26 @@ export default function SettingsScreen() {
             <SkeletonCard />
           </View>
         ) : babies.length === 0 ? (
-          <EmptyState
-            icon="gearshape.fill"
-            title="No babies yet"
-            message="Add a baby to configure settings."
-            actionTitle="Add Baby"
-            onAction={() => router.push('/baby-setup')}
-          />
+          <>
+            <EmptyState
+              icon="gearshape.fill"
+              title="No babies yet"
+              message="Add a baby or request access to a client family as a sleep trainer."
+              actionTitle="Add Baby"
+              onAction={() => router.push('/baby-setup')}
+            />
+            <View style={styles.section}>
+              {trainerClientsLoading ? (
+                <SkeletonCard style={{ marginBottom: Spacing.sm }} />
+              ) : (
+                <TrainerClientsSection
+                  clients={trainerClients}
+                  onRequestAccess={handleRequestTrainerClientAccess}
+                  onMessageClient={handleMessageClientFamily}
+                />
+              )}
+            </View>
+          </>
         ) : null}
         {/* Import sleep data */}
         <View style={styles.section}>
