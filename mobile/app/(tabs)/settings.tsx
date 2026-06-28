@@ -518,7 +518,7 @@ export default function SettingsScreen() {
             {/* Sleep plans */}
             <View style={styles.section}>
               <SleepPlansSection
-                babyId={currentBabyId}
+                babyId={currentBabyId!}
                 authorType={isCurrentUserFamilyMember ? 'family' : 'trainer'}
               />
             </View>

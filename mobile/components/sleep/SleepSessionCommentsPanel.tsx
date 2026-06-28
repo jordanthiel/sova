@@ -30,9 +30,11 @@ export function SleepSessionCommentsPanel({ sessionId }: SleepSessionCommentsPan
     () => [...new Set(comments.map((comment) => comment.authorId).filter(Boolean))],
     [comments]
   );
+  const authorKey = authorIds.join(',');
 
   useEffect(() => {
-    if (authorIds.length === 0) {
+    const ids = authorKey ? authorKey.split(',') : [];
+    if (ids.length === 0) {
       setAuthorNames({});
       return;
     }
@@ -40,7 +42,7 @@ export function SleepSessionCommentsPanel({ sessionId }: SleepSessionCommentsPan
     supabase
       .from('profiles')
       .select('id, full_name, email')
-      .in('id', authorIds)
+      .in('id', ids)
       .then(({ data }) => {
         const next: Record<string, string> = {};
         for (const profile of data ?? []) {
@@ -48,7 +50,7 @@ export function SleepSessionCommentsPanel({ sessionId }: SleepSessionCommentsPan
         }
         setAuthorNames(next);
       });
-  }, [authorIds.join(',')]);
+  }, [authorKey]);
 
   const handleSend = async () => {
     const text = body.trim();
