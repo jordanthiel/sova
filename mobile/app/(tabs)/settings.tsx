@@ -5,6 +5,7 @@ import { BabyProfileSection } from '@/components/settings/BabyProfileSection';
 import { CaregiversSection } from '@/components/settings/CaregiversSection';
 import { CoachMemoriesSection } from '@/components/settings/CoachMemoriesSection';
 import { NotificationsSection } from '@/components/settings/NotificationsSection';
+import { SleepTrainersSection } from '@/components/settings/SleepTrainersSection';
 import { Button } from '@/components/ui/Button';
 import { DarkPanel } from '@/components/ui/DarkPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -14,12 +15,14 @@ import { useCurrentBaby } from '@/contexts/CurrentBabyContext';
 import { useThemeColors, useThemeGradients } from '@/hooks/use-theme-color';
 import { useBabies } from '@/hooks/useBabies';
 import { useRealtimeCaregivers } from '@/hooks/useRealtimeCaregivers';
+import { useRealtimeTrainers } from '@/hooks/useRealtimeTrainers';
 import { loadNotificationConfigForBaby, saveNotificationConfigForBaby } from '@/lib/notificationSettings';
 import { supabase } from '@/lib/supabase';
 import { track } from '@/services/analytics/track';
 import { importSleepSessions, pickAndReadCsv } from '@/services/importSleepCsv';
 import { babiesRepo } from '@/services/repositories/babiesRepo';
 import { caregiversRepo } from '@/services/repositories/caregiversRepo';
+import { trainersRepo } from '@/services/repositories/trainersRepo';
 import {
   DEFAULT_NOTIFICATION_CONFIG,
   type Baby,
@@ -49,6 +52,7 @@ export default function SettingsScreen() {
   const { currentBabyId, setCurrentBabyId, isHydrated } = useCurrentBaby();
   const [domainBaby, setDomainBaby] = useState<Baby | null>(null);
   const { caregivers, loading: caregiversLoading, refetch: refetchCaregivers } = useRealtimeCaregivers(currentBabyId);
+  const { trainers, loading: trainersLoading, refetch: refetchTrainers } = useRealtimeTrainers(currentBabyId);
   const [notificationConfig, setNotificationConfig] = useState<NotificationConfig>(DEFAULT_NOTIFICATION_CONFIG);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -202,15 +206,27 @@ export default function SettingsScreen() {
     await refetchCaregivers();
   };
 
+  const handleInviteTrainer = async (email: string) => {
+    if (!currentBabyId) return;
+    await trainersRepo.inviteTrainerByEmail(currentBabyId, email);
+    await refetchTrainers();
+  };
+
   const handleRemoveCaregiver = async (caregiver: Baby['caregivers'][number]) => {
     if (!currentBabyId) return;
     await caregiversRepo.remove(currentBabyId, caregiver);
     await refetchCaregivers();
   };
 
+  const handleRemoveTrainer = async (trainer: (typeof trainers)[number]) => {
+    await trainersRepo.removeAssignment(trainer.assignmentId);
+    await refetchTrainers();
+  };
+
   const canRemoveCaregivers = Boolean(
     currentUserId && caregivers.some((member) => member.id === currentUserId && member.role === 'owner')
   );
+  const canManageTrainers = canRemoveCaregivers;
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -269,7 +285,7 @@ export default function SettingsScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchBabies(), loadDetails(), refetchCaregivers(), fetchOrCreateImportCode()]);
+    await Promise.all([refetchBabies(), loadDetails(), refetchCaregivers(), refetchTrainers(), fetchOrCreateImportCode()]);
     setRefreshing(false);
   };
 
@@ -399,6 +415,20 @@ export default function SettingsScreen() {
                   onInvite={handleInviteCaregiver}
                   canRemoveCaregivers={canRemoveCaregivers}
                   onRemove={canRemoveCaregivers ? handleRemoveCaregiver : undefined}
+                />
+              )}
+            </View>
+
+            {/* Sleep trainers */}
+            <View style={styles.section}>
+              {trainersLoading ? (
+                <SkeletonCard style={{ marginBottom: Spacing.sm }} />
+              ) : (
+                <SleepTrainersSection
+                  trainers={trainers}
+                  onInvite={handleInviteTrainer}
+                  onRemove={handleRemoveTrainer}
+                  canManage={canManageTrainers}
                 />
               )}
             </View>

@@ -44,6 +44,31 @@ export interface Caregiver {
   inviteSource?: 'family_member' | 'family_invitation';
 }
 
+export type TrainerPermission = 'read_logs' | 'comment' | 'message' | 'write_plans';
+
+export type TrainerPermissionMap = Record<TrainerPermission, boolean>;
+
+export interface SleepTrainer {
+  id: string;
+  assignmentId: string;
+  name: string;
+  email?: string | null;
+  trainerType: 'human' | 'ai_agent';
+  status: 'pending' | 'accepted' | 'declined' | 'revoked';
+  permissions: TrainerPermissionMap;
+  bio?: string | null;
+}
+
+export interface SleepSessionComment {
+  id: string;
+  sleepSessionId: string;
+  babyId: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type SleepEventType = 'nap' | 'night';
 
 export interface SleepEvent {
@@ -177,6 +202,46 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   context?: Record<string, unknown>;
+}
+
+export interface TrainerConversation {
+  id: string;
+  familyId: string;
+  babyId?: string | null;
+  trainerId: string;
+  status: 'active' | 'archived';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TrainerMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface SleepPlanInstruction {
+  title: string;
+  body: string;
+  timeOfDay?: string | null;
+}
+
+export interface SleepPlan {
+  id: string;
+  babyId: string;
+  authorId: string;
+  authorType: 'trainer' | 'family' | 'ai_agent';
+  title: string;
+  summary?: string | null;
+  instructions: SleepPlanInstruction[];
+  startsOn?: string | null;
+  endsOn?: string | null;
+  status: 'draft' | 'active' | 'archived';
+  clientVisible: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface NotificationConfig {
