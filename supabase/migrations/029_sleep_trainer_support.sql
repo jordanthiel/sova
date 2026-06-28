@@ -311,11 +311,18 @@ CREATE POLICY "Families and trainers can create assignments"
 CREATE POLICY "Families and trainers can update assignments"
   ON public.trainer_client_assignments FOR UPDATE
   USING (
-    trainer_id = auth.uid()
+    (
+      trainer_id = auth.uid()
+      AND invited_by_role = 'family_admin'
+    )
     OR public.is_family_admin(family_id)
   )
   WITH CHECK (
-    trainer_id = auth.uid()
+    (
+      trainer_id = auth.uid()
+      AND invited_by_role = 'family_admin'
+      AND status IN ('accepted', 'declined')
+    )
     OR public.is_family_admin(family_id)
   );
 

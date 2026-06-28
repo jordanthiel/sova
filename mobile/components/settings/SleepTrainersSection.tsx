@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -18,8 +19,12 @@ import type { SleepTrainer } from '@/types/domain';
 interface SleepTrainersSectionProps {
   trainers: SleepTrainer[];
   onInvite: (email: string) => Promise<void>;
+  onApprove: (trainer: SleepTrainer) => Promise<void>;
+  onReject: (trainer: SleepTrainer) => Promise<void>;
   onRemove: (trainer: SleepTrainer) => Promise<void>;
+  onMessage: (trainer: SleepTrainer) => void;
   canManage: boolean;
+  familyAccessCode?: string | null;
 }
 
 const STATUS_LABELS: Record<SleepTrainer['status'], string> = {
@@ -32,8 +37,12 @@ const STATUS_LABELS: Record<SleepTrainer['status'], string> = {
 export function SleepTrainersSection({
   trainers,
   onInvite,
+  onApprove,
+  onReject,
   onRemove,
+  onMessage,
   canManage,
+  familyAccessCode,
 }: SleepTrainersSectionProps) {
   const colors = useThemeColors();
   const [showInvite, setShowInvite] = useState(false);
@@ -87,6 +96,36 @@ export function SleepTrainersSection({
     );
   };
 
+  const handleShareCode = () => {
+    if (!familyAccessCode) return;
+    Share.share({
+      title: 'Sova family access code',
+      message: `Use this Sova family access code to request sleep trainer access: ${familyAccessCode}`,
+    });
+  };
+
+  const handleApprove = async (trainer: SleepTrainer) => {
+    setRemovingId(trainer.assignmentId);
+    try {
+      await onApprove(trainer);
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'Could not approve trainer access.');
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  const handleReject = async (trainer: SleepTrainer) => {
+    setRemovingId(trainer.assignmentId);
+    try {
+      await onReject(trainer);
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'Could not reject trainer access.');
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
   return (
     <View>
       <View style={styles.sectionHeader}>
@@ -108,6 +147,21 @@ export function SleepTrainersSection({
           </TouchableOpacity>
         ) : null}
       </View>
+
+      {canManage && familyAccessCode ? (
+        <DarkPanel style={styles.accessCodeCard} padding="md" shadow="sm">
+          <Text style={[Typography.bodyMedium, { color: colors.text, marginBottom: Spacing.xs }]}>
+            Family access code
+          </Text>
+          <Text style={[Typography.small, { color: colors.textSecondary, marginBottom: Spacing.sm }]}>
+            Share this with a sleep trainer so they can request access. You approve requests here before they can see logs.
+          </Text>
+          <Text selectable style={[styles.accessCode, { color: colors.text }]}>
+            {familyAccessCode}
+          </Text>
+          <Button title="Share code" onPress={handleShareCode} variant="secondary" size="sm" fullWidth />
+        </DarkPanel>
+      ) : null}
 
       {showInvite ? (
         <DarkPanel style={styles.inviteCard} padding="md" shadow="sm">
@@ -164,6 +218,33 @@ export function SleepTrainersSection({
                 />
               )}
             </View>
+            {trainer.status === 'pending' && trainer.invitedByRole === 'trainer' && canManage ? (
+              <View style={styles.actionRow}>
+                <Button
+                  title="Approve"
+                  onPress={() => handleApprove(trainer)}
+                  variant="primary"
+                  size="sm"
+                  disabled={removingId !== null}
+                />
+                <Button
+                  title="Reject"
+                  onPress={() => handleReject(trainer)}
+                  variant="secondary"
+                  size="sm"
+                  disabled={removingId !== null}
+                />
+              </View>
+            ) : null}
+            {trainer.status === 'accepted' ? (
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => onMessage(trainer)}
+                activeOpacity={0.7}
+              >
+                <Text style={[Typography.captionMedium, { color: colors.accent }]}>Message trainer</Text>
+              </TouchableOpacity>
+            ) : null}
             {canManage ? (
               <TouchableOpacity
                 style={styles.removeButton}
@@ -192,6 +273,16 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   inviteCard: {
+    marginBottom: Spacing.sm,
+  },
+  accessCodeCard: {
+    marginBottom: Spacing.sm,
+  },
+  accessCode: {
+    ...Typography.captionMedium,
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     marginBottom: Spacing.sm,
   },
   input: {
@@ -229,5 +320,16 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     marginTop: Spacing.sm,
     paddingVertical: Spacing.xs,
+  },
+  secondaryButton: {
+    alignSelf: 'flex-end',
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
   },
 });

@@ -51,12 +51,25 @@ export type TrainerPermissionMap = Record<TrainerPermission, boolean>;
 export interface SleepTrainer {
   id: string;
   assignmentId: string;
+  familyId: string;
   name: string;
   email?: string | null;
   trainerType: 'human' | 'ai_agent';
   status: 'pending' | 'accepted' | 'declined' | 'revoked';
+  invitedByRole: 'family_admin' | 'trainer';
   permissions: TrainerPermissionMap;
   bio?: string | null;
+}
+
+export interface TrainerClientFamily {
+  assignmentId: string;
+  familyId: string;
+  familyName?: string | null;
+  babies: { id: string; name: string }[];
+  babyNames: string[];
+  status: 'pending' | 'accepted' | 'declined' | 'revoked';
+  invitedByRole: 'family_admin' | 'trainer';
+  permissions: TrainerPermissionMap;
 }
 
 export interface SleepSessionComment {

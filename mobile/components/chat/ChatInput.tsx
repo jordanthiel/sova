@@ -8,9 +8,10 @@ import { Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-n
 interface ChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
+  placeholder?: string;
 }
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, placeholder = 'Ask your sleep coach...' }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const colors = useThemeColors();
 
@@ -29,7 +30,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       <View style={[styles.inputWrapper, { backgroundColor: colors.background, borderColor: colors.border }]}>
         <TextInput
           style={[styles.input, { color: colors.text }]}
-          placeholder="Ask your sleep coach..."
+          placeholder={placeholder}
           placeholderTextColor={colors.textTertiary}
           value={message}
           onChangeText={setMessage}
